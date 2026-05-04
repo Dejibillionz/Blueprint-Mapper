@@ -4,6 +4,7 @@ import { buildScene } from "../museum/MuseumScene";
 import { FirstPersonControls } from "../museum/FirstPersonControls";
 import { buildCollisionBoxes } from "../museum/collision";
 import { rooms } from "../data/floorplan";
+import { drawMinimap, MAP_W, MAP_H } from "../museum/minimap";
 
 interface ZoomedFrame {
   title: string;
@@ -39,6 +40,7 @@ export default function MuseumWalker() {
   const controlsRef = useRef<FirstPersonControls | null>(null);
   const frameMeshesRef = useRef<THREE.Mesh[]>([]);
   const raycasterRef = useRef(new THREE.Raycaster());
+  const minimapRef = useRef<HTMLCanvasElement | null>(null);
   const zoomStateRef = useRef<{
     active: boolean;
     savedPos: THREE.Vector3;
@@ -160,6 +162,12 @@ export default function MuseumWalker() {
       }
 
       renderer.render(scene, camera);
+
+      // Update minimap
+      if (minimapRef.current) {
+        const yaw = controls.getYaw();
+        drawMinimap(minimapRef.current, camera.position.x, camera.position.z, yaw);
+      }
     };
     animate();
 
@@ -260,6 +268,19 @@ export default function MuseumWalker() {
         <div className="absolute top-4 left-4 pointer-events-none select-none">
           <p className="text-indigo-400 font-bold text-sm tracking-widest">MUSEUM GENESIS</p>
           <p className="text-gray-500 text-xs">3333 NFT Collection</p>
+        </div>
+      )}
+
+      {/* ── Minimap (bottom-left) ── */}
+      {locked && !zoomedFrame && (
+        <div className="absolute bottom-5 left-5 pointer-events-none select-none">
+          <p className="text-gray-500 text-[10px] font-mono uppercase tracking-widest mb-1 text-center">Floor Plan</p>
+          <canvas
+            ref={minimapRef}
+            width={MAP_W}
+            height={MAP_H}
+            style={{ display: "block", borderRadius: 6 }}
+          />
         </div>
       )}
 

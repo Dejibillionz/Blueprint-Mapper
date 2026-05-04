@@ -22,25 +22,6 @@ function buildWallMesh(
   return mesh;
 }
 
-function makeRoomLabel(text: string): THREE.Sprite {
-  const lines = text.split("\n");
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 96 * lines.length;
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "rgba(0,0,0,0)";
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.font = "bold 48px Arial";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  lines.forEach((line, i) => ctx.fillText(line, canvas.width / 2, (i + 0.5) * 96));
-  const tex = new THREE.CanvasTexture(canvas);
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(10, 2 * lines.length, 1);
-  return sprite;
-}
 
 export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
   const frameMeshes: THREE.Mesh[] = [];
@@ -149,10 +130,6 @@ export function buildScene(scene: THREE.Scene): THREE.Mesh[] {
     mesh.position.set(room.x + room.width / 2, 0.005, room.y + room.height / 2);
     mesh.receiveShadow = true;
     scene.add(mesh);
-
-    const label = makeRoomLabel(room.name);
-    label.position.set(room.x + room.width / 2, WALL_HEIGHT - 0.5, room.y + room.height / 2);
-    scene.add(label);
   }
 
   // ── Wall materials ────────────────────────────────────────────
