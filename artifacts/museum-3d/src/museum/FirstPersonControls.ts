@@ -1,6 +1,8 @@
 import * as THREE from "three";
+import { PLAYER_RADIUS } from "../data/floorplan";
+import { WallBox, collidesWithWalls } from "./collision";
 
-const MOVE_SPEED = 8;
+const MOVE_SPEED = 7;
 const EYE_HEIGHT = 1.7;
 const MIN_PITCH = -Math.PI / 3;
 const MAX_PITCH = Math.PI / 3;
@@ -9,14 +11,16 @@ export class FirstPersonControls {
   camera: THREE.PerspectiveCamera;
   domElement: HTMLElement;
   isLocked = false;
+  collisionBoxes: WallBox[] = [];
 
   private yaw = 0;
   private pitch = 0;
   private keys: Record<string, boolean> = {};
-  private velocity = new THREE.Vector3();
-  private direction = new THREE.Vector3();
 
-  private onKeyDown = (e: KeyboardEvent) => { this.keys[e.code] = true; };
+  private onKeyDown = (e: KeyboardEvent) => {
+    this.keys[e.code] = true;
+    e.preventDefault();
+  };
   private onKeyUp = (e: KeyboardEvent) => { this.keys[e.code] = false; };
   private onMouseMove = (e: MouseEvent) => {
     if (!this.isLocked) return;
@@ -29,44 +33,61 @@ export class FirstPersonControls {
     this.isLocked = document.pointerLockElement === this.domElement;
   };
 
-  constructor(camera: THREE.PerspectiveCamera, domElement: HTMLElement) {
+  getYaw(): number { return this.yaw; }
+  getPitch(): number { return this.pitch; }
+  setYaw(v: number) { this.yaw = v; }
+  setPitch(v: number) { this.pitch = v; }
+
+  constructor(camera: THREE.PerspectiveCamera, domElement: HTMLElement, collisionBoxes: WallBox[]) {
     this.camera = camera;
     this.domElement = domElement;
+    this.collisionBoxes = collisionBoxes;
 
+    // Start inside Entrance Hall
     this.camera.position.set(41, EYE_HEIGHT, 42);
-    this.yaw = 0;
+    this.yaw = -Math.PI;
     this.pitch = 0;
 
-    domElement.addEventListener("click", () => domElement.requestPointerLock());
     document.addEventListener("pointerlockchange", this.onLockChange);
-    document.addEventListener("keydown", this.onKeyDown);
+    document.addEventListener("keydown", this.onKeyDown, { passive: false });
     document.addEventListener("keyup", this.onKeyUp);
     document.addEventListener("mousemove", this.onMouseMove);
   }
 
+  requestLock() {
+    this.domElement.requestPointerLock();
+  }
+
   update(delta: number) {
-    const forward = new THREE.Vector3(
-      -Math.sin(this.yaw),
-      0,
-      -Math.cos(this.yaw)
-    );
-    const right = new THREE.Vector3(
-      Math.cos(this.yaw),
-      0,
-      -Math.sin(this.yaw)
-    );
+    if (!this.isLocked) return;
 
-    this.direction.set(0, 0, 0);
-    if (this.keys["KeyW"] || this.keys["ArrowUp"]) this.direction.add(forward);
-    if (this.keys["KeyS"] || this.keys["ArrowDown"]) this.direction.sub(forward);
-    if (this.keys["KeyA"] || this.keys["ArrowLeft"]) this.direction.sub(right);
-    if (this.keys["KeyD"] || this.keys["ArrowRight"]) this.direction.add(right);
+    const forward = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
 
-    if (this.direction.length() > 0) this.direction.normalize();
+    const dir = new THREE.Vector3();
+    if (this.keys["KeyW"] || this.keys["ArrowUp"]) dir.add(forward);
+    if (this.keys["KeyS"] || this.keys["ArrowDown"]) dir.sub(forward);
+    if (this.keys["KeyA"] || this.keys["ArrowLeft"]) dir.sub(right);
+    if (this.keys["KeyD"] || this.keys["ArrowRight"]) dir.add(right);
 
-    this.velocity.copy(this.direction).multiplyScalar(MOVE_SPEED * delta);
-    this.camera.position.add(this.velocity);
-    this.camera.position.y = EYE_HEIGHT;
+    if (dir.length() > 0) dir.normalize();
+
+    const step = dir.clone().multiplyScalar(MOVE_SPEED * delta);
+    const cur = this.camera.position;
+
+    // Try X axis
+    const nx = cur.x + step.x;
+    if (!collidesWithWalls(nx, cur.z, PLAYER_RADIUS, this.collisionBoxes)) {
+      cur.x = nx;
+    }
+
+    // Try Z axis
+    const nz = cur.z + step.z;
+    if (!collidesWithWalls(cur.x, nz, PLAYER_RADIUS, this.collisionBoxes)) {
+      cur.z = nz;
+    }
+
+    cur.y = EYE_HEIGHT;
 
     const euler = new THREE.Euler(this.pitch, this.yaw, 0, "YXZ");
     this.camera.quaternion.setFromEuler(euler);
