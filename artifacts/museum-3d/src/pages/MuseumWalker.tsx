@@ -5,6 +5,7 @@ import { FirstPersonControls } from "../museum/FirstPersonControls";
 import { buildCollisionBoxes } from "../museum/collision";
 import { rooms } from "../data/floorplan";
 import { drawMinimap, MAP_W, MAP_H } from "../museum/minimap";
+import { AmbientAudio } from "../museum/AmbientAudio";
 
 interface ZoomedFrame {
   title: string;
@@ -16,6 +17,16 @@ function getNearbyRoom(pos: THREE.Vector3): string | null {
     if (pos.x >= room.x && pos.x <= room.x + room.width &&
         pos.z >= room.y && pos.z <= room.y + room.height) {
       return room.name.replace("\n", " — ");
+    }
+  }
+  return null;
+}
+
+function getNearbyRoomId(pos: THREE.Vector3): string | null {
+  for (const room of rooms) {
+    if (pos.x >= room.x && pos.x <= room.x + room.width &&
+        pos.z >= room.y && pos.z <= room.y + room.height) {
+      return room.id;
     }
   }
   return null;
@@ -34,6 +45,7 @@ export default function MuseumWalker() {
   const [roomName, setRoomName] = useState<string | null>(null);
   const [zoomedFrame, setZoomedFrame] = useState<ZoomedFrame | null>(null);
   const [webglSupported] = useState(isWebGLAvailable);
+  const [muted, setMuted] = useState(false);
 
   // Refs for the Three.js state that needs to persist between renders
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -41,6 +53,7 @@ export default function MuseumWalker() {
   const frameMeshesRef = useRef<THREE.Mesh[]>([]);
   const raycasterRef = useRef(new THREE.Raycaster());
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
+  const audioRef = useRef<AmbientAudio>(new AmbientAudio());
   const zoomStateRef = useRef<{
     active: boolean;
     savedPos: THREE.Vector3;
@@ -50,6 +63,10 @@ export default function MuseumWalker() {
     targetLookAt: THREE.Vector3;
     progress: number;
   } | null>(null);
+
+  useEffect(() => {
+    audioRef.current.setMuted(muted);
+  }, [muted]);
 
   const exitZoom = useCallback(() => {
     const st = zoomStateRef.current;
@@ -99,7 +116,11 @@ export default function MuseumWalker() {
     const controls = new FirstPersonControls(camera, renderer.domElement, collisionBoxes);
     controlsRef.current = controls;
 
-    const onLockChange = () => setLocked(document.pointerLockElement === renderer.domElement);
+    const onLockChange = () => {
+      const isLocked = document.pointerLockElement === renderer.domElement;
+      setLocked(isLocked);
+      if (isLocked) audioRef.current.start();
+    };
     document.addEventListener("pointerlockchange", onLockChange);
 
     // ── Click handler: pointer lock OR frame zoom ──────────────
@@ -158,7 +179,9 @@ export default function MuseumWalker() {
         camera.lookAt(zst.targetLookAt);
       } else {
         controls.update(delta);
-        setRoomName(getNearbyRoom(camera.position));
+        const rName = getNearbyRoom(camera.position);
+        setRoomName(rName);
+        audioRef.current.setRoom(getNearbyRoomId(camera.position));
       }
 
       renderer.render(scene, camera);
@@ -182,6 +205,7 @@ export default function MuseumWalker() {
     return () => {
       cancelAnimationFrame(animId);
       controls.dispose();
+      audioRef.current.dispose();
       renderer.domElement.removeEventListener("click", onClick);
       document.removeEventListener("pointerlockchange", onLockChange);
       window.removeEventListener("resize", onResize);
@@ -253,13 +277,22 @@ export default function MuseumWalker() {
         </div>
       )}
 
-      {/* ── Controls hint (top-right) ── */}
+      {/* ── Controls hint + mute (top-right) ── */}
       {locked && !zoomedFrame && (
-        <div className="absolute top-4 right-4 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-400 font-mono pointer-events-none select-none space-y-0.5">
-          <p>W A S D — Walk</p>
-          <p>Mouse — Look</p>
-          <p>Click painting — Zoom</p>
-          <p>ESC — Release cursor</p>
+        <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+          <div className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-400 font-mono pointer-events-none select-none space-y-0.5">
+            <p>W A S D — Walk</p>
+            <p>Mouse — Look</p>
+            <p>Click painting — Zoom</p>
+            <p>ESC — Release cursor</p>
+          </div>
+          <button
+            onClick={() => setMuted(m => !m)}
+            className="bg-black/60 border border-white/20 hover:border-indigo-400/60 rounded-lg px-3 py-1.5 text-xs font-mono text-gray-300 hover:text-indigo-300 transition-all flex items-center gap-1.5 select-none"
+            title={muted ? "Unmute ambient audio" : "Mute ambient audio"}
+          >
+            {muted ? "🔇 Muted" : "🔊 Sound On"}
+          </button>
         </div>
       )}
 
