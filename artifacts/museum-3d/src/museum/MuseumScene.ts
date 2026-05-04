@@ -108,7 +108,13 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
 
 export function buildScene(scene: THREE.Scene): THREE.Mesh[] {
   // ── Floor & ceiling ──────────────────────────────────────────
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x2a2824, roughness: 0.9 });
+  const woodTex = new THREE.TextureLoader().load("/floor-wood.jpg");
+  woodTex.wrapS = THREE.RepeatWrapping;
+  woodTex.wrapT = THREE.RepeatWrapping;
+  woodTex.repeat.set(50, 25);
+  woodTex.anisotropy = 8;
+
+  const floorMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.7 });
   const ceilMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 1.0 });
 
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), floorMat);
@@ -122,19 +128,9 @@ export function buildScene(scene: THREE.Scene): THREE.Mesh[] {
   ceil.position.set(50, WALL_HEIGHT, 26);
   scene.add(ceil);
 
-  // ── Coloured room floors ──────────────────────────────────────
-  for (const room of rooms) {
-    const mat = new THREE.MeshStandardMaterial({ color: room.color, roughness: 0.85 });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(room.width, room.height), mat);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.set(room.x + room.width / 2, 0.005, room.y + room.height / 2);
-    mesh.receiveShadow = true;
-    scene.add(mesh);
-  }
-
   // ── Wall materials ────────────────────────────────────────────
-  const outerMat = new THREE.MeshStandardMaterial({ color: 0xd5cfc5, roughness: 0.8 });
-  const innerMat = new THREE.MeshStandardMaterial({ color: 0xe8e2d8, roughness: 0.75 });
+  const outerMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.8 });
+  const innerMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.75 });
 
   // ── Outer walls (solid, full height) ─────────────────────────
   for (const w of outerWalls) {
@@ -149,7 +145,7 @@ export function buildScene(scene: THREE.Scene): THREE.Mesh[] {
   }
 
   // ── Door lintels for the main door gaps ──────────────────────
-  const lintelMat = new THREE.MeshStandardMaterial({ color: 0xd5cfc5, roughness: 0.8 });
+  const lintelMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.8 });
   // D1 upper [26, 13-15]
   scene.add(buildWallMesh(26, 13, 26, 15, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
   // D1 lower [26, 20-22]
