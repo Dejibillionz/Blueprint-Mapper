@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
-import { buildScene } from "../museum/MuseumScene";
+import { buildScene, CommonNFT } from "../museum/MuseumScene";
 import { FirstPersonControls } from "../museum/FirstPersonControls";
 import { buildCollisionBoxes } from "../museum/collision";
 import { rooms } from "../data/floorplan";
@@ -66,6 +66,8 @@ export default function MuseumWalker() {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<FirstPersonControls | null>(null);
   const frameMeshesRef = useRef<THREE.Mesh[]>([]);
+  const commonGalleryMeshRef = useRef<THREE.InstancedMesh | null>(null);
+  const commonNFTsRef = useRef<CommonNFT[]>([]);
   const raycasterRef = useRef(new THREE.Raycaster());
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<AmbientAudio>(new AmbientAudio());
@@ -126,8 +128,10 @@ export default function MuseumWalker() {
     mount.appendChild(renderer.domElement);
 
     const collisionBoxes = buildCollisionBoxes();
-    const frameMeshes = buildScene(scene);
+    const { frameMeshes, commonGalleryMesh, commonNFTs } = buildScene(scene);
     frameMeshesRef.current = frameMeshes;
+    commonGalleryMeshRef.current = commonGalleryMesh;
+    commonNFTsRef.current = commonNFTs;
 
     const controls = new FirstPersonControls(camera, renderer.domElement, collisionBoxes);
     controlsRef.current = controls;
@@ -201,11 +205,27 @@ export default function MuseumWalker() {
 
         // Proximity frame detection — raycast from crosshair, max 4 m
         raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera);
+
+        let hData: { title: string; artist: string } | null = null;
+
+        // 1. Check hand-placed feature frames (all rooms)
         const hits = raycasterRef.current.intersectObjects(frameMeshesRef.current, false);
         const near = hits.find(h => h.distance < 4);
-        const hData = (near?.object.userData?.isFrame)
-          ? (near!.object.userData as { title: string; artist: string })
-          : null;
+        if (near?.object.userData?.isFrame) {
+          const ud = near.object.userData as { title: string; artist: string };
+          hData = { title: ud.title, artist: ud.artist };
+        }
+
+        // 2. Check Common Gallery InstancedMesh (only when inside room_1)
+        if (!hData && commonGalleryMeshRef.current && getNearbyRoomId(camera.position) === "room_1") {
+          const cgHits = raycasterRef.current.intersectObject(commonGalleryMeshRef.current, false);
+          const cgNear = cgHits.find(h => h.distance < 3.5);
+          if (cgNear !== undefined && cgNear.instanceId !== undefined) {
+            const nft = commonNFTsRef.current[cgNear.instanceId];
+            if (nft) hData = { title: nft.title, artist: nft.artist };
+          }
+        }
+
         const newTitle = hData?.title ?? null;
         if (newTitle !== lastHoverTitleRef.current) {
           lastHoverTitleRef.current = newTitle;
@@ -243,6 +263,8 @@ export default function MuseumWalker() {
       cameraRef.current = null;
       controlsRef.current = null;
       zoomStateRef.current = null;
+      commonGalleryMeshRef.current = null;
+      commonNFTsRef.current = [];
     };
   }, [webglSupported]); // eslint-disable-line react-hooks/exhaustive-deps
 

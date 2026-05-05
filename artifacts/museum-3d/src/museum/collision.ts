@@ -34,6 +34,21 @@ export function buildCollisionBoxes(): WallBox[] {
   for (const w of innerWalls) {
     boxes.push(wallToBox(w.from, w.to, INNER_THICKNESS / 2));
   }
+
+  // ── Internal partitions in the Common Gallery ──────────────────
+  const PART_HALF = 0.075;
+  const PARTITION_XS = [3.375, 6.75, 13.5, 20.25];
+  const PART_SEGS: Array<[number, number]> = [
+    [1.0,  12.7],
+    [15.5, 19.5],
+    [22.5, 29.0],
+  ];
+  for (const px of PARTITION_XS) {
+    for (const [z1, z2] of PART_SEGS) {
+      boxes.push({ minX: px - PART_HALF, maxX: px + PART_HALF, minZ: z1, maxZ: z2 });
+    }
+  }
+
   return boxes;
 }
 

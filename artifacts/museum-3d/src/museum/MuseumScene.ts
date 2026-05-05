@@ -3,6 +3,8 @@ import {
   outerWalls, innerWalls, rooms, frames,
   WALL_HEIGHT, OUTER_THICKNESS, INNER_THICKNESS, DOOR_HEIGHT,
 } from "../data/floorplan";
+import { buildCommonGallery, CommonNFT } from "./CommonGallery";
+export type { CommonNFT };
 
 function buildWallMesh(
   x1: number, z1: number, x2: number, z2: number,
@@ -115,7 +117,7 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
   return frameMeshes;
 }
 
-export function buildScene(scene: THREE.Scene): THREE.Mesh[] {
+export function buildScene(scene: THREE.Scene): BuildSceneResult {
   // ── Floor & ceiling ──────────────────────────────────────────
   const woodTex = new THREE.TextureLoader().load("/floor-wood.jpg");
   woodTex.wrapS = THREE.RepeatWrapping;
@@ -230,6 +232,17 @@ export function buildScene(scene: THREE.Scene): THREE.Mesh[] {
     scene.add(light);
   }
 
-  // ── Picture frames ────────────────────────────────────────────
-  return buildFrameMeshes(scene);
+  // ── Hand-placed feature frames ────────────────────────────────
+  const frameMeshes = buildFrameMeshes(scene);
+
+  // ── Common Gallery — 2967 instanced placeholder frames ────────
+  const { borderMesh, nfts: commonNFTs } = buildCommonGallery(scene);
+
+  return { frameMeshes, commonGalleryMesh: borderMesh, commonNFTs };
+}
+
+export interface BuildSceneResult {
+  frameMeshes: THREE.Mesh[];
+  commonGalleryMesh: THREE.InstancedMesh;
+  commonNFTs: CommonNFT[];
 }
