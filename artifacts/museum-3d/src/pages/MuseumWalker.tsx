@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
-import { buildScene, CommonNFT } from "../museum/MuseumScene";
+import { buildScene, CommonNFT, UncommonNFT } from "../museum/MuseumScene";
 import { FirstPersonControls } from "../museum/FirstPersonControls";
 import { buildCollisionBoxes } from "../museum/collision";
 import { rooms } from "../data/floorplan";
@@ -68,6 +68,8 @@ export default function MuseumWalker() {
   const frameMeshesRef = useRef<THREE.Mesh[]>([]);
   const commonGalleryMeshRef = useRef<THREE.InstancedMesh | null>(null);
   const commonNFTsRef = useRef<CommonNFT[]>([]);
+  const uncommonGalleryMeshRef = useRef<THREE.InstancedMesh | null>(null);
+  const uncommonNFTsRef = useRef<UncommonNFT[]>([]);
   const raycasterRef = useRef(new THREE.Raycaster());
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<AmbientAudio>(new AmbientAudio());
@@ -128,10 +130,12 @@ export default function MuseumWalker() {
     mount.appendChild(renderer.domElement);
 
     const collisionBoxes = buildCollisionBoxes();
-    const { frameMeshes, commonGalleryMesh, commonNFTs } = buildScene(scene);
+    const { frameMeshes, commonGalleryMesh, commonNFTs, uncommonGalleryMesh, uncommonNFTs } = buildScene(scene);
     frameMeshesRef.current = frameMeshes;
     commonGalleryMeshRef.current = commonGalleryMesh;
     commonNFTsRef.current = commonNFTs;
+    uncommonGalleryMeshRef.current = uncommonGalleryMesh;
+    uncommonNFTsRef.current = uncommonNFTs;
 
     const controls = new FirstPersonControls(camera, renderer.domElement, collisionBoxes);
     controlsRef.current = controls;
@@ -226,6 +230,16 @@ export default function MuseumWalker() {
           }
         }
 
+        // 3. Check Uncommon Gallery InstancedMesh (only when inside room_2)
+        if (!hData && uncommonGalleryMeshRef.current && getNearbyRoomId(camera.position) === "room_2") {
+          const ugHits = raycasterRef.current.intersectObject(uncommonGalleryMeshRef.current, false);
+          const ugNear = ugHits.find(h => h.distance < 3.5);
+          if (ugNear !== undefined && ugNear.instanceId !== undefined) {
+            const nft = uncommonNFTsRef.current[ugNear.instanceId];
+            if (nft) hData = { title: nft.title, artist: nft.artist };
+          }
+        }
+
         const newTitle = hData?.title ?? null;
         if (newTitle !== lastHoverTitleRef.current) {
           lastHoverTitleRef.current = newTitle;
@@ -265,6 +279,8 @@ export default function MuseumWalker() {
       zoomStateRef.current = null;
       commonGalleryMeshRef.current = null;
       commonNFTsRef.current = [];
+      uncommonGalleryMeshRef.current = null;
+      uncommonNFTsRef.current = [];
     };
   }, [webglSupported]); // eslint-disable-line react-hooks/exhaustive-deps
 

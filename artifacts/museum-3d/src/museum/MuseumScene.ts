@@ -4,7 +4,8 @@ import {
   WALL_HEIGHT, OUTER_THICKNESS, INNER_THICKNESS, DOOR_HEIGHT,
 } from "../data/floorplan";
 import { buildCommonGallery, CommonNFT } from "./CommonGallery";
-export type { CommonNFT };
+import { buildUncommonGallery, UncommonNFT } from "./UncommonGallery";
+export type { CommonNFT, UncommonNFT };
 
 function buildWallMesh(
   x1: number, z1: number, x2: number, z2: number,
@@ -236,13 +237,24 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   const frameMeshes = buildFrameMeshes(scene);
 
   // ── Common Gallery — 2967 instanced placeholder frames ────────
-  const { borderMesh, nfts: commonNFTs } = buildCommonGallery(scene);
+  const { borderMesh: cgMesh, nfts: commonNFTs } = buildCommonGallery(scene);
 
-  return { frameMeshes, commonGalleryMesh: borderMesh, commonNFTs };
+  // ── Uncommon Gallery — 300 instanced placeholder frames ───────
+  const { borderMesh: ugMesh, nfts: uncommonNFTs } = buildUncommonGallery(scene);
+
+  return {
+    frameMeshes,
+    commonGalleryMesh: cgMesh,
+    commonNFTs,
+    uncommonGalleryMesh: ugMesh,
+    uncommonNFTs,
+  };
 }
 
 export interface BuildSceneResult {
-  frameMeshes: THREE.Mesh[];
-  commonGalleryMesh: THREE.InstancedMesh;
-  commonNFTs: CommonNFT[];
+  frameMeshes:         THREE.Mesh[];
+  commonGalleryMesh:   THREE.InstancedMesh;
+  commonNFTs:          CommonNFT[];
+  uncommonGalleryMesh: THREE.InstancedMesh;
+  uncommonNFTs:        UncommonNFT[];
 }
