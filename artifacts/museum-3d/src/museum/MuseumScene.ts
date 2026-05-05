@@ -95,10 +95,19 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
     scene.add(artMesh);
     frameMeshes.push(artMesh);
 
-    // Spotlight on each frame
-    const spot = new THREE.SpotLight(0xfff5e0, 2, 6, Math.PI / 10, 0.4);
-    spot.position.set(f.position[0], WALL_HEIGHT - 0.1, f.position[2]);
+    // Ceiling spotlight — offset 1.5 m out from the wall so it angles down at the art
+    const spotOffset = new THREE.Vector3(0, 0, 1.5).applyEuler(new THREE.Euler(0, f.rotationY, 0));
+    const spot = new THREE.SpotLight(0xfff5e0, 18, 9, Math.PI / 9, 0.35);
+    spot.position.set(
+      f.position[0] + spotOffset.x,
+      WALL_HEIGHT - 0.05,
+      f.position[2] + spotOffset.z
+    );
     spot.target.position.set(f.position[0], f.position[1], f.position[2]);
+    spot.castShadow = true;
+    spot.shadow.mapSize.set(512, 512);
+    spot.shadow.camera.near = 0.5;
+    spot.shadow.camera.far = 10;
     scene.add(spot);
     scene.add(spot.target);
   }
@@ -179,25 +188,33 @@ export function buildScene(scene: THREE.Scene): THREE.Mesh[] {
   }
 
   // ── Lighting ──────────────────────────────────────────────────
-  const ambient = new THREE.AmbientLight(0x304060, 0.4);
+  // Strong warm ambient so no surface is ever pitch black
+  const ambient = new THREE.AmbientLight(0xfff5e8, 1.8);
   scene.add(ambient);
 
-  const hemi = new THREE.HemisphereLight(0x405080, 0x201810, 0.3);
+  // Hemisphere for subtle sky/ground colour difference
+  const hemi = new THREE.HemisphereLight(0xffe8cc, 0x302010, 0.9);
   scene.add(hemi);
 
-  // Overhead ceiling lights per room area
+  // Overhead ceiling point lights per room — boosted to fill large spaces
   const lightPositions: Array<[number, number, number, number, number]> = [
     // [x, z, intensity, distance, color]
-    [13, 15, 2.5, 22, 0xfff5e0],  // Room 1 left
-    [13, 24, 1.5, 18, 0xfff5e0],  // Room 1 right
-    [40, 13, 2, 20, 0xffeedd],    // Room 2
-    [64, 11, 2, 20, 0xffeedd],    // Room 3
-    [86, 11, 2, 20, 0xffeedd],    // Room 4
-    [83, 24.5, 1.5, 10, 0xfff0ff],// Room 5 (cool)
-    [52, 26, 1.5, 18, 0xfff5e0],  // Corridor
-    [41, 41, 2, 16, 0xfff0e0],    // Entrance Hall
-    [18, 43, 1, 10, 0xfff5e0],    // Ticket
-    [57, 43, 1, 10, 0xfff5e0],    // Gift Shop
+    [8,  10, 8,  26, 0xfff5e0],  // Room 1 north
+    [8,  24, 6,  22, 0xfff5e0],  // Room 1 south
+    [20, 10, 6,  22, 0xfff5e0],  // Room 1 east
+    [20, 24, 5,  20, 0xfff5e0],  // Room 1 south-east
+    [40, 13, 8,  24, 0xffeedd],  // Room 2
+    [40,  7, 5,  18, 0xffeedd],  // Room 2 north
+    [64, 13, 8,  24, 0xffeedd],  // Room 3
+    [64,  7, 5,  18, 0xffeedd],  // Room 3 north
+    [86, 13, 8,  24, 0xffeedd],  // Room 4
+    [86,  7, 5,  18, 0xffeedd],  // Room 4 north
+    [83, 24.5, 6, 12, 0xf0e8ff], // Room 5 Diamond Sanctum (cool purple)
+    [42, 26, 5,  20, 0xfff5e0],  // Corridor west
+    [62, 26, 5,  20, 0xfff5e0],  // Corridor east
+    [41, 41, 8,  20, 0xfff0e0],  // Entrance Hall
+    [18, 43, 4,  14, 0xfff5e0],  // Ticket / Info
+    [57, 43, 4,  14, 0xfff5e0],  // Gift Shop
   ];
 
   for (const [x, z, intensity, distance, color] of lightPositions) {
