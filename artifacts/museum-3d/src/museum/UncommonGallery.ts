@@ -3,25 +3,32 @@ import type { CommonNFT } from "./CommonGallery";
 
 export type UncommonNFT = CommonNFT;
 
-// ── Shared frame slot constants ───────────────────────────────────
-const FW = 0.52;
-const FH = 0.36;
-const FD = 0.04;
-const SW = FW + 0.08;   // 0.60 m slot width
-const SH = FH + 0.10;   // 0.46 m slot height
-const WALL_H  = 4;
+// ── Frame dimensions — tuned so 300 frames fill the room evenly ───
+//
+//  Wall spans:   south-west = 8.4 m  (x 29.4–37.8)
+//                south-east = 8.4 m  (x 42.2–50.6)
+//                west       = 17.2 m (z  4.4–21.6)
+//                east       = 17.2 m (z  4.4–21.6)
+//
+//  Slot width  SW = 0.84 m  →  8.4 / 0.84 = 10 cols per south seg
+//                              17.2/ 0.84 = 20 cols per side wall
+//  ROWS = 5
+//  Total = (10 + 10 + 20 + 20) × 5 = 300  ✓
+//
+const FW = 0.760;           // frame width
+const FH = 0.612;           // frame height   (3.56 m / 5 rows − 0.10 gap)
+const FD = 0.05;            // frame depth
+const SW = 0.84;            // slot width  = FW + 0.08 gap
+const SH = (3.78 - 0.22) / 5; // slot height = 0.712 m, 5 even rows
+const ROWS    = 5;
 const Y_START = 0.22;
-const Y_END   = 3.78;
-const ROWS    = Math.floor((Y_END - Y_START) / SH); // 7
 
 export const TOTAL_UNCOMMON = 300;
 
 // ── Room 2 (Uncommon Wing) boundaries ────────────────────────────
-// room_2: x = 29-51, z = 4-22
+// room_2: x = 29–51, z = 4–22
 // Inner wall thickness 0.25 → half = 0.125
 const INNER_HALF = 0.125;
-
-// Door D2 in south wall at x = 38-42
 const ROOM_X_MIN = 29;
 const ROOM_X_MAX = 51;
 const ROOM_Z_MIN = 4;
@@ -66,16 +73,14 @@ function generatePositions(): FPos[] {
   const out: FPos[] = [];
   const N = TOTAL_UNCOMMON;
 
-  // South wall (corridor north wall z=22) — split around D2 door (x=38-42)
-  // West segment  x=29.4 → 37.8, art faces north (rotY=π)
+  // South wall (z=22) — split around D2 door (x=38–42)
   fillZ(ROOM_Z_MAX - INNER_HALF - 0.005, Math.PI, ROOM_X_MIN + 0.4, 37.8, out, N);
-  // East segment  x=42.2 → 50.6, art faces north
   fillZ(ROOM_Z_MAX - INNER_HALF - 0.005, Math.PI, 42.2, ROOM_X_MAX - 0.4, out, N);
 
-  // West wall (x=29, east face) — art faces east (rotY = -π/2)
+  // West wall (x=29, east face) — art faces east
   fillX(ROOM_X_MIN + INNER_HALF + 0.005, -Math.PI / 2, ROOM_Z_MIN + 0.4, ROOM_Z_MAX - 0.4, out, N);
 
-  // East wall (x=51, west face) — art faces west (rotY = π/2)
+  // East wall (x=51, west face) — art faces west
   fillX(ROOM_X_MAX - INNER_HALF - 0.005, Math.PI / 2, ROOM_Z_MIN + 0.4, ROOM_Z_MAX - 0.4, out, N);
 
   return out;
@@ -96,20 +101,19 @@ export function buildUncommonGallery(scene: THREE.Scene): {
     artist: "Origin Protocol",
   }));
 
-  // ── Gold border InstancedMesh ─────────────────────────────────────
-  // Slightly brighter gold-green tint for Uncommon tier
+  // Gold-green border
   const borderGeo = new THREE.BoxGeometry(FW, FH, FD);
   const borderMat = new THREE.MeshStandardMaterial({
     color: 0xb8d46e, metalness: 0.55, roughness: 0.40,
   });
   const borderMesh = new THREE.InstancedMesh(borderGeo, borderMat, count);
 
-  // ── Dark placeholder canvas — green-tinted ────────────────────────
+  // Dark green canvas placeholder — inner recess
   const artGeo = new THREE.BoxGeometry(FW - 0.10, FH - 0.07, FD * 0.5);
   const artMat = new THREE.MeshStandardMaterial({ color: 0x0d1a0d, roughness: 0.9 });
   const artMesh = new THREE.InstancedMesh(artGeo, artMat, count);
 
-  // ── Populate matrices ─────────────────────────────────────────────
+  // Populate matrices
   const dummy  = new THREE.Object3D();
   const fwdVec = new THREE.Vector3();
 
