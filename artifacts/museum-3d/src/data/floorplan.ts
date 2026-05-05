@@ -52,11 +52,16 @@ export const innerWalls: Wall[] = [
   { from: [26, 15], to: [26, 20] },
   { from: [26, 22], to: [26, 30] },
 
-  // -- Dividers between upper rooms
-  { from: [29, 4], to: [29, 22] },
-  { from: [51, 4], to: [51, 22] },
-  { from: [54, 4], to: [54, 22] },
-  { from: [74, 4], to: [74, 22] },
+  // -- Dividers between upper rooms — extended to meet outer north wall at z=0
+  { from: [29, 0], to: [29, 22] },
+  { from: [51, 0], to: [51, 22] },
+  { from: [54, 0], to: [54, 22] },
+  { from: [74, 0], to: [74, 22] },
+
+  // -- North inner walls for rooms 2, 3, 4 (rooms start at z=4, outer wall at z=0)
+  { from: [29, 4], to: [51, 4] },   // room_2 north wall
+  { from: [54, 4], to: [74, 4] },   // room_3 north wall
+  { from: [77, 4], to: [100, 4] },  // room_4 north wall
 
   // -- Room 4 west / sanctum boundary (split: gap at z=24-26 for corridor access)
   { from: [77, 4], to: [77, 24] },

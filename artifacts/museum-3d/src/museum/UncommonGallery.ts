@@ -3,27 +3,25 @@ import type { CommonNFT } from "./CommonGallery";
 
 export type UncommonNFT = CommonNFT;
 
-// ── Frame dimensions — tuned so 300 frames fill the room evenly ───
+// ── Frame dimensions — maximised to fill all 4 walls with even rows/cols ──
 //
-//  Wall spans:   south-west = 8.4 m  (x 29.4–37.8)
-//                south-east = 8.4 m  (x 42.2–50.6)
-//                west       = 17.2 m (z  4.4–21.6)
-//                east       = 17.2 m (z  4.4–21.6)
+//  Wall spans:   north      = 21.2 m  (x 29.4–50.6)
+//                south-west =  8.4 m  (x 29.4–37.8)
+//                south-east =  8.4 m  (x 42.2–50.6)
+//                west       = 17.2 m  (z  4.4–21.6)
+//                east       = 17.2 m  (z  4.4–21.6)
 //
-//  Slot width  SW = 0.84 m  →  8.4 / 0.84 = 10 cols per south seg
-//                              17.2/ 0.84 = 20 cols per side wall
-//  ROWS = 5
-//  Total = (10 + 10 + 20 + 20) × 5 = 300  ✓
+//  SW = 1.00 m slot width   → cols per wall:
+//    north 21 | SW 8 | SE 8 | W 17 | E 17 → 71 cols total
+//  ROWS = 4  →  71 × 4 = 284 frames
 //
-const FW = 0.760;           // frame width
-const FH = 0.612;           // frame height   (3.56 m / 5 rows − 0.10 gap)
-const FD = 0.05;            // frame depth
-const SW = 0.84;            // slot width  = FW + 0.08 gap
-const SH = (3.78 - 0.22) / 5; // slot height = 0.712 m, 5 even rows
-const ROWS    = 5;
+const FW = 0.90;                      // frame width  (was 0.76)
+const FH = (3.78 - 0.22) / 4 - 0.10; // 0.79 m       (was 0.61)
+const FD = 0.05;
+const SW = 1.00;                      // slot width
+const SH = (3.78 - 0.22) / 4;        // 0.89 m slot height
+const ROWS    = 4;
 const Y_START = 0.22;
-
-export const TOTAL_UNCOMMON = 300;
 
 // ── Room 2 (Uncommon Wing) boundaries ────────────────────────────
 // room_2: x = 29–51, z = 4–22
@@ -39,15 +37,15 @@ type FPos = { x: number; y: number; z: number; rotY: number };
 
 function fillX(
   xF: number, rotY: number, zMin: number, zMax: number,
-  out: FPos[], cap: number,
+  out: FPos[],
 ) {
   const usable = zMax - zMin;
   const cols   = Math.floor(usable / SW);
   if (!cols) return;
   const z0 = zMin + (usable - cols * SW) / 2 + FW / 2;
-  for (let r = 0; r < ROWS && out.length < cap; r++) {
+  for (let r = 0; r < ROWS; r++) {
     const y = Y_START + r * SH + FH / 2;
-    for (let c = 0; c < cols && out.length < cap; c++) {
+    for (let c = 0; c < cols; c++) {
       out.push({ x: xF, y, z: z0 + c * SW, rotY });
     }
   }
@@ -55,15 +53,15 @@ function fillX(
 
 function fillZ(
   zF: number, rotY: number, xMin: number, xMax: number,
-  out: FPos[], cap: number,
+  out: FPos[],
 ) {
   const usable = xMax - xMin;
   const cols   = Math.floor(usable / SW);
   if (!cols) return;
   const x0 = xMin + (usable - cols * SW) / 2 + FW / 2;
-  for (let r = 0; r < ROWS && out.length < cap; r++) {
+  for (let r = 0; r < ROWS; r++) {
     const y = Y_START + r * SH + FH / 2;
-    for (let c = 0; c < cols && out.length < cap; c++) {
+    for (let c = 0; c < cols; c++) {
       out.push({ x: x0 + c * SW, y, z: zF, rotY });
     }
   }
@@ -71,17 +69,19 @@ function fillZ(
 
 function generatePositions(): FPos[] {
   const out: FPos[] = [];
-  const N = TOTAL_UNCOMMON;
 
-  // South wall (z=22) — split around D2 door (x=38–42)
-  fillZ(ROOM_Z_MAX - INNER_HALF - 0.005, Math.PI, ROOM_X_MIN + 0.4, 37.8, out, N);
-  fillZ(ROOM_Z_MAX - INNER_HALF - 0.005, Math.PI, 42.2, ROOM_X_MAX - 0.4, out, N);
+  // North wall (z=4, inner face faces south) — art faces south (rotY=0)
+  fillZ(ROOM_Z_MIN + INNER_HALF + 0.005, 0, ROOM_X_MIN + 0.4, ROOM_X_MAX - 0.4, out);
 
-  // West wall (x=29, east face) — art faces east
-  fillX(ROOM_X_MIN + INNER_HALF + 0.005, -Math.PI / 2, ROOM_Z_MIN + 0.4, ROOM_Z_MAX - 0.4, out, N);
+  // South wall (z=22) — split around D2 door (x=38–42), art faces north (rotY=π)
+  fillZ(ROOM_Z_MAX - INNER_HALF - 0.005, Math.PI, ROOM_X_MIN + 0.4, 37.8, out);
+  fillZ(ROOM_Z_MAX - INNER_HALF - 0.005, Math.PI, 42.2, ROOM_X_MAX - 0.4, out);
 
-  // East wall (x=51, west face) — art faces west
-  fillX(ROOM_X_MAX - INNER_HALF - 0.005, Math.PI / 2, ROOM_Z_MIN + 0.4, ROOM_Z_MAX - 0.4, out, N);
+  // West wall (x=29, east face) — art faces east (rotY = -π/2)
+  fillX(ROOM_X_MIN + INNER_HALF + 0.005, -Math.PI / 2, ROOM_Z_MIN + 0.4, ROOM_Z_MAX - 0.4, out);
+
+  // East wall (x=51, west face) — art faces west (rotY = π/2)
+  fillX(ROOM_X_MAX - INNER_HALF - 0.005, Math.PI / 2, ROOM_Z_MIN + 0.4, ROOM_Z_MAX - 0.4, out);
 
   return out;
 }
@@ -109,7 +109,7 @@ export function buildUncommonGallery(scene: THREE.Scene): {
   const borderMesh = new THREE.InstancedMesh(borderGeo, borderMat, count);
 
   // Dark green canvas placeholder — inner recess
-  const artGeo = new THREE.BoxGeometry(FW - 0.10, FH - 0.07, FD * 0.5);
+  const artGeo = new THREE.BoxGeometry(FW - 0.12, FH - 0.09, FD * 0.5);
   const artMat = new THREE.MeshStandardMaterial({ color: 0x0d1a0d, roughness: 0.9 });
   const artMesh = new THREE.InstancedMesh(artGeo, artMat, count);
 
