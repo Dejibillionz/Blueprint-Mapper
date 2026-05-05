@@ -12,6 +12,20 @@ interface ZoomedFrame {
   artist: string;
 }
 
+interface HoverFrame {
+  title: string;
+  artist: string;
+}
+
+function getRarity(title: string): { tier: string; color: string; bg: string } {
+  if (title.startsWith("Diamond"))  return { tier: "Diamond",  color: "#00b4d8", bg: "rgba(0,180,216,0.18)" };
+  if (title.startsWith("Platinum")) return { tier: "Platinum", color: "#d4d4d4", bg: "rgba(200,200,200,0.18)" };
+  if (title.startsWith("Rare"))     return { tier: "Rare",      color: "#a855f7", bg: "rgba(168,85,247,0.18)" };
+  if (title.startsWith("Uncommon")) return { tier: "Uncommon",  color: "#06d6a0", bg: "rgba(6,214,160,0.18)" };
+  if (title.startsWith("Hall"))     return { tier: "Legendary", color: "#f77f00", bg: "rgba(247,127,0,0.18)" };
+  return                                   { tier: "Common",    color: "#3a86ff", bg: "rgba(58,134,255,0.18)" };
+}
+
 function getNearbyRoom(pos: THREE.Vector3): string | null {
   for (const room of rooms) {
     if (pos.x >= room.x && pos.x <= room.x + room.width &&
@@ -44,6 +58,7 @@ export default function MuseumWalker() {
   const [locked, setLocked] = useState(false);
   const [roomName, setRoomName] = useState<string | null>(null);
   const [zoomedFrame, setZoomedFrame] = useState<ZoomedFrame | null>(null);
+  const [hoverFrame, setHoverFrame] = useState<HoverFrame | null>(null);
   const [webglSupported] = useState(isWebGLAvailable);
   const [muted, setMuted] = useState(false);
 
@@ -54,6 +69,7 @@ export default function MuseumWalker() {
   const raycasterRef = useRef(new THREE.Raycaster());
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<AmbientAudio>(new AmbientAudio());
+  const lastHoverTitleRef = useRef<string | null>(null);
   const zoomStateRef = useRef<{
     active: boolean;
     savedPos: THREE.Vector3;
@@ -182,6 +198,19 @@ export default function MuseumWalker() {
         const rName = getNearbyRoom(camera.position);
         setRoomName(rName);
         audioRef.current.setRoom(getNearbyRoomId(camera.position));
+
+        // Proximity frame detection — raycast from crosshair, max 4 m
+        raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera);
+        const hits = raycasterRef.current.intersectObjects(frameMeshesRef.current, false);
+        const near = hits.find(h => h.distance < 4);
+        const hData = (near?.object.userData?.isFrame)
+          ? (near!.object.userData as { title: string; artist: string })
+          : null;
+        const newTitle = hData?.title ?? null;
+        if (newTitle !== lastHoverTitleRef.current) {
+          lastHoverTitleRef.current = newTitle;
+          setHoverFrame(hData ? { title: hData.title, artist: hData.artist } : null);
+        }
       }
 
       renderer.render(scene, camera);
@@ -317,33 +346,90 @@ export default function MuseumWalker() {
         </div>
       )}
 
-      {/* ── Frame zoom overlay ── */}
-      {zoomedFrame && (
-        <div className="absolute inset-0 pointer-events-none select-none">
-          {/* Dark vignette sides */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/20" />
-
-          {/* Info card bottom */}
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-center">
-            <div className="bg-black/70 border border-yellow-500/30 rounded-xl px-8 py-4 backdrop-blur-sm">
-              <p className="text-yellow-300 text-xs uppercase tracking-widest font-semibold mb-1">Viewing Artwork</p>
-              <p className="text-white text-xl font-bold">{zoomedFrame.title}</p>
-              <p className="text-gray-300 text-sm">{zoomedFrame.artist}</p>
+      {/* ── Proximity info panel (bottom-right when looking at a frame) ── */}
+      {locked && !zoomedFrame && hoverFrame && (() => {
+        const r = getRarity(hoverFrame.title);
+        return (
+          <div className="absolute bottom-20 right-6 w-64 select-none pointer-events-none"
+               style={{ animation: "fadeSlideIn 0.2s ease-out" }}>
+            <div className="rounded-xl overflow-hidden border"
+                 style={{ borderColor: r.color + "55", background: "rgba(8,8,14,0.88)", backdropFilter: "blur(12px)" }}>
+              {/* Rarity bar */}
+              <div className="px-4 py-2 flex items-center gap-2"
+                   style={{ background: r.bg, borderBottom: `1px solid ${r.color}33` }}>
+                <span className="text-[10px] font-bold uppercase tracking-widest"
+                      style={{ color: r.color }}>◆ {r.tier}</span>
+              </div>
+              {/* Content */}
+              <div className="px-4 py-3">
+                <p className="text-white font-bold text-base leading-tight">{hoverFrame.title}</p>
+                <p className="text-gray-400 text-xs mt-0.5">{hoverFrame.artist}</p>
+                <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between">
+                  <span className="text-gray-500 text-[10px] font-mono uppercase">Click to inspect</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded border"
+                        style={{ color: r.color, borderColor: r.color + "55" }}>CLICK</span>
+                </div>
+              </div>
             </div>
           </div>
+        );
+      })()}
 
-          {/* Exit button */}
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-auto">
-            <button
-              onClick={exitZoom}
-              className="bg-black/60 border border-white/20 hover:border-white/50 text-white text-sm font-mono px-5 py-2 rounded-lg transition-all hover:bg-black/80"
-            >
-              ← Back to Museum (ESC)
-            </button>
+      {/* ── Frame zoom overlay ── */}
+      {zoomedFrame && (() => {
+        const r = getRarity(zoomedFrame.title);
+        return (
+          <div className="absolute inset-0 pointer-events-none select-none">
+            {/* Dark vignette */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/10" />
+
+            {/* NFT info card — bottom centre */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-80">
+              <div className="rounded-2xl overflow-hidden border"
+                   style={{ borderColor: r.color + "55", background: "rgba(8,8,14,0.90)", backdropFilter: "blur(14px)" }}>
+                {/* Rarity header */}
+                <div className="px-5 py-2.5 flex items-center justify-between"
+                     style={{ background: r.bg, borderBottom: `1px solid ${r.color}33` }}>
+                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: r.color }}>
+                    ◆ {r.tier} Edition
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-mono">Museum Genesis</span>
+                </div>
+                {/* Body */}
+                <div className="px-5 py-4">
+                  <p className="text-white text-xl font-bold leading-snug">{zoomedFrame.title}</p>
+                  <p className="text-gray-400 text-sm mt-0.5">{zoomedFrame.artist}</p>
+                  <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-2 gap-2 text-xs text-gray-500 font-mono">
+                    <div><span className="text-gray-600">Collection</span><br /><span className="text-gray-300">Genesis 3333</span></div>
+                    <div><span className="text-gray-600">Blockchain</span><br /><span className="text-gray-300">Ethereum</span></div>
+                  </div>
+                  {/* Bid button — pointer-events-auto so it's clickable */}
+                  <div className="mt-4 pointer-events-auto">
+                    <button
+                      className="w-full py-2.5 rounded-lg font-bold text-sm text-black tracking-wide transition-all hover:brightness-110 active:scale-95"
+                      style={{ background: `linear-gradient(135deg, ${r.color}, ${r.color}cc)` }}
+                      onClick={() => window.open("https://opensea.io", "_blank")}
+                    >
+                      Place Bid
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Exit button */}
+            <div className="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-auto">
+              <button
+                onClick={exitZoom}
+                className="bg-black/60 border border-white/20 hover:border-white/50 text-white text-sm font-mono px-5 py-2 rounded-lg transition-all hover:bg-black/80"
+              >
+                ← Back to Museum (ESC)
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ESC while zoomed */}
       {zoomedFrame && (

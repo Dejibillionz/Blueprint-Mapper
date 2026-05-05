@@ -124,7 +124,13 @@ export function buildScene(scene: THREE.Scene): THREE.Mesh[] {
   woodTex.anisotropy = 8;
 
   const floorMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.7 });
-  const ceilMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 1.0 });
+
+  const ceilTex = new THREE.TextureLoader().load("/ceiling-texture.jpg");
+  ceilTex.wrapS = THREE.RepeatWrapping;
+  ceilTex.wrapT = THREE.RepeatWrapping;
+  ceilTex.repeat.set(30, 20);
+  ceilTex.anisotropy = 8;
+  const ceilMat = new THREE.MeshStandardMaterial({ map: ceilTex, roughness: 1.0, color: 0xdddddd });
 
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), floorMat);
   floor.rotation.x = -Math.PI / 2;
