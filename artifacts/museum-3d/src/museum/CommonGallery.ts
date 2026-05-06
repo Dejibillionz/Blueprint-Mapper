@@ -72,7 +72,7 @@ function generatePositions(): FPos[] {
   const out: FPos[] = [];
   const N = TOTAL_COMMON;
 
-  fillZ(0.27,   0,            0.6, 26.4, out, N);
+  fillZ(0.27,   0,            0.6, 25.4, out, N);
   fillZ(29.87,  Math.PI,      0.6, 25.4, out, N);
   fillX(0.27,  -Math.PI / 2,  0.6, 29.4, out, N);
   fillX(25.87,  Math.PI / 2,  0.6, 12.8, out, N);
