@@ -76,6 +76,7 @@ function allPositions(): Pos[] {
 
 export function buildPlatinumVault(scene: THREE.Scene): {
   borderMesh: THREE.InstancedMesh;
+  artMesh:    THREE.InstancedMesh;
   nfts:       PlatinumNFT[];
 } {
   const BORDER_COLOR = 0xd4d4d4;  // platinum silver
@@ -122,5 +123,5 @@ export function buildPlatinumVault(scene: THREE.Scene): {
     artist: "Origin Protocol",
   }));
 
-  return { borderMesh, nfts };
+  return { borderMesh, artMesh, nfts };
 }

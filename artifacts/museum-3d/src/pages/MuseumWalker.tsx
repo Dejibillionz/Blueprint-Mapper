@@ -6,10 +6,12 @@ import { buildCollisionBoxes } from "../museum/collision";
 import { rooms } from "../data/floorplan";
 import { drawMinimap, MAP_W, MAP_H } from "../museum/minimap";
 import { AmbientAudio } from "../museum/AmbientAudio";
+import { ProximityTextureManager } from "../museum/ProximityTextureManager";
 
 interface ZoomedFrame {
   title: string;
   artist: string;
+  imageUrl?: string;
 }
 
 interface HoverFrame {
@@ -74,6 +76,7 @@ export default function MuseumWalker() {
   const rareNFTsRef = useRef<RareNFT[]>([]);
   const platinumGalleryMeshRef = useRef<THREE.InstancedMesh | null>(null);
   const platinumNFTsRef = useRef<PlatinumNFT[]>([]);
+  const proximityMgrRef = useRef<ProximityTextureManager | null>(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<AmbientAudio>(new AmbientAudio());
@@ -135,20 +138,64 @@ export default function MuseumWalker() {
 
     const collisionBoxes = buildCollisionBoxes();
     const {
-      frameMeshes, commonGalleryMesh, commonNFTs,
-      uncommonGalleryMesh, uncommonNFTs,
-      rareGalleryMesh, rareNFTs,
-      platinumGalleryMesh, platinumNFTs,
+      frameMeshes,
+      commonGalleryMesh,   commonArtMesh,   commonNFTs,
+      uncommonGalleryMesh, uncommonArtMesh, uncommonNFTs,
+      rareGalleryMesh,     rareArtMesh,     rareNFTs,
+      platinumGalleryMesh, platinumArtMesh, platinumNFTs,
     } = buildScene(scene);
-    frameMeshesRef.current = frameMeshes;
-    commonGalleryMeshRef.current = commonGalleryMesh;
-    commonNFTsRef.current = commonNFTs;
-    uncommonGalleryMeshRef.current = uncommonGalleryMesh;
-    uncommonNFTsRef.current = uncommonNFTs;
-    rareGalleryMeshRef.current = rareGalleryMesh;
-    rareNFTsRef.current = rareNFTs;
-    platinumGalleryMeshRef.current = platinumGalleryMesh;
-    platinumNFTsRef.current = platinumNFTs;
+
+    frameMeshesRef.current          = frameMeshes;
+    commonGalleryMeshRef.current    = commonGalleryMesh;
+    commonNFTsRef.current           = commonNFTs;
+    uncommonGalleryMeshRef.current  = uncommonGalleryMesh;
+    uncommonNFTsRef.current         = uncommonNFTs;
+    rareGalleryMeshRef.current      = rareGalleryMesh;
+    rareNFTsRef.current             = rareNFTs;
+    platinumGalleryMeshRef.current  = platinumGalleryMesh;
+    platinumNFTsRef.current         = platinumNFTs;
+
+    // ── Proximity texture manager ──────────────────────────────────
+    // Art-panel dimensions mirror what each gallery builder uses:
+    //   Common:    FW−0.10=0.42 × FH−0.07=0.29
+    //   Uncommon:  FW−0.12=0.94 × FH−0.09=0.522
+    //   Rare:      FW−0.16=2.12 × FH−0.14=1.52
+    //   Platinum:  FW−0.14=2.36 × FH−0.14=2.36
+    //
+    // metaOffset maps gallery → metadata.json indices:
+    //   Platinum 0-10, Rare 11-65, Uncommon 66-365, Common 366-3332
+    const ptm = new ProximityTextureManager(scene, [
+      { artMesh: platinumArtMesh, artW: 2.36,  artH: 2.36,  metaOffset: 0   },
+      { artMesh: rareArtMesh,     artW: 2.12,  artH: 1.52,  metaOffset: 11  },
+      { artMesh: uncommonArtMesh, artW: 0.94,  artH: 0.522, metaOffset: 66  },
+      { artMesh: commonArtMesh,   artW: 0.42,  artH: 0.29,  metaOffset: 366 },
+    ]);
+
+    // When metadata loads, update NFT titles/artists from real token data
+    ptm.onMetaLoaded = (meta) => {
+      // Platinum: meta[0..10]
+      platinumNFTsRef.current.forEach((nft, i) => {
+        const m = meta[i];
+        if (m) { nft.title = `10K Squad #${m.token_id}`; nft.artist = "10K Squad"; }
+      });
+      // Rare: meta[11..65]
+      rareNFTsRef.current.forEach((nft, i) => {
+        const m = meta[11 + i];
+        if (m) { nft.title = `10K Squad #${m.token_id}`; nft.artist = "10K Squad"; }
+      });
+      // Uncommon: meta[66..365]
+      uncommonNFTsRef.current.forEach((nft, i) => {
+        const m = meta[66 + i];
+        if (m) { nft.title = `10K Squad #${m.token_id}`; nft.artist = "10K Squad"; }
+      });
+      // Common: meta[366..3332]
+      commonNFTsRef.current.forEach((nft, i) => {
+        const m = meta[366 + i];
+        if (m) { nft.title = `10K Squad #${m.token_id}`; nft.artist = "10K Squad"; }
+      });
+    };
+
+    proximityMgrRef.current = ptm;
 
     const controls = new FirstPersonControls(camera, renderer.domElement, collisionBoxes);
     controlsRef.current = controls;
@@ -166,16 +213,14 @@ export default function MuseumWalker() {
         controls.requestLock();
         return;
       }
-      if (zoomStateRef.current !== null) return; // already zoomed, handled by UI
+      if (zoomStateRef.current !== null) return;
 
-      // Raycast from screen centre toward frames
       raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera);
       const hits = raycasterRef.current.intersectObjects(frameMeshesRef.current, false);
       if (hits.length > 0) {
         const hit = hits[0];
         const data = hit.object.userData as { isFrame?: boolean; title?: string; artist?: string };
         if (data.isFrame) {
-          // Build zoom target: 1.2m in front of frame
           const n = new THREE.Vector3(0, 0, 1).applyQuaternion(hit.object.quaternion);
           const targetPos = hit.object.position.clone().add(n.multiplyScalar(1.2));
           targetPos.y = 1.7;
@@ -206,10 +251,10 @@ export default function MuseumWalker() {
     const animate = () => {
       animId = requestAnimationFrame(animate);
       const delta = Math.min(clock.getDelta(), 0.05);
+      const elapsed = clock.getElapsedTime();
 
       const zst = zoomStateRef.current;
       if (zst && zst.active) {
-        // Lerp toward zoom target
         zst.progress = Math.min(1, zst.progress + delta * 3);
         const t = 1 - Math.pow(1 - zst.progress, 3);
         camera.position.lerpVectors(zst.savedPos, zst.targetPos, t);
@@ -219,6 +264,9 @@ export default function MuseumWalker() {
         const rName = getNearbyRoom(camera.position);
         setRoomName(rName);
         audioRef.current.setRoom(getNearbyRoomId(camera.position));
+
+        // ── Proximity texture loading ──────────────────────────
+        proximityMgrRef.current?.update(camera.position, elapsed);
 
         // Proximity frame detection — raycast from crosshair, max 4 m
         raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera);
@@ -302,6 +350,8 @@ export default function MuseumWalker() {
       cancelAnimationFrame(animId);
       controls.dispose();
       audioRef.current.dispose();
+      proximityMgrRef.current?.dispose();
+      proximityMgrRef.current = null;
       renderer.domElement.removeEventListener("click", onClick);
       document.removeEventListener("pointerlockchange", onLockChange);
       window.removeEventListener("resize", onResize);
@@ -425,13 +475,11 @@ export default function MuseumWalker() {
                style={{ animation: "fadeSlideIn 0.2s ease-out" }}>
             <div className="rounded-xl overflow-hidden border"
                  style={{ borderColor: r.color + "55", background: "rgba(8,8,14,0.88)", backdropFilter: "blur(12px)" }}>
-              {/* Rarity bar */}
               <div className="px-4 py-2 flex items-center gap-2"
                    style={{ background: r.bg, borderBottom: `1px solid ${r.color}33` }}>
                 <span className="text-[10px] font-bold uppercase tracking-widest"
                       style={{ color: r.color }}>◆ {r.tier}</span>
               </div>
-              {/* Content */}
               <div className="px-4 py-3">
                 <p className="text-white font-bold text-base leading-tight">{hoverFrame.title}</p>
                 <p className="text-gray-400 text-xs mt-0.5">{hoverFrame.artist}</p>
@@ -451,15 +499,12 @@ export default function MuseumWalker() {
         const r = getRarity(zoomedFrame.title);
         return (
           <div className="absolute inset-0 pointer-events-none select-none">
-            {/* Dark vignette */}
             <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/10" />
 
-            {/* NFT info card — bottom centre */}
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-80">
               <div className="rounded-2xl overflow-hidden border"
                    style={{ borderColor: r.color + "55", background: "rgba(8,8,14,0.90)", backdropFilter: "blur(14px)" }}>
-                {/* Rarity header */}
                 <div className="px-5 py-2.5 flex items-center justify-between"
                      style={{ background: r.bg, borderBottom: `1px solid ${r.color}33` }}>
                   <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: r.color }}>
@@ -467,7 +512,6 @@ export default function MuseumWalker() {
                   </span>
                   <span className="text-[10px] text-gray-400 font-mono">Museum Genesis</span>
                 </div>
-                {/* Body */}
                 <div className="px-5 py-4">
                   <p className="text-white text-xl font-bold leading-snug">{zoomedFrame.title}</p>
                   <p className="text-gray-400 text-sm mt-0.5">{zoomedFrame.artist}</p>
@@ -475,7 +519,6 @@ export default function MuseumWalker() {
                     <div><span className="text-gray-600">Collection</span><br /><span className="text-gray-300">Genesis 3333</span></div>
                     <div><span className="text-gray-600">Blockchain</span><br /><span className="text-gray-300">Ethereum</span></div>
                   </div>
-                  {/* Bid button — pointer-events-auto so it's clickable */}
                   <div className="mt-4 pointer-events-auto">
                     <button
                       className="w-full py-2.5 rounded-lg font-bold text-sm text-black tracking-wide transition-all hover:brightness-110 active:scale-95"
@@ -489,7 +532,6 @@ export default function MuseumWalker() {
               </div>
             </div>
 
-            {/* Exit button */}
             <div className="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-auto">
               <button
                 onClick={exitZoom}
@@ -502,7 +544,6 @@ export default function MuseumWalker() {
         );
       })()}
 
-      {/* ESC while zoomed */}
       {zoomedFrame && (
         <EscListener onEsc={exitZoom} />
       )}

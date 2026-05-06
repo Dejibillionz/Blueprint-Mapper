@@ -236,26 +236,30 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   const frameMeshes = buildFrameMeshes(scene);
 
   // ── Common Gallery — 2967 instanced placeholder frames ────────
-  const { borderMesh: cgMesh, nfts: commonNFTs } = buildCommonGallery(scene);
+  const { borderMesh: cgMesh, artMesh: cgArtMesh, nfts: commonNFTs } = buildCommonGallery(scene);
 
   // ── Uncommon Gallery — 300 instanced placeholder frames ───────
-  const { borderMesh: ugMesh, nfts: uncommonNFTs } = buildUncommonGallery(scene);
+  const { borderMesh: ugMesh, artMesh: ugArtMesh, nfts: uncommonNFTs } = buildUncommonGallery(scene);
 
   // ── Rare Gallery — 56 instanced placeholder frames (all 4 walls) ─
-  const { borderMesh: rgMesh, nfts: rareNFTs } = buildRareGallery(scene);
+  const { borderMesh: rgMesh, artMesh: rgArtMesh, nfts: rareNFTs } = buildRareGallery(scene);
 
   // ── Platinum Vault — 11 square placeholder frames (3W + 3E + 5N) ─
-  const { borderMesh: pgMesh, nfts: platinumNFTs } = buildPlatinumVault(scene);
+  const { borderMesh: pgMesh, artMesh: pgArtMesh, nfts: platinumNFTs } = buildPlatinumVault(scene);
 
   return {
     frameMeshes,
-    commonGalleryMesh: cgMesh,
+    commonGalleryMesh:   cgMesh,
+    commonArtMesh:       cgArtMesh,
     commonNFTs,
     uncommonGalleryMesh: ugMesh,
+    uncommonArtMesh:     ugArtMesh,
     uncommonNFTs,
-    rareGalleryMesh: rgMesh,
+    rareGalleryMesh:     rgMesh,
+    rareArtMesh:         rgArtMesh,
     rareNFTs,
     platinumGalleryMesh: pgMesh,
+    platinumArtMesh:     pgArtMesh,
     platinumNFTs,
   };
 }
@@ -263,11 +267,15 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
 export interface BuildSceneResult {
   frameMeshes:          THREE.Mesh[];
   commonGalleryMesh:    THREE.InstancedMesh;
+  commonArtMesh:        THREE.InstancedMesh;
   commonNFTs:           CommonNFT[];
   uncommonGalleryMesh:  THREE.InstancedMesh;
+  uncommonArtMesh:      THREE.InstancedMesh;
   uncommonNFTs:         UncommonNFT[];
   rareGalleryMesh:      THREE.InstancedMesh;
+  rareArtMesh:          THREE.InstancedMesh;
   rareNFTs:             RareNFT[];
   platinumGalleryMesh:  THREE.InstancedMesh;
+  platinumArtMesh:      THREE.InstancedMesh;
   platinumNFTs:         PlatinumNFT[];
 }

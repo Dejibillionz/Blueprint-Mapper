@@ -112,6 +112,7 @@ function allPositions(): { x: number; y: number; z: number; rotY: number }[] {
 // ── InstancedMesh builder ──────────────────────────────────────────
 export function buildRareGallery(scene: THREE.Scene): {
   borderMesh: THREE.InstancedMesh;
+  artMesh:    THREE.InstancedMesh;
   nfts:       RareNFT[];
 } {
   const BORDER_COLOR = 0x4a90e2;  // rare blue metallic
@@ -158,5 +159,5 @@ export function buildRareGallery(scene: THREE.Scene): {
     artist: "Origin Protocol",
   }));
 
-  return { borderMesh, nfts };
+  return { borderMesh, artMesh, nfts };
 }
