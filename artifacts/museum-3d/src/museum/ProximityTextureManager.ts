@@ -150,6 +150,10 @@ export class ProximityTextureManager {
       return;
     }
 
+    // Prefer the locally-downloaded AVIF; fall back to CDN if absent/failed
+    const localUrl = `/nft-images/${entry.token_id}.avif`;
+    const cdnUrl   = entry.image;
+
     f.state = "loading";
     this.activeLoads++;
 
@@ -167,7 +171,7 @@ export class ProximityTextureManager {
     mesh.matrixWorldNeedsUpdate = true;
     mesh.userData = {
       isArtFrame:   true,
-      imageUrl:     entry.image,
+      imageUrl:     cdnUrl,
       galleryIndex: gi,
       frameIndex:   i,
     };
@@ -178,7 +182,14 @@ export class ProximityTextureManager {
     g.artMesh.instanceMatrix.needsUpdate = true;
 
     try {
-      const tex = await this.loadTexture(entry.image);
+      // Try local JPEG first (served by Vite, no CORS/AVIF issues)
+      // Fall back to CDN if local file isn't ready yet
+      let tex: THREE.Texture;
+      try {
+        tex = await this.loadTexture(localUrl);
+      } catch {
+        tex = await this.loadTexture(cdnUrl);
+      }
 
       let map: THREE.Texture = tex;
       if (f.needsUFlip) {
@@ -228,23 +239,29 @@ export class ProximityTextureManager {
     }
 
     return (async () => {
-      const resp = await fetch(url, {
-        headers: { Accept: "image/jpeg, image/png, image/webp, image/avif, image/*;q=0.8" },
-      });
-      if (!resp.ok) throw new Error(`Image fetch failed: HTTP ${resp.status} for ${url}`);
+      let tex: THREE.Texture;
 
-      const blob      = await resp.blob();
-      const objectUrl = URL.createObjectURL(blob);
-
-      const tex = await new Promise<THREE.Texture>((resolve, reject) => {
-        const loader = new THREE.TextureLoader();
-        loader.load(
-          objectUrl,
-          (t) => { URL.revokeObjectURL(objectUrl); resolve(t); },
-          undefined,
-          (err) => { URL.revokeObjectURL(objectUrl); reject(err); },
-        );
-      });
+      if (url.startsWith("/")) {
+        // Local file served by Vite — use TextureLoader directly (no CORS, no AVIF)
+        tex = await new Promise<THREE.Texture>((resolve, reject) => {
+          new THREE.TextureLoader().load(url, resolve, undefined, reject);
+        });
+      } else {
+        // Remote CDN — fetch as blob so we control Accept header and error handling
+        const resp = await fetch(url, {
+          headers: { Accept: "image/jpeg, image/png, image/webp, image/avif, image/*;q=0.8" },
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${url}`);
+        const objectUrl = URL.createObjectURL(await resp.blob());
+        tex = await new Promise<THREE.Texture>((resolve, reject) => {
+          new THREE.TextureLoader().load(
+            objectUrl,
+            (t) => { URL.revokeObjectURL(objectUrl); resolve(t); },
+            undefined,
+            (err) => { URL.revokeObjectURL(objectUrl); reject(err); },
+          );
+        });
+      }
 
       if (this.cacheOrder.length >= MAX_CACHED) {
         const oldest = this.cacheOrder.shift()!;
