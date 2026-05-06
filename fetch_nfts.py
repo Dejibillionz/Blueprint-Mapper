@@ -108,11 +108,9 @@ def fetch_all_nfts(api_key: str) -> list[dict]:
 def calculate_rarity(raw_nfts: list[dict]) -> list[tuple[dict, float]]:
     """
     1. Build a frequency map: (trait_type, value) → count across all NFTs.
-    2. Score each NFT: sum(3333 / freq) for every trait.
+    2. Score each NFT: sum(TARGET_COUNT / freq) for every trait.
     3. Return list of (nft, score) sorted descending by score.
     """
-    n = len(raw_nfts)
-
     freq: dict[tuple[str, str], int] = defaultdict(int)
     for nft in raw_nfts:
         for trait in nft.get("traits") or []:
@@ -128,7 +126,7 @@ def calculate_rarity(raw_nfts: list[dict]) -> list[tuple[dict, float]]:
             score = 0.0
         else:
             score = sum(
-                n / freq[(str(t.get("trait_type", "")), str(t.get("value", "")))]
+                TARGET_COUNT / freq[(str(t.get("trait_type", "")), str(t.get("value", "")))]
                 for t in traits
             )
         scored.append((nft, score))
