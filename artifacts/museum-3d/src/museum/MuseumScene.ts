@@ -181,6 +181,10 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   scene.add(buildWallMesh(82, 22, 85, 22, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
   // Grand entrance [37-45, 52]
   scene.add(buildWallMesh(37, 52, 45, 52, WALL_HEIGHT - DOOR_HEIGHT, OUTER_THICKNESS, DOOR_HEIGHT, lintelMat));
+  // D6 — legendary foyer entry [84-90, 30]
+  scene.add(buildWallMesh(84, 30, 90, 30, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
+  // D7 — legendary grand door [84-92, 40]
+  scene.add(buildWallMesh(84, 40, 92, 40, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
 
   // ── Door frame trim ───────────────────────────────────────────
   const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x8b7355, metalness: 0.2, roughness: 0.6 });
@@ -192,6 +196,8 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     [37, 30, 45, 30],
     [82, 22, 85, 22],
     [37, 52, 45, 52],
+    [84, 30, 90, 30], // D6 legendary foyer entry
+    [84, 40, 92, 40], // D7 legendary grand door
   ];
   for (const [x1, z1, x2, z2] of doorFrames) {
     scene.add(buildWallMesh(x1, z1, x2, z2, 0.1, INNER_THICKNESS + 0.05, DOOR_HEIGHT - 0.05, doorFrameMat));
@@ -220,6 +226,10 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     [86, 13, 8,  24, 0xffeedd],  // Room 4
     [86,  7, 5,  18, 0xffeedd],  // Room 4 north
     [83, 24.5, 6, 12, 0xf0e8ff], // Room 5 Diamond Sanctum (cool purple)
+    [88, 35,   6, 20, 0xc8a0ff], // Legendary Foyer (soft violet)
+    [88, 46,  12, 28, 0xffd700], // Legendary Gallery — golden overhead
+    [80, 44,   6, 16, 0xff8c00], // Legendary Gallery — amber west accent
+    [97, 44,   6, 16, 0xff8c00], // Legendary Gallery — amber east accent
     [42, 26, 5,  20, 0xfff5e0],  // Corridor west
     [62, 26, 5,  20, 0xfff5e0],  // Corridor east
     [41, 41, 8,  20, 0xfff0e0],  // Entrance Hall

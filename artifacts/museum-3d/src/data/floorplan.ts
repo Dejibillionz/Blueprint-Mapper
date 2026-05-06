@@ -32,18 +32,15 @@ export const DOOR_WIDTH = 2.0;
 export const DOOR_HEIGHT = 2.4;
 
 export const outerWalls: Wall[] = [
-  { from: [0, 0], to: [100, 0], isOuter: true },
-  { from: [100, 0], to: [100, 30], isOuter: true },
-  { from: [100, 30], to: [76, 30], isOuter: true },
-  { from: [76, 30], to: [76, 35], isOuter: true },
-  { from: [76, 35], to: [62, 35], isOuter: true },
-  { from: [62, 35], to: [62, 52], isOuter: true },
+  { from: [0, 0],    to: [100, 0],  isOuter: true },
+  { from: [100, 0],  to: [100, 52], isOuter: true }, // east wall — extended south to legendary room
+  { from: [100, 52], to: [62, 52],  isOuter: true }, // new south wall of east extension
   // South outer wall split at grand entrance (x=37-45)
   { from: [62, 52], to: [45, 52], isOuter: true },
   { from: [37, 52], to: [14, 52], isOuter: true },
   { from: [14, 52], to: [14, 35], isOuter: true },
-  { from: [14, 35], to: [0, 35], isOuter: true },
-  { from: [0, 35], to: [0, 0], isOuter: true },
+  { from: [14, 35], to: [0, 35],  isOuter: true },
+  { from: [0, 35],  to: [0, 0],   isOuter: true },
 ];
 
 export const innerWalls: Wall[] = [
@@ -99,6 +96,20 @@ export const innerWalls: Wall[] = [
   { from: [88, 22], to: [88, 27] },
   { from: [78, 27], to: [88, 27] },
   { from: [78, 22], to: [78, 27] },
+
+  // -- East wing interior wall (formerly outer — now separates gift-shop from legendary area)
+  { from: [62, 35], to: [62, 52] },
+
+  // -- Legendary Foyer north wall (split for D6 entry door x=84–90)
+  { from: [62, 30], to: [84, 30] },
+  { from: [90, 30], to: [100, 30] },
+
+  // -- Room_4 / legendary west wall extended south from z=35 to z=52
+  { from: [77, 35], to: [77, 52] },
+
+  // -- Legendary Gallery north wall (split for D7 grand door x=84–92)
+  { from: [77, 40], to: [84, 40] },
+  { from: [92, 40], to: [100, 40] },
 ];
 
 export const rooms: Room[] = [
@@ -107,6 +118,8 @@ export const rooms: Room[] = [
   { id: "room_3", name: "The Rare Collection\n750 NFTs", x: 54, y: 4, width: 20, height: 18, color: 0x0f3460 },
   { id: "room_4", name: "The Platinum Vault", x: 77, y: 4, width: 23, height: 18, color: 0x533483 },
   { id: "room_5", name: "The Diamond Sanctum\n28 NFTs", x: 78, y: 22, width: 10, height: 5, color: 0x950740 },
+  { id: "legendary_foyer", name: "Legendary Foyer", x: 77, y: 30, width: 23, height: 10, color: 0x2c1654 },
+  { id: "room_legendary", name: "The Legendary Gallery\n10 NFTs", x: 77, y: 40, width: 23, height: 12, color: 0x1a0a33 },
   { id: "corridor", name: "The Rarity Galleries", x: 28, y: 22, width: 48, height: 8, color: 0x222233 },
   { id: "entrance_hall", name: "Entrance Hall\nNav Hub", x: 33, y: 35, width: 15, height: 11, color: 0x1f4068 },
   { id: "ticket_info", name: "Ticket / Info", x: 14, y: 40, width: 8, height: 6, color: 0x2d4a22 },

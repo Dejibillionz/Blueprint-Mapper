@@ -17,6 +17,15 @@ React + Vite + Three.js first-person 3D museum for the "Museum Genesis: 3333 NFT
 - `src/pages/MuseumWalker.tsx` — React component, animate loop, proximity hover panel, zoom overlay, instanced-mesh raycasting.
 - `src/data/floorplan.ts` — room/wall definitions.
 
+### Room Layout Summary
+- **room_1** Common Gallery (x=0–27, z=0–31): 2967 instanced frames on 4 walls + 4 partitions
+- **room_2** Uncommon Wing (x=29–51, z=4–22): 300 instanced frames
+- **room_3** Rare Collection (x=54–74, z=4–22): 56 instanced frames, all 4 walls, FW=2.28m × FH=1.66m
+- **room_4** Platinum Vault (x=77–100, z=4–22)
+- **room_5** Diamond Sanctum (x=78–88, z=22–27)
+- **legendary_foyer** (x=77–100, z=30–40): antechamber — D6 door at x=84–90, z=30
+- **room_legendary** Legendary Gallery (x=77–100, z=40–52): D7 grand door at x=84–92, z=40
+
 ### NFT Metadata Integration (future)
 To replace placeholder frames with real NFT images:
 1. Update `CommonNFT[]` entries in `CommonGallery.ts` with real `title`, `artist`, `imageUrl`.

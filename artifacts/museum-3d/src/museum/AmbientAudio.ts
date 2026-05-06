@@ -108,6 +108,27 @@ const PROFILES: RoomProfile[] = [
     filterType: "lowpass", filterFreq: 1100, filterQ: 1.0,
     masterGain: 0.14, lfoFreq: 0.19, lfoDepth: 3,
   },
+  {
+    roomId: "legendary_foyer",
+    notes: [
+      { freq: 36.7,  type: "sine",     gain: 0.80 },
+      { freq: 55.0,  type: "sine",     gain: 0.36 },
+      { freq: 73.4,  type: "triangle", gain: 0.18 },
+    ],
+    filterType: "lowpass", filterFreq: 220, filterQ: 2.5,
+    masterGain: 0.20, lfoFreq: 0.04, lfoDepth: 10,
+  },
+  {
+    roomId: "room_legendary",
+    notes: [
+      { freq: 27.5,  type: "sine",     gain: 0.90 },
+      { freq: 41.2,  type: "sine",     gain: 0.48 },
+      { freq: 55.0,  type: "sine",     gain: 0.24 },
+      { freq: 82.4,  type: "sawtooth", gain: 0.05 },
+    ],
+    filterType: "lowpass", filterFreq: 150, filterQ: 3.0,
+    masterGain: 0.25, lfoFreq: 0.03, lfoDepth: 12,
+  },
 ];
 
 interface Voice {
