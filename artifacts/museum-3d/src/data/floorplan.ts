@@ -105,41 +105,4 @@ export const rooms: Room[] = [
   { id: "gift_shop", name: "Gift Shop", x: 52, y: 40, width: 10, height: 6, color: 0x4a2d22 },
 ];
 
-export const frames: FrameData[] = [
-  {
-    id: 1, title: "Genesis #0001", artist: "Origin Protocol",
-    position: [8, 1.5, 6.25], rotationY: 0, color: 0x3a86ff,
-  },
-  {
-    id: 2, title: "Genesis #0042", artist: "Cipher Arts",
-    position: [16, 1.5, 6.25], rotationY: 0, color: 0xff006e,
-  },
-  {
-    id: 3, title: "Genesis #0111", artist: "VoidCanvas",
-    position: [22, 1.5, 29.75], rotationY: Math.PI, color: 0x8338ec,
-  },
-  {
-    id: 4, title: "Uncommon #0212", artist: "NeonBrush",
-    position: [29.25, 1.5, 12], rotationY: -Math.PI / 2, color: 0xfb5607,
-  },
-  {
-    id: 5, title: "Uncommon #0333", artist: "DataSurge",
-    position: [40, 1.5, 4.25], rotationY: 0, color: 0xffbe0b,
-  },
-  {
-    id: 6, title: "Rare #0450", artist: "GridPainter",
-    position: [64, 1.5, 4.25], rotationY: 0, color: 0x06d6a0,
-  },
-  {
-    id: 7, title: "Rare #0612", artist: "PixelForge",
-    position: [73.75, 1.5, 11], rotationY: Math.PI / 2, color: 0xef476f,
-  },
-  {
-    id: 8, title: "Platinum #0750", artist: "SilverThread",
-    position: [86, 1.5, 4.25], rotationY: 0, color: 0xc0c0c0,
-  },
-  {
-    id: 10, title: "Hall of Origins", artist: "Museum Genesis",
-    position: [41, 1.5, 35.25], rotationY: 0, color: 0xf77f00,
-  },
-];
+export const frames: FrameData[] = [];
