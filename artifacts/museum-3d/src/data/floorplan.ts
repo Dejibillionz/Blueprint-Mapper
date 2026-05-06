@@ -60,9 +60,11 @@ export const innerWalls: Wall[] = [
   { from: [54, 4], to: [74, 4] },   // room_3 north wall
   { from: [77, 4], to: [100, 4] },  // room_4 north wall
 
-  // -- Room 4 west / sanctum boundary (split: gap at z=24-26 for corridor access)
-  { from: [77, 4], to: [77, 24] },
-  { from: [77, 26], to: [77, 35] },
+  // -- Room 4 west boundary (solid — foyer is a separate sealed zone)
+  { from: [77, 4], to: [77, 35] },
+
+  // -- Room 4 south wall (closes vault from foyer corridor area)
+  { from: [77, 22], to: [100, 22] },
 
   // -- Rarity corridor NORTH wall split for D2 (x=38-42) and D3 (x=62-66)
   { from: [28, 22], to: [38, 22] },

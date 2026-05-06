@@ -175,8 +175,6 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   scene.add(buildWallMesh(62, 22, 66, 22, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
   // Corridor passage [37-45, 30]
   scene.add(buildWallMesh(37, 30, 45, 30, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
-  // Room 4/5 wall gap [77, 24-26]
-  scene.add(buildWallMesh(77, 24, 77, 26, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
   // Grand entrance [37-45, 52]
   scene.add(buildWallMesh(37, 52, 45, 52, WALL_HEIGHT - DOOR_HEIGHT, OUTER_THICKNESS, DOOR_HEIGHT, lintelMat));
   // D6 — legendary foyer entry [84-90, 30]
