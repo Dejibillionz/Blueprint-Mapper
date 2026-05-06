@@ -165,10 +165,10 @@ export default function MuseumWalker() {
     // metaOffset maps gallery → metadata.json indices:
     //   Platinum 0-10, Rare 11-65, Uncommon 66-365, Common 366-3332
     const ptm = new ProximityTextureManager(scene, [
-      { artMesh: platinumArtMesh, artW: 2.36,  artH: 2.36,  metaOffset: 0   },
-      { artMesh: rareArtMesh,     artW: 2.12,  artH: 1.52,  metaOffset: 11  },
-      { artMesh: uncommonArtMesh, artW: 0.94,  artH: 0.522, metaOffset: 66  },
-      { artMesh: commonArtMesh,   artW: 0.42,  artH: 0.29,  metaOffset: 366 },
+      { artMesh: platinumArtMesh, artW: 2.36,  artH: 2.36,  metaOffset: 0,   loadDist: 30, roomId: "room_4" },
+      { artMesh: rareArtMesh,     artW: 2.12,  artH: 1.52,  metaOffset: 11,  loadDist: 25, roomId: "room_3" },
+      { artMesh: uncommonArtMesh, artW: 0.94,  artH: 0.522, metaOffset: 66,  loadDist: 15, roomId: "room_2" },
+      { artMesh: commonArtMesh,   artW: 0.42,  artH: 0.29,  metaOffset: 366, loadDist: 10, roomId: "room_1" },
     ]);
 
     // When metadata loads, update NFT titles/artists from real token data
@@ -261,12 +261,12 @@ export default function MuseumWalker() {
         camera.lookAt(zst.targetLookAt);
       } else {
         controls.update(delta);
-        const rName = getNearbyRoom(camera.position);
-        setRoomName(rName);
-        audioRef.current.setRoom(getNearbyRoomId(camera.position));
+        const currentRoomId = getNearbyRoomId(camera.position);
+        setRoomName(getNearbyRoom(camera.position));
+        audioRef.current.setRoom(currentRoomId);
 
         // ── Proximity texture loading ──────────────────────────
-        proximityMgrRef.current?.update(camera.position, elapsed);
+        proximityMgrRef.current?.update(camera.position, elapsed, currentRoomId);
 
         // Proximity frame detection — raycast from crosshair, max 4 m
         raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera);

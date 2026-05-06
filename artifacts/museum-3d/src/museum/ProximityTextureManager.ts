@@ -7,6 +7,8 @@ export interface GalleryConfig {
   artW:       number;   // art-panel width  (m)
   artH:       number;   // art-panel height (m)
   metaOffset: number;   // first index in metadata.json for this gallery
+  loadDist:   number;   // metres — start loading when player is this close
+  roomId:     string;   // floorplan room id — frames always load when player is in this room
 }
 
 interface MetaEntry {
@@ -31,7 +33,6 @@ interface Frame {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const LOAD_DIST     = 10;   // metres — start loading when player is this close
 const MAX_CONCURRENT = 6;   // max simultaneous texture fetches
 const MAX_CACHED    = 150;  // LRU texture cache limit
 
@@ -92,18 +93,23 @@ export class ProximityTextureManager {
 
   // ── Per-frame animate update ───────────────────────────────────────────────
 
-  update(cameraPos: THREE.Vector3, time: number) {
+  update(cameraPos: THREE.Vector3, time: number, currentRoomId: string | null = null) {
     if (!this.metaReady) return;
 
     for (let gi = 0; gi < this.galleries.length; gi++) {
       const g       = this.galleries[gi];
       const gFrames = this.frames[gi];
+      const inRoom  = currentRoomId === g.roomId;
+      const distSq  = g.loadDist * g.loadDist;
 
       for (let i = 0; i < gFrames.length; i++) {
         const f  = gFrames[i];
-        const dx = f.pos.x - cameraPos.x;
-        const dz = f.pos.z - cameraPos.z;
-        if (dx * dx + dz * dz > LOAD_DIST * LOAD_DIST) continue;
+
+        if (!inRoom) {
+          const dx = f.pos.x - cameraPos.x;
+          const dz = f.pos.z - cameraPos.z;
+          if (dx * dx + dz * dz > distSq) continue;
+        }
 
         if (f.state === "unloaded" && this.activeLoads < MAX_CONCURRENT) {
           void this.loadFrame(gi, i);
