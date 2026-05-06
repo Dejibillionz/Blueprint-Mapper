@@ -43,9 +43,9 @@ export class FirstPersonControls {
     this.domElement = domElement;
     this.collisionBoxes = collisionBoxes;
 
-    // Start inside Common Gallery so NFT frames are immediately visible
-    this.camera.position.set(13, EYE_HEIGHT, 20);
-    this.yaw = Math.PI; // facing north toward frames
+    // Start at the museum entrance, facing north into the building
+    this.camera.position.set(41, EYE_HEIGHT, 43);
+    this.yaw = 0; // facing north (-Z) toward the museum
     this.pitch = 0;
 
     document.addEventListener("pointerlockchange", this.onLockChange);
