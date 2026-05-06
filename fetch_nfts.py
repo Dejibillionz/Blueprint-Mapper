@@ -60,7 +60,11 @@ def fetch_all_nfts(api_key: str) -> list[dict]:
             params["next"] = cursor
 
         for attempt in range(1, MAX_RETRIES + 1):
-            resp = requests.get(base_url, headers=headers, params=params, timeout=30)
+            try:
+                resp = requests.get(base_url, headers=headers, params=params, timeout=30)
+            except requests.RequestException as exc:
+                print(f"  ERROR: Network error — {exc}", file=sys.stderr)
+                sys.exit(1)
 
             if resp.status_code == 200:
                 break
@@ -95,13 +99,13 @@ def fetch_all_nfts(api_key: str) -> list[dict]:
     return nfts
 
 
-def build_metadata(raw_nfts: list[dict]) -> list[dict]:
+def build_metadata(raw_nfts: list[dict], cap: int = TARGET_COUNT) -> list[dict]:
     def rarity_rank(nft: dict) -> int:
         rarity = nft.get("rarity") or {}
         rank = rarity.get("rank")
         return rank if isinstance(rank, int) else 999_999
 
-    sorted_nfts = sorted(raw_nfts, key=rarity_rank)
+    sorted_nfts = sorted(raw_nfts, key=rarity_rank)[:cap]
 
     metadata: list[dict] = []
     for idx, nft in enumerate(sorted_nfts):
@@ -109,10 +113,11 @@ def build_metadata(raw_nfts: list[dict]) -> list[dict]:
         rank = rarity.get("rank")
         room, room_index = get_room(idx)
 
+        token_id = str(nft.get("identifier", idx))
         metadata.append({
             "index": idx,
-            "token_id": str(nft.get("identifier", "")),
-            "name": nft.get("name") or f"#{nft.get('identifier', idx)}",
+            "token_id": token_id,
+            "name": token_id,
             "image": nft.get("image_url") or "",
             "rarity_rank": rank if isinstance(rank, int) else None,
             "room": room,
@@ -142,11 +147,9 @@ def main() -> None:
         )
         sys.exit(1)
 
-    if len(raw_nfts) > TARGET_COUNT:
-        print(f"\nNote: Got {len(raw_nfts)} NFTs; trimming to {TARGET_COUNT}.")
-        raw_nfts = raw_nfts[:TARGET_COUNT]
-
     print(f"\nSorting {len(raw_nfts)} NFTs by rarity rank...")
+    if len(raw_nfts) > TARGET_COUNT:
+        print(f"Note: Got {len(raw_nfts)} NFTs; capping to {TARGET_COUNT} after sorting by rank.")
     metadata = build_metadata(raw_nfts)
 
     room_counts = {1: 0, 2: 0, 3: 0, 4: 0}
