@@ -21,10 +21,16 @@ React + Vite + Three.js first-person 3D museum for the "Museum Genesis: 3333 NFT
 - **room_1** Common Gallery (x=0–27, z=0–31): 2967 instanced frames on 4 walls + 4 partitions
 - **room_2** Uncommon Wing (x=29–51, z=4–22): 300 instanced frames
 - **room_3** Rare Collection (x=54–74, z=4–22): 56 instanced frames, all 4 walls, FW=2.28m × FH=1.66m
-- **room_4** Platinum Vault (x=77–100, z=4–22)
-- **room_5** Diamond Sanctum (x=78–88, z=22–27)
-- **legendary_foyer** (x=77–100, z=30–40): antechamber — D6 door at x=84–90, z=30
-- **room_legendary** Legendary Gallery (x=77–100, z=40–52): D7 grand door at x=84–92, z=40
+- **room_4** Platinum Vault (x=77–100, z=4–22): 11 square frames (2.5m×2.5m) — 3 west, 3 east, 5 north; entrance via gap in x=77 wall at z=24–26 from rarity galleries corridor
+- **corridor** Rarity Galleries (x=28–76, z=22–30): connects room_1–4 via doors D1–D3 + vault entrance
+
+### Key Wall Gaps (doors)
+- D1 upper/lower: x=26, z=13–15 and z=20–22 (room_1 east)
+- D2: z=22, x=38–42 (corridor → room_2)
+- D3: z=22, x=62–66 (corridor → room_3)
+- Vault entrance: x=77, z=24–26 (corridor → room_4)
+- Passage: z=30, x=37–45 (corridor → entrance hall)
+- Grand entrance: z=52, x=37–45 (exterior)
 
 ### NFT Metadata Integration (future)
 To replace placeholder frames with real NFT images:

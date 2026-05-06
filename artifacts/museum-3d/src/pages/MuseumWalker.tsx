@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
-import { buildScene, CommonNFT, UncommonNFT, RareNFT } from "../museum/MuseumScene";
+import { buildScene, CommonNFT, UncommonNFT, RareNFT, PlatinumNFT } from "../museum/MuseumScene";
 import { FirstPersonControls } from "../museum/FirstPersonControls";
 import { buildCollisionBoxes } from "../museum/collision";
 import { rooms } from "../data/floorplan";
@@ -72,6 +72,8 @@ export default function MuseumWalker() {
   const uncommonNFTsRef = useRef<UncommonNFT[]>([]);
   const rareGalleryMeshRef = useRef<THREE.InstancedMesh | null>(null);
   const rareNFTsRef = useRef<RareNFT[]>([]);
+  const platinumGalleryMeshRef = useRef<THREE.InstancedMesh | null>(null);
+  const platinumNFTsRef = useRef<PlatinumNFT[]>([]);
   const raycasterRef = useRef(new THREE.Raycaster());
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<AmbientAudio>(new AmbientAudio());
@@ -136,6 +138,7 @@ export default function MuseumWalker() {
       frameMeshes, commonGalleryMesh, commonNFTs,
       uncommonGalleryMesh, uncommonNFTs,
       rareGalleryMesh, rareNFTs,
+      platinumGalleryMesh, platinumNFTs,
     } = buildScene(scene);
     frameMeshesRef.current = frameMeshes;
     commonGalleryMeshRef.current = commonGalleryMesh;
@@ -144,6 +147,8 @@ export default function MuseumWalker() {
     uncommonNFTsRef.current = uncommonNFTs;
     rareGalleryMeshRef.current = rareGalleryMesh;
     rareNFTsRef.current = rareNFTs;
+    platinumGalleryMeshRef.current = platinumGalleryMesh;
+    platinumNFTsRef.current = platinumNFTs;
 
     const controls = new FirstPersonControls(camera, renderer.domElement, collisionBoxes);
     controlsRef.current = controls;
@@ -254,6 +259,16 @@ export default function MuseumWalker() {
           const rNear = rHits.find(h => h.distance < 5);
           if (rNear !== undefined && rNear.instanceId !== undefined) {
             const nft = rareNFTsRef.current[rNear.instanceId];
+            if (nft) hData = { title: nft.title, artist: nft.artist };
+          }
+        }
+
+        // 5. Check Platinum Vault InstancedMesh (only when inside room_4)
+        if (!hData && platinumGalleryMeshRef.current && getNearbyRoomId(camera.position) === "room_4") {
+          const pHits = raycasterRef.current.intersectObject(platinumGalleryMeshRef.current, false);
+          const pNear = pHits.find(h => h.distance < 5);
+          if (pNear !== undefined && pNear.instanceId !== undefined) {
+            const nft = platinumNFTsRef.current[pNear.instanceId];
             if (nft) hData = { title: nft.title, artist: nft.artist };
           }
         }

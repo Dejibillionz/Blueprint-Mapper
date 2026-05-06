@@ -6,7 +6,8 @@ import {
 import { buildCommonGallery, CommonNFT } from "./CommonGallery";
 import { buildUncommonGallery, UncommonNFT } from "./UncommonGallery";
 import { buildRareGallery, RareNFT } from "./RareGallery";
-export type { CommonNFT, UncommonNFT, RareNFT };
+import { buildPlatinumVault, PlatinumNFT } from "./PlatinumVault";
+export type { CommonNFT, UncommonNFT, RareNFT, PlatinumNFT };
 
 function buildWallMesh(
   x1: number, z1: number, x2: number, z2: number,
@@ -243,6 +244,9 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   // ── Rare Gallery — 56 instanced placeholder frames (all 4 walls) ─
   const { borderMesh: rgMesh, nfts: rareNFTs } = buildRareGallery(scene);
 
+  // ── Platinum Vault — 11 square placeholder frames (3W + 3E + 5N) ─
+  const { borderMesh: pgMesh, nfts: platinumNFTs } = buildPlatinumVault(scene);
+
   return {
     frameMeshes,
     commonGalleryMesh: cgMesh,
@@ -251,15 +255,19 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     uncommonNFTs,
     rareGalleryMesh: rgMesh,
     rareNFTs,
+    platinumGalleryMesh: pgMesh,
+    platinumNFTs,
   };
 }
 
 export interface BuildSceneResult {
-  frameMeshes:         THREE.Mesh[];
-  commonGalleryMesh:   THREE.InstancedMesh;
-  commonNFTs:          CommonNFT[];
-  uncommonGalleryMesh: THREE.InstancedMesh;
-  uncommonNFTs:        UncommonNFT[];
-  rareGalleryMesh:     THREE.InstancedMesh;
-  rareNFTs:            RareNFT[];
+  frameMeshes:          THREE.Mesh[];
+  commonGalleryMesh:    THREE.InstancedMesh;
+  commonNFTs:           CommonNFT[];
+  uncommonGalleryMesh:  THREE.InstancedMesh;
+  uncommonNFTs:         UncommonNFT[];
+  rareGalleryMesh:      THREE.InstancedMesh;
+  rareNFTs:             RareNFT[];
+  platinumGalleryMesh:  THREE.InstancedMesh;
+  platinumNFTs:         PlatinumNFT[];
 }
