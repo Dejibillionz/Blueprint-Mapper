@@ -632,8 +632,8 @@ export default function MuseumWalker() {
                     </div>
                   )}
                   <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-2 gap-2 text-xs text-gray-500 font-mono">
-                    <div><span className="text-gray-600">Collection</span><br /><span className="text-gray-300">Genesis 3333</span></div>
-                    <div><span className="text-gray-600">Blockchain</span><br /><span className="text-gray-300">Ethereum</span></div>
+                    <div><span className="text-gray-600">Collection</span><br /><span className="text-gray-300">The 10K Squad</span></div>
+                    <div><span className="text-gray-600">Blockchain</span><br /><span className="text-gray-300">Monad</span></div>
                   </div>
                   <div className="mt-4 pointer-events-auto">
                     <button
@@ -641,7 +641,7 @@ export default function MuseumWalker() {
                       style={{ background: `linear-gradient(135deg, ${r.color}, ${r.color}cc)` }}
                       onClick={() => {
                         const url = zoomedFrame.token_id
-                          ? `https://opensea.io/assets/ethereum/${OPENSEA_CONTRACT}/${zoomedFrame.token_id}`
+                          ? `https://opensea.io/assets/monad/${OPENSEA_CONTRACT}/${zoomedFrame.token_id}`
                           : "https://opensea.io";
                         window.open(url, "_blank");
                       }}
