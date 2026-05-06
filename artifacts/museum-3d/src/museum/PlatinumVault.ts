@@ -14,11 +14,12 @@ export interface PlatinumNFT {
 //    East  wall (x=100 face): 3 frames, same
 //    North wall (z=4  face):  5 frames, FW=2.50 m, gap=1.75 m
 //
-const FW          = 2.50;   // frame width  (square ⇒ height = FW)
-const FH          = FW;     // square
-const FD          = 0.08;   // frame depth
-const INNER_HALF  = 0.125;  // half of INNER_THICKNESS (0.25)
-const FACE_OFFSET = INNER_HALF + 0.005;
+const FW           = 2.50;   // frame width  (square ⇒ height = FW)
+const FH           = FW;     // square
+const FD           = 0.08;   // frame depth
+const INNER_HALF   = 0.125;  // half of INNER_THICKNESS (0.25)  — used for x=77 (inner wall)
+const OUTER_HALF   = 0.250;  // half of OUTER_THICKNESS (0.50)  — used for x=100 (outer wall)
+const FACE_OFFSET  = INNER_HALF + 0.005;  // inner-wall face clearance;
 
 const ROOM_X_MIN = 77;
 const ROOM_X_MAX = 100;
@@ -42,7 +43,7 @@ function westPositions(): Pos[] {
 }
 
 function eastPositions(): Pos[] {
-  const xF = ROOM_X_MAX - FACE_OFFSET;
+  const xF = ROOM_X_MAX - OUTER_HALF - 0.005;  // outer wall: half=0.25
   const span = ROOM_Z_MAX - ROOM_Z_MIN;
   const gap  = (span - 3 * FW) / 4;
   return [0, 1, 2].map(i => ({
