@@ -90,13 +90,6 @@ export const innerWalls: Wall[] = [
   { from: [52, 35], to: [52, 46] },
   { from: [52, 40], to: [62, 40] },
 
-  // -- Diamond Sanctum walls (split north wall for D5 gap x=82-85)
-  { from: [78, 22], to: [82, 22] },
-  { from: [85, 22], to: [88, 22] },
-  { from: [88, 22], to: [88, 27] },
-  { from: [78, 27], to: [88, 27] },
-  { from: [78, 22], to: [78, 27] },
-
   // -- East wing interior wall (formerly outer — now separates gift-shop from legendary area)
   { from: [62, 35], to: [62, 52] },
 
@@ -117,7 +110,6 @@ export const rooms: Room[] = [
   { id: "room_2", name: "The Uncommon Wing\n1,000 NFTs", x: 29, y: 4, width: 22, height: 18, color: 0x16213e },
   { id: "room_3", name: "The Rare Collection\n750 NFTs", x: 54, y: 4, width: 20, height: 18, color: 0x0f3460 },
   { id: "room_4", name: "The Platinum Vault", x: 77, y: 4, width: 23, height: 18, color: 0x533483 },
-  { id: "room_5", name: "The Diamond Sanctum\n28 NFTs", x: 78, y: 22, width: 10, height: 5, color: 0x950740 },
   { id: "legendary_foyer", name: "Legendary Foyer", x: 77, y: 30, width: 23, height: 10, color: 0x2c1654 },
   { id: "room_legendary", name: "The Legendary Gallery\n10 NFTs", x: 77, y: 40, width: 23, height: 12, color: 0x1a0a33 },
   { id: "corridor", name: "The Rarity Galleries", x: 28, y: 22, width: 48, height: 8, color: 0x222233 },
@@ -158,10 +150,6 @@ export const frames: FrameData[] = [
   {
     id: 8, title: "Platinum #0750", artist: "SilverThread",
     position: [86, 1.5, 4.25], rotationY: 0, color: 0xc0c0c0,
-  },
-  {
-    id: 9, title: "Diamond #3333", artist: "Zenith Collective",
-    position: [87.75, 1.5, 24.5], rotationY: Math.PI / 2, color: 0x00b4d8,
   },
   {
     id: 10, title: "Hall of Origins", artist: "Museum Genesis",

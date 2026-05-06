@@ -177,8 +177,6 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   scene.add(buildWallMesh(37, 30, 45, 30, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
   // Room 4/5 wall gap [77, 24-26]
   scene.add(buildWallMesh(77, 24, 77, 26, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
-  // D5 [82-85, 22]
-  scene.add(buildWallMesh(82, 22, 85, 22, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
   // Grand entrance [37-45, 52]
   scene.add(buildWallMesh(37, 52, 45, 52, WALL_HEIGHT - DOOR_HEIGHT, OUTER_THICKNESS, DOOR_HEIGHT, lintelMat));
   // D6 — legendary foyer entry [84-90, 30]
@@ -194,7 +192,6 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     [38, 22, 42, 22],
     [62, 22, 66, 22],
     [37, 30, 45, 30],
-    [82, 22, 85, 22],
     [37, 52, 45, 52],
     [84, 30, 90, 30], // D6 legendary foyer entry
     [84, 40, 92, 40], // D7 legendary grand door
@@ -225,7 +222,6 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     [64,  7, 5,  18, 0xffeedd],  // Room 3 north
     [86, 13, 8,  24, 0xffeedd],  // Room 4
     [86,  7, 5,  18, 0xffeedd],  // Room 4 north
-    [83, 24.5, 6, 12, 0xf0e8ff], // Room 5 Diamond Sanctum (cool purple)
     [88, 35,   6, 20, 0xc8a0ff], // Legendary Foyer (soft violet)
     [88, 46,  12, 28, 0xffd700], // Legendary Gallery — golden overhead
     [80, 44,   6, 16, 0xff8c00], // Legendary Gallery — amber west accent
