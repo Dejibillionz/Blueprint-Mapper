@@ -3,7 +3,7 @@ import type { CommonNFT } from "./CommonGallery";
 
 export type UncommonNFT = CommonNFT;
 
-// ── Frame dimensions — maximised to fill all 4 walls with even rows/cols ──
+// ── Frame dimensions — tuned so exactly 300 frames fill all 5 wall segments ──
 //
 //  Wall spans:   north      = 21.2 m  (x 29.4–50.6)
 //                south-west =  8.4 m  (x 29.4–37.8)
@@ -11,16 +11,16 @@ export type UncommonNFT = CommonNFT;
 //                west       = 17.2 m  (z  4.4–21.6)
 //                east       = 17.2 m  (z  4.4–21.6)
 //
-//  SW = 1.00 m slot width   → cols per wall:
-//    north 21 | SW 8 | SE 8 | W 17 | E 17 → 71 cols total
-//  ROWS = 4  →  71 × 4 = 284 frames
+//  SW = 1.16 m slot width   → cols per wall:
+//    north 18 | SW 7 | SE 7 | W 14 | E 14 → 60 cols total
+//  ROWS = 5  →  60 × 5 = 300 frames exactly
 //
-const FW = 0.90;                      // frame width  (was 0.76)
-const FH = (3.78 - 0.22) / 4 - 0.10; // 0.79 m       (was 0.61)
+const FW = 1.06;                      // frame width  (1.16 − 0.10 gap)
+const FH = (3.78 - 0.22) / 5 - 0.10; // 0.612 m      (slot − 0.10 gap)
 const FD = 0.05;
-const SW = 1.00;                      // slot width
-const SH = (3.78 - 0.22) / 4;        // 0.89 m slot height
-const ROWS    = 4;
+const SW = 1.16;                      // slot width
+const SH = (3.78 - 0.22) / 5;        // 0.712 m slot height
+const ROWS    = 5;
 const Y_START = 0.22;
 
 // ── Room 2 (Uncommon Wing) boundaries ────────────────────────────
