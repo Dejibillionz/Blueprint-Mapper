@@ -149,6 +149,12 @@ export class ProximityTextureManager {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.matrixAutoUpdate = false;
     mesh.matrix.copy(f.origMatrix);
+    mesh.userData = {
+      isArtFrame:   true,
+      imageUrl:     entry.image,
+      galleryIndex: gi,
+      frameIndex:   i,
+    };
     this.scene.add(mesh);
     f.mesh = mesh;
 
@@ -208,6 +214,26 @@ export class ProximityTextureManager {
         (err) => reject(err),
       );
     });
+  }
+
+  // ── Public accessors ──────────────────────────────────────────────────────
+
+  /** Returns all currently spawned standalone art meshes (for raycasting). */
+  getSpawnedMeshes(): THREE.Mesh[] {
+    const out: THREE.Mesh[] = [];
+    for (const gFrames of this.frames) {
+      for (const f of gFrames) {
+        if (f.mesh) out.push(f.mesh);
+      }
+    }
+    return out;
+  }
+
+  /** Returns the CDN image URL for a given gallery + instance slot, if metadata is ready. */
+  getImageUrl(galleryIndex: number, frameIndex: number): string | undefined {
+    const g = this.galleries[galleryIndex];
+    if (!g) return undefined;
+    return this.meta[g.metaOffset + frameIndex]?.image;
   }
 
   // ── Cleanup ───────────────────────────────────────────────────────────────

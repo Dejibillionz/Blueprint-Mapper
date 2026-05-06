@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, MutableRefObject } from "react";
 import * as THREE from "three";
 import { buildScene, CommonNFT, UncommonNFT, RareNFT, PlatinumNFT } from "../museum/MuseumScene";
 import { FirstPersonControls } from "../museum/FirstPersonControls";
@@ -207,6 +207,38 @@ export default function MuseumWalker() {
     };
     document.addEventListener("pointerlockchange", onLockChange);
 
+    // ── Helper: decompose a Matrix4 into position + quaternion ──
+    const decomposeMatrix = (m: THREE.Matrix4) => {
+      const pos = new THREE.Vector3();
+      const quat = new THREE.Quaternion();
+      const scale = new THREE.Vector3();
+      m.decompose(pos, quat, scale);
+      return { pos, quat };
+    };
+
+    // ── Helper: trigger zoom toward a frame given world pos + quat ──
+    const triggerZoom = (
+      framePos: THREE.Vector3,
+      frameQuat: THREE.Quaternion,
+      frameData: { title: string; artist: string; imageUrl?: string },
+    ) => {
+      const n = new THREE.Vector3(0, 0, 1).applyQuaternion(frameQuat);
+      const targetPos = framePos.clone().add(n.multiplyScalar(1.2));
+      targetPos.y = 1.7;
+      const yaw   = (controls as unknown as Record<string, number>)["yaw"];
+      const pitch = (controls as unknown as Record<string, number>)["pitch"];
+      zoomStateRef.current = {
+        active: true,
+        savedPos:    camera.position.clone(),
+        savedYaw:    yaw,
+        savedPitch:  pitch,
+        targetPos,
+        targetLookAt: framePos.clone(),
+        progress: 0,
+      };
+      setZoomedFrame(frameData);
+    };
+
     // ── Click handler: pointer lock OR frame zoom ──────────────
     const onClick = (e: MouseEvent) => {
       if (!controls.isLocked) {
@@ -216,29 +248,82 @@ export default function MuseumWalker() {
       if (zoomStateRef.current !== null) return;
 
       raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera);
+
+      // 1. Hand-placed feature frames (all rooms)
       const hits = raycasterRef.current.intersectObjects(frameMeshesRef.current, false);
       if (hits.length > 0) {
-        const hit = hits[0];
+        const hit  = hits[0];
         const data = hit.object.userData as { isFrame?: boolean; title?: string; artist?: string };
         if (data.isFrame) {
-          const n = new THREE.Vector3(0, 0, 1).applyQuaternion(hit.object.quaternion);
-          const targetPos = hit.object.position.clone().add(n.multiplyScalar(1.2));
-          targetPos.y = 1.7;
-
-          const yaw = (controls as unknown as Record<string, number>)["yaw"];
-          const pitch = (controls as unknown as Record<string, number>)["pitch"];
-
-          zoomStateRef.current = {
-            active: true,
-            savedPos: camera.position.clone(),
-            savedYaw: yaw,
-            savedPitch: pitch,
-            targetPos,
-            targetLookAt: hit.object.position.clone(),
-            progress: 0,
-          };
-          setZoomedFrame({ title: data.title ?? "", artist: data.artist ?? "" });
+          triggerZoom(
+            hit.object.position.clone(),
+            hit.object.quaternion.clone(),
+            { title: data.title ?? "", artist: data.artist ?? "" },
+          );
           e.stopPropagation();
+          return;
+        }
+      }
+
+      // 2. Spawned standalone art-panel meshes (ProximityTextureManager)
+      const ptm = proximityMgrRef.current;
+      if (ptm) {
+        const artMeshes = ptm.getSpawnedMeshes();
+        const artHits   = raycasterRef.current.intersectObjects(artMeshes, false);
+        const artNear   = artHits.find(h => h.distance < 8);
+        if (artNear) {
+          const ud = artNear.object.userData as {
+            isArtFrame?: boolean; imageUrl?: string;
+            galleryIndex?: number; frameIndex?: number;
+          };
+          if (ud.isArtFrame) {
+            const { pos, quat } = decomposeMatrix((artNear.object as THREE.Mesh).matrix);
+            const nftIdx = typeof ud.galleryIndex === "number" && typeof ud.frameIndex === "number"
+              ? (() => {
+                  // gallery order matches PTM constructor: 0=platinum,1=rare,2=uncommon,3=common
+                  const galleryNfts = [platinumNFTsRef, rareNFTsRef, uncommonNFTsRef, commonNFTsRef];
+                  return galleryNfts[ud.galleryIndex!]?.current[ud.frameIndex!];
+                })()
+              : undefined;
+            triggerZoom(pos, quat, {
+              title:    nftIdx?.title  ?? "NFT",
+              artist:   nftIdx?.artist ?? "10K Squad",
+              imageUrl: ud.imageUrl,
+            });
+            e.stopPropagation();
+            return;
+          }
+        }
+      }
+
+      // 3. Instanced border meshes (frame not yet loaded as standalone mesh)
+      // Map: [instancedMesh, galleryIndex in PTM, nftRef]
+      type NftLike = { title: string; artist: string };
+      type GalleryEntry = [THREE.InstancedMesh | null, number, MutableRefObject<NftLike[]>];
+      const galleryEntries: GalleryEntry[] = [
+        [commonGalleryMeshRef.current,   3, commonNFTsRef   as MutableRefObject<NftLike[]>],
+        [uncommonGalleryMeshRef.current, 2, uncommonNFTsRef as MutableRefObject<NftLike[]>],
+        [rareGalleryMeshRef.current,     1, rareNFTsRef     as MutableRefObject<NftLike[]>],
+        [platinumGalleryMeshRef.current, 0, platinumNFTsRef as MutableRefObject<NftLike[]>],
+      ];
+      for (const [imesh, gi, nftRef] of galleryEntries) {
+        if (!imesh) continue;
+        const iHits = raycasterRef.current.intersectObject(imesh, false);
+        const iNear = iHits.find(h => h.distance < 8);
+        if (iNear !== undefined && iNear.instanceId !== undefined) {
+          const instanceId = iNear.instanceId;
+          const m = new THREE.Matrix4();
+          imesh.getMatrixAt(instanceId, m);
+          const { pos, quat } = decomposeMatrix(m);
+          const nft = nftRef.current[instanceId];
+          const imageUrl = ptm?.getImageUrl(gi, instanceId);
+          triggerZoom(pos, quat, {
+            title:    nft?.title  ?? "NFT",
+            artist:   nft?.artist ?? "10K Squad",
+            imageUrl,
+          });
+          e.stopPropagation();
+          return;
         }
       }
     };
@@ -512,6 +597,18 @@ export default function MuseumWalker() {
                   </span>
                   <span className="text-[10px] text-gray-400 font-mono">Museum Genesis</span>
                 </div>
+                {zoomedFrame.imageUrl && (
+                  <div className="relative w-full bg-black/40"
+                       style={{ borderBottom: `1px solid ${r.color}22` }}>
+                    <img
+                      src={zoomedFrame.imageUrl}
+                      alt={zoomedFrame.title}
+                      className="w-full object-contain"
+                      style={{ maxHeight: 260 }}
+                      crossOrigin="anonymous"
+                    />
+                  </div>
+                )}
                 <div className="px-5 py-4">
                   <p className="text-white text-xl font-bold leading-snug">{zoomedFrame.title}</p>
                   <p className="text-gray-400 text-sm mt-0.5">{zoomedFrame.artist}</p>
