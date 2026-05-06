@@ -276,6 +276,18 @@ export class ProximityTextureManager {
 
   // ── Public accessors ──────────────────────────────────────────────────────
 
+  getStats(): { metaReady: boolean; total: number; loaded: number; loading: number; error: number; unloaded: number } {
+    let loaded = 0, loading = 0, error = 0, unloaded = 0;
+    for (const gFrames of this.frames)
+      for (const f of gFrames) {
+        if      (f.state === "loaded")   loaded++;
+        else if (f.state === "loading")  loading++;
+        else if (f.state === "error")    error++;
+        else                             unloaded++;
+      }
+    return { metaReady: this.metaReady, total: loaded + loading + error + unloaded, loaded, loading, error, unloaded };
+  }
+
   getSpawnedMeshes(): THREE.Mesh[] {
     const out: THREE.Mesh[] = [];
     for (const gFrames of this.frames)

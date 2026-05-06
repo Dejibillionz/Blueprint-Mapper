@@ -66,6 +66,7 @@ export default function MuseumWalker() {
   const [hoverFrame, setHoverFrame] = useState<HoverFrame | null>(null);
   const [webglSupported] = useState(isWebGLAvailable);
   const [muted, setMuted] = useState(false);
+  const [dbg, setDbg] = useState<{meta:boolean;loaded:number;loading:number;error:number;total:number;room:string|null} | null>(null);
 
   // Refs for the Three.js state that needs to persist between renders
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -432,6 +433,15 @@ export default function MuseumWalker() {
     };
     animate();
 
+    // Poll PTM stats every second for debug overlay
+    const statsInterval = setInterval(() => {
+      const ptm = proximityMgrRef.current;
+      const cam = cameraRef.current;
+      if (!ptm || !cam) return;
+      const s = ptm.getStats();
+      setDbg({ meta: s.metaReady, loaded: s.loaded, loading: s.loading, error: s.error, total: s.total, room: getNearbyRoomId(cam.position) });
+    }, 1000);
+
     const onResize = () => {
       if (!mount) return;
       camera.aspect = mount.clientWidth / mount.clientHeight;
@@ -441,6 +451,7 @@ export default function MuseumWalker() {
     window.addEventListener("resize", onResize);
 
     return () => {
+      clearInterval(statsInterval);
       cancelAnimationFrame(animId);
       controls.dispose();
       audioRef.current.dispose();
@@ -545,6 +556,21 @@ export default function MuseumWalker() {
         <div className="absolute top-4 left-4 pointer-events-none select-none">
           <p className="text-indigo-400 font-bold text-sm tracking-widest">MUSEUM GENESIS</p>
           <p className="text-gray-500 text-xs">3333 NFT Collection</p>
+        </div>
+      )}
+
+      {/* ── Debug HUD (top-right) ── */}
+      {locked && !zoomedFrame && dbg && (
+        <div className="absolute top-4 right-4 pointer-events-none select-none font-mono text-[11px] space-y-0.5"
+             style={{ background: "rgba(0,0,0,0.75)", borderRadius: 8, padding: "8px 12px", border: "1px solid #ffffff22" }}>
+          <p style={{ color: dbg.meta ? "#4ade80" : "#f87171" }}>
+            {dbg.meta ? "✔ Meta loaded" : "⏳ Meta loading…"}
+          </p>
+          <p style={{ color: "#a78bfa" }}>Room: {dbg.room ?? "—"}</p>
+          <p style={{ color: "#4ade80" }}>✔ Loaded: {dbg.loaded}</p>
+          <p style={{ color: "#facc15" }}>⏳ Loading: {dbg.loading}</p>
+          {dbg.error > 0 && <p style={{ color: "#f87171" }}>✗ Error: {dbg.error}</p>}
+          <p style={{ color: "#6b7280" }}>Total tracked: {dbg.total}</p>
         </div>
       )}
 
