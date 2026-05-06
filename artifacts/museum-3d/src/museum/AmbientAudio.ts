@@ -98,16 +98,6 @@ const PROFILES: RoomProfile[] = [
     masterGain: 0.14, lfoFreq: 0.19, lfoDepth: 3,
   },
   {
-    roomId: "legendary_foyer",
-    notes: [
-      { freq: 36.7,  type: "sine",     gain: 0.80 },
-      { freq: 55.0,  type: "sine",     gain: 0.36 },
-      { freq: 73.4,  type: "triangle", gain: 0.18 },
-    ],
-    filterType: "lowpass", filterFreq: 220, filterQ: 2.5,
-    masterGain: 0.20, lfoFreq: 0.04, lfoDepth: 10,
-  },
-  {
     roomId: "room_legendary",
     notes: [
       { freq: 27.5,  type: "sine",     gain: 0.90 },
