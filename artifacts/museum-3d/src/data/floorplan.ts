@@ -45,7 +45,7 @@ export const outerWalls: Wall[] = [
 
 export const innerWalls: Wall[] = [
   // -- Room 1 east wall split for 2 doors (D1 upper z=13-15, D1 lower z=20-22)
-  { from: [26, 6], to: [26, 13] },
+  { from: [26, 0], to: [26, 13] },
   { from: [26, 15], to: [26, 20] },
   { from: [26, 22], to: [26, 30] },
 
