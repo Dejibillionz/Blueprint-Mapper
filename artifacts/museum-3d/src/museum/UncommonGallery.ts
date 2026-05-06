@@ -3,36 +3,24 @@ import type { CommonNFT } from "./CommonGallery";
 
 export type UncommonNFT = CommonNFT;
 
-// ── Frame dimensions — tuned so exactly 300 frames fill all 5 wall segments ──
-//
-//  Wall spans:   north      = 21.2 m  (x 29.4–50.6)
-//                south-west =  8.4 m  (x 29.4–37.8)
-//                south-east =  8.4 m  (x 42.2–50.6)
-//                west       = 17.2 m  (z  4.4–21.6)
-//                east       = 17.2 m  (z  4.4–21.6)
-//
-//  SW = 1.16 m slot width   → cols per wall:
-//    north 18 | SW 7 | SE 7 | W 14 | E 14 → 60 cols total
-//  ROWS = 5  →  60 × 5 = 300 frames exactly
-//
-const FW = 1.06;                      // frame width  (1.16 − 0.10 gap)
-const FH = (3.78 - 0.22) / 5 - 0.10; // 0.612 m      (slot − 0.10 gap)
+const FW = 1.06;
+const FH = (3.78 - 0.22) / 5 - 0.10; // 0.612 m
 const FD = 0.05;
-const SW = 1.16;                      // slot width
-const SH = (3.78 - 0.22) / 5;        // 0.712 m slot height
+const ART_W   = FW - 0.12;      // 0.94 m
+const ART_H   = FH - 0.09;      // 0.522 m
+const ART_OFF = FD / 2 + 0.005; // 5 mm past border front face = 0.030 m
+
+const SW = 1.16;
+const SH = (3.78 - 0.22) / 5;
 const ROWS    = 5;
 const Y_START = 0.22;
 
-// ── Room 2 (Uncommon Wing) boundaries ────────────────────────────
-// room_2: x = 29–51, z = 4–22
-// Inner wall thickness 0.25 → half = 0.125
 const INNER_HALF = 0.125;
 const ROOM_X_MIN = 29;
 const ROOM_X_MAX = 51;
 const ROOM_Z_MIN = 4;
 const ROOM_Z_MAX = 22;
 
-// ── Position generator ────────────────────────────────────────────
 type FPos = { x: number; y: number; z: number; rotY: number };
 
 function fillX(
@@ -69,27 +57,17 @@ function fillZ(
 
 function generatePositions(): FPos[] {
   const out: FPos[] = [];
-
-  // North wall (z=4, inner face faces south) — art faces south (rotY=0)
   fillZ(ROOM_Z_MIN + INNER_HALF + 0.005, 0, ROOM_X_MIN + 0.4, ROOM_X_MAX - 0.4, out);
-
-  // South wall (z=22) — split around D2 door (x=38–42), art faces north (rotY=π)
   fillZ(ROOM_Z_MAX - INNER_HALF - 0.005, Math.PI, ROOM_X_MIN + 0.4, 37.8, out);
   fillZ(ROOM_Z_MAX - INNER_HALF - 0.005, Math.PI, 42.2, ROOM_X_MAX - 0.4, out);
-
-  // West wall (x=29, east face) — art faces east (rotY = -π/2)
   fillX(ROOM_X_MIN + INNER_HALF + 0.005, -Math.PI / 2, ROOM_Z_MIN + 0.4, ROOM_Z_MAX - 0.4, out);
-
-  // East wall (x=51, west face) — art faces west (rotY = π/2)
-  fillX(ROOM_X_MAX - INNER_HALF - 0.005, Math.PI / 2, ROOM_Z_MIN + 0.4, ROOM_Z_MAX - 0.4, out);
-
+  fillX(ROOM_X_MAX - INNER_HALF - 0.005,  Math.PI / 2, ROOM_Z_MIN + 0.4, ROOM_Z_MAX - 0.4, out);
   return out;
 }
 
-// ── Public builder ────────────────────────────────────────────────
 export function buildUncommonGallery(scene: THREE.Scene): {
   borderMesh: THREE.InstancedMesh;
-  artMesh:    THREE.InstancedMesh;
+  artMeshes:  THREE.Mesh[];
   nfts:       UncommonNFT[];
 } {
   const positions = generatePositions();
@@ -101,42 +79,42 @@ export function buildUncommonGallery(scene: THREE.Scene): {
     artist: "Origin Protocol",
   }));
 
-  // Gold-green border
   const borderGeo = new THREE.BoxGeometry(FW, FH, FD);
   const borderMat = new THREE.MeshStandardMaterial({
     color: 0xb8d46e, metalness: 0.55, roughness: 0.40,
   });
   const borderMesh = new THREE.InstancedMesh(borderGeo, borderMat, count);
+  borderMesh.userData = { isUncommonGallery: true, nfts };
 
-  // Dark green canvas placeholder — inner recess
-  const artGeo = new THREE.BoxGeometry(FW - 0.12, FH - 0.09, FD * 0.5);
-  const artMat = new THREE.MeshStandardMaterial({ color: 0x0d1a0d, roughness: 0.9 });
-  const artMesh = new THREE.InstancedMesh(artGeo, artMat, count);
-
-  // Populate matrices
-  const dummy  = new THREE.Object3D();
-  const fwdVec = new THREE.Vector3();
-
+  const dummy = new THREE.Object3D();
   positions.forEach(({ x, y, z, rotY }, i) => {
     dummy.position.set(x, y, z);
     dummy.rotation.set(0, rotY, 0);
     dummy.updateMatrix();
     borderMesh.setMatrixAt(i, dummy.matrix);
+  });
+  borderMesh.instanceMatrix.needsUpdate = true;
+  scene.add(borderMesh);
 
-    fwdVec.set(0, 0, FD * 0.22).applyEuler(dummy.rotation);
-    dummy.position.set(x + fwdVec.x, y + fwdVec.y, z + fwdVec.z);
-    dummy.updateMatrix();
-    artMesh.setMatrixAt(i, dummy.matrix);
+  const artGeo = new THREE.PlaneGeometry(ART_W, ART_H);
+  const towardRoom = new THREE.Vector3();
+
+  const artMeshes: THREE.Mesh[] = positions.map(({ x, y, z, rotY }) => {
+    towardRoom.set(-Math.sin(rotY), 0, Math.cos(rotY));
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x0d1a0d, roughness: 0.9, side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(artGeo, mat);
+    mesh.position.set(
+      x + towardRoom.x * ART_OFF,
+      y,
+      z + towardRoom.z * ART_OFF,
+    );
+    mesh.rotation.y = rotY;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+    return mesh;
   });
 
-  borderMesh.instanceMatrix.needsUpdate = true;
-  artMesh.instanceMatrix.needsUpdate    = true;
-
-  borderMesh.userData = { isUncommonGallery: true, nfts };
-  artMesh.userData    = { isUncommonGallery: true, nfts };
-
-  scene.add(borderMesh);
-  scene.add(artMesh);
-
-  return { borderMesh, artMesh, nfts };
+  return { borderMesh, artMeshes, nfts };
 }

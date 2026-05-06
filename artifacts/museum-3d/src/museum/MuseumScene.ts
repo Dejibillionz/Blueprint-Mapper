@@ -32,7 +32,6 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
   const frameMeshes: THREE.Mesh[] = [];
 
   for (const f of frames) {
-    // Outer frame border
     const frameGeo = new THREE.BoxGeometry(1.6, 1.1, 0.08);
     const frameMat = new THREE.MeshStandardMaterial({ color: 0xc8a96e, metalness: 0.6, roughness: 0.4 });
     const frameMesh = new THREE.Mesh(frameGeo, frameMat);
@@ -43,10 +42,7 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
     scene.add(frameMesh);
     frameMeshes.push(frameMesh);
 
-    // Inner canvas (artwork)
     const canvasGeo = new THREE.BoxGeometry(1.3, 0.85, 0.06);
-
-    // Make a procedural artwork texture
     const size = 256;
     const artCanvas = document.createElement("canvas");
     artCanvas.width = size;
@@ -87,7 +83,6 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
     const artMat = new THREE.MeshStandardMaterial({ map: artTex, roughness: 0.9, metalness: 0 });
     const artMesh = new THREE.Mesh(canvasGeo, artMat);
 
-    // Offset canvas slightly forward of frame
     const fwd = new THREE.Vector3(0, 0, 0.025);
     fwd.applyEuler(new THREE.Euler(0, f.rotationY, 0));
     artMesh.position.set(
@@ -100,7 +95,6 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
     scene.add(artMesh);
     frameMeshes.push(artMesh);
 
-    // Ceiling spotlight — offset 1.5 m out from the wall so it angles down at the art
     const spotOffset = new THREE.Vector3(0, 0, 1.5).applyEuler(new THREE.Euler(0, f.rotationY, 0));
     const spot = new THREE.SpotLight(0xfff5e0, 18, 9, Math.PI / 9, 0.35);
     spot.position.set(
@@ -121,7 +115,6 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
 }
 
 export function buildScene(scene: THREE.Scene): BuildSceneResult {
-  // ── Floor & ceiling ──────────────────────────────────────────
   const woodTex = new THREE.TextureLoader().load("/floor-wood.jpg");
   woodTex.wrapS = THREE.RepeatWrapping;
   woodTex.wrapT = THREE.RepeatWrapping;
@@ -148,81 +141,59 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   ceil.position.set(50, WALL_HEIGHT, 26);
   scene.add(ceil);
 
-  // ── Wall materials ────────────────────────────────────────────
   const outerMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.8 });
   const innerMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.75 });
 
-  // ── Outer walls (solid, full height) ─────────────────────────
   for (const w of outerWalls) {
     const mesh = buildWallMesh(w.from[0], w.from[1], w.to[0], w.to[1], WALL_HEIGHT, OUTER_THICKNESS, 0, outerMat);
     scene.add(mesh);
   }
 
-  // ── Inner walls (full height + door lintels) ──────────────────
   for (const w of innerWalls) {
-    // Full-height solid wall section
     scene.add(buildWallMesh(w.from[0], w.from[1], w.to[0], w.to[1], WALL_HEIGHT, INNER_THICKNESS, 0, innerMat));
   }
 
-  // ── Door lintels for the main door gaps ──────────────────────
   const lintelMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.8 });
-  // D1 upper [26, 13-15]
   scene.add(buildWallMesh(26, 13, 26, 15, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
-  // D1 lower [26, 20-22]
   scene.add(buildWallMesh(26, 20, 26, 22, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
-  // D2 [38-42, 22]
   scene.add(buildWallMesh(38, 22, 42, 22, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
-  // D3 [62-66, 22]
   scene.add(buildWallMesh(62, 22, 66, 22, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
-  // Corridor passage [37-45, 30]
   scene.add(buildWallMesh(37, 30, 45, 30, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
-  // Grand entrance [37-45, 52]
   scene.add(buildWallMesh(37, 52, 45, 52, WALL_HEIGHT - DOOR_HEIGHT, OUTER_THICKNESS, DOOR_HEIGHT, lintelMat));
-  // Vault entrance from rarity galleries [77, 24-26]
   scene.add(buildWallMesh(77, 24, 77, 26, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
 
-  // ── Door frame trim ───────────────────────────────────────────
   const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x8b7355, metalness: 0.2, roughness: 0.6 });
   const doorFrames: Array<[number, number, number, number]> = [
-    [26, 13, 26, 15],
-    [26, 20, 26, 22],
-    [38, 22, 42, 22],
-    [62, 22, 66, 22],
-    [37, 30, 45, 30],
-    [37, 52, 45, 52],
-    [77, 24, 77, 26], // vault entrance from rarity galleries
+    [26, 13, 26, 15], [26, 20, 26, 22],
+    [38, 22, 42, 22], [62, 22, 66, 22],
+    [37, 30, 45, 30], [37, 52, 45, 52],
+    [77, 24, 77, 26],
   ];
   for (const [x1, z1, x2, z2] of doorFrames) {
     scene.add(buildWallMesh(x1, z1, x2, z2, 0.1, INNER_THICKNESS + 0.05, DOOR_HEIGHT - 0.05, doorFrameMat));
   }
 
-  // ── Lighting ──────────────────────────────────────────────────
-  // Strong warm ambient so no surface is ever pitch black
   const ambient = new THREE.AmbientLight(0xfff5e8, 1.8);
   scene.add(ambient);
-
-  // Hemisphere for subtle sky/ground colour difference
   const hemi = new THREE.HemisphereLight(0xffe8cc, 0x302010, 0.9);
   scene.add(hemi);
 
-  // Overhead ceiling point lights per room — boosted to fill large spaces
   const lightPositions: Array<[number, number, number, number, number]> = [
-    // [x, z, intensity, distance, color]
-    [8,  10, 8,  26, 0xfff5e0],  // Room 1 north
-    [8,  24, 6,  22, 0xfff5e0],  // Room 1 south
-    [20, 10, 6,  22, 0xfff5e0],  // Room 1 east
-    [20, 24, 5,  20, 0xfff5e0],  // Room 1 south-east
-    [40, 13, 8,  24, 0xffeedd],  // Room 2
-    [40,  7, 5,  18, 0xffeedd],  // Room 2 north
-    [64, 13, 8,  24, 0xffeedd],  // Room 3
-    [64,  7, 5,  18, 0xffeedd],  // Room 3 north
-    [86, 13, 8,  24, 0xffeedd],  // Room 4
-    [86,  7, 5,  18, 0xffeedd],  // Room 4 north
-    [42, 26, 5,  20, 0xfff5e0],  // Corridor west
-    [62, 26, 5,  20, 0xfff5e0],  // Corridor east
-    [41, 41, 8,  20, 0xfff0e0],  // Entrance Hall
-    [18, 43, 4,  14, 0xfff5e0],  // Ticket / Info
-    [57, 43, 4,  14, 0xfff5e0],  // Gift Shop
+    [8,  10, 8,  26, 0xfff5e0],
+    [8,  24, 6,  22, 0xfff5e0],
+    [20, 10, 6,  22, 0xfff5e0],
+    [20, 24, 5,  20, 0xfff5e0],
+    [40, 13, 8,  24, 0xffeedd],
+    [40,  7, 5,  18, 0xffeedd],
+    [64, 13, 8,  24, 0xffeedd],
+    [64,  7, 5,  18, 0xffeedd],
+    [86, 13, 8,  24, 0xffeedd],
+    [86,  7, 5,  18, 0xffeedd],
+    [42, 26, 5,  20, 0xfff5e0],
+    [62, 26, 5,  20, 0xfff5e0],
+    [41, 41, 8,  20, 0xfff0e0],
+    [18, 43, 4,  14, 0xfff5e0],
+    [57, 43, 4,  14, 0xfff5e0],
   ];
 
   for (const [x, z, intensity, distance, color] of lightPositions) {
@@ -232,34 +203,26 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     scene.add(light);
   }
 
-  // ── Hand-placed feature frames ────────────────────────────────
   const frameMeshes = buildFrameMeshes(scene);
 
-  // ── Common Gallery — 2967 instanced placeholder frames ────────
-  const { borderMesh: cgMesh, artMesh: cgArtMesh, nfts: commonNFTs } = buildCommonGallery(scene);
-
-  // ── Uncommon Gallery — 300 instanced placeholder frames ───────
-  const { borderMesh: ugMesh, artMesh: ugArtMesh, nfts: uncommonNFTs } = buildUncommonGallery(scene);
-
-  // ── Rare Gallery — 56 instanced placeholder frames (all 4 walls) ─
-  const { borderMesh: rgMesh, artMesh: rgArtMesh, nfts: rareNFTs } = buildRareGallery(scene);
-
-  // ── Platinum Vault — 11 square placeholder frames (3W + 3E + 5N) ─
-  const { borderMesh: pgMesh, artMesh: pgArtMesh, nfts: platinumNFTs } = buildPlatinumVault(scene);
+  const { borderMesh: cgMesh, artMeshes: cgArtMeshes, nfts: commonNFTs }     = buildCommonGallery(scene);
+  const { borderMesh: ugMesh, artMeshes: ugArtMeshes, nfts: uncommonNFTs }   = buildUncommonGallery(scene);
+  const { borderMesh: rgMesh, artMeshes: rgArtMeshes, nfts: rareNFTs }       = buildRareGallery(scene);
+  const { borderMesh: pgMesh, artMeshes: pgArtMeshes, nfts: platinumNFTs }   = buildPlatinumVault(scene);
 
   return {
     frameMeshes,
-    commonGalleryMesh:   cgMesh,
-    commonArtMesh:       cgArtMesh,
+    commonGalleryMesh:    cgMesh,
+    commonArtMeshes:      cgArtMeshes,
     commonNFTs,
-    uncommonGalleryMesh: ugMesh,
-    uncommonArtMesh:     ugArtMesh,
+    uncommonGalleryMesh:  ugMesh,
+    uncommonArtMeshes:    ugArtMeshes,
     uncommonNFTs,
-    rareGalleryMesh:     rgMesh,
-    rareArtMesh:         rgArtMesh,
+    rareGalleryMesh:      rgMesh,
+    rareArtMeshes:        rgArtMeshes,
     rareNFTs,
-    platinumGalleryMesh: pgMesh,
-    platinumArtMesh:     pgArtMesh,
+    platinumGalleryMesh:  pgMesh,
+    platinumArtMeshes:    pgArtMeshes,
     platinumNFTs,
   };
 }
@@ -267,15 +230,15 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
 export interface BuildSceneResult {
   frameMeshes:          THREE.Mesh[];
   commonGalleryMesh:    THREE.InstancedMesh;
-  commonArtMesh:        THREE.InstancedMesh;
+  commonArtMeshes:      THREE.Mesh[];
   commonNFTs:           CommonNFT[];
   uncommonGalleryMesh:  THREE.InstancedMesh;
-  uncommonArtMesh:      THREE.InstancedMesh;
+  uncommonArtMeshes:    THREE.Mesh[];
   uncommonNFTs:         UncommonNFT[];
   rareGalleryMesh:      THREE.InstancedMesh;
-  rareArtMesh:          THREE.InstancedMesh;
+  rareArtMeshes:        THREE.Mesh[];
   rareNFTs:             RareNFT[];
   platinumGalleryMesh:  THREE.InstancedMesh;
-  platinumArtMesh:      THREE.InstancedMesh;
+  platinumArtMeshes:    THREE.Mesh[];
   platinumNFTs:         PlatinumNFT[];
 }

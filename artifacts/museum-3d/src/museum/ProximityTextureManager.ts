@@ -1,11 +1,7 @@
 import * as THREE from "three";
 
-// ── Public types ──────────────────────────────────────────────────────────────
-
 export interface GalleryConfig {
-  artMesh:    THREE.InstancedMesh;
-  artW:       number;
-  artH:       number;
+  artMeshes:  THREE.Mesh[];
   metaOffset: number;
   loadDist:   number;
   roomId:     string;
@@ -20,25 +16,17 @@ interface MetaEntry {
   room_index:   number;
 }
 
-// ── Internal per-frame state ──────────────────────────────────────────────────
-
 type FrameState = "unloaded" | "loading" | "loaded" | "error";
 
 interface Frame {
   pos:        THREE.Vector3;
   state:      FrameState;
-  mesh?:      THREE.Mesh;
-  origMatrix: THREE.Matrix4;
+  mesh:       THREE.Mesh;
   needsUFlip: boolean;
-  flippedTex?: THREE.Texture;
 }
-
-// ── Constants ─────────────────────────────────────────────────────────────────
 
 const MAX_CONCURRENT = 8;
 const MAX_CACHED     = 200;
-
-// ── Manager ───────────────────────────────────────────────────────────────────
 
 export class ProximityTextureManager {
   private scene:      THREE.Scene;
@@ -47,8 +35,6 @@ export class ProximityTextureManager {
   private meta:       MetaEntry[] = [];
   private metaReady   = false;
   private activeLoads = 0;
-
-  private readonly zeroMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 
   private textureCache = new Map<string, THREE.Texture>();
   private cacheOrder:   string[] = [];
@@ -59,22 +45,17 @@ export class ProximityTextureManager {
     this.scene     = scene;
     this.galleries = galleries;
 
-    const _localZ = new THREE.Vector3();
-    this.frames = galleries.map(g => {
-      const arr: Frame[] = [];
-      const m = new THREE.Matrix4();
-      for (let i = 0; i < g.artMesh.count; i++) {
-        g.artMesh.getMatrixAt(i, m);
-        m.extractBasis(new THREE.Vector3(), new THREE.Vector3(), _localZ);
-        arr.push({
-          pos:        new THREE.Vector3().setFromMatrixPosition(m),
-          state:      "unloaded",
-          origMatrix: m.clone(),
-          needsUFlip: Math.abs(_localZ.x) > 0.5,
-        });
-      }
-      return arr;
-    });
+    // Build frame state from pre-created art meshes.
+    // needsUFlip: east/west-facing walls (|sin(rotY)| ≈ 1) show the back face
+    // of the plane to room-interior viewers — texture U must be flipped.
+    this.frames = galleries.map(g =>
+      g.artMeshes.map(mesh => ({
+        pos:        mesh.position.clone(),
+        state:      "unloaded" as FrameState,
+        mesh,
+        needsUFlip: Math.abs(Math.sin(mesh.rotation.y)) > 0.5,
+      })),
+    );
 
     void this.fetchMeta();
   }
@@ -111,7 +92,7 @@ export class ProximityTextureManager {
       for (let i = 0; i < gFrames.length; i++) {
         const f = gFrames[i];
 
-        if (f.state === "loading" && f.mesh) {
+        if (f.state === "loading") {
           const mat = f.mesh.material as THREE.MeshStandardMaterial;
           mat.emissiveIntensity = 0.20 + 0.20 * Math.sin(time * 3.5);
           continue;
@@ -119,9 +100,9 @@ export class ProximityTextureManager {
 
         if (f.state !== "unloaded") continue;
 
-        const dx   = f.pos.x - cameraPos.x;
-        const dz   = f.pos.z - cameraPos.z;
-        const dSq  = dx * dx + dz * dz;
+        const dx  = f.pos.x - cameraPos.x;
+        const dz  = f.pos.z - cameraPos.z;
+        const dSq = dx * dx + dz * dz;
 
         if (!inRoom && dSq > distSq) continue;
 
@@ -129,7 +110,6 @@ export class ProximityTextureManager {
       }
     }
 
-    // Sort nearest-first so frames closest to the player load first
     candidates.sort((a, b) => a.distSq - b.distSq);
 
     for (const c of candidates) {
@@ -138,7 +118,7 @@ export class ProximityTextureManager {
     }
   }
 
-  // ── Texture load + mesh swap ───────────────────────────────────────────────
+  // ── Texture load — updates the pre-created mesh material in place ──────────
 
   private async loadFrame(gi: number, i: number) {
     const g     = this.galleries[gi];
@@ -150,40 +130,27 @@ export class ProximityTextureManager {
       return;
     }
 
-    // Prefer the locally-downloaded AVIF; fall back to CDN if absent/failed
     const localUrl = `/nft-images/${entry.token_id}.avif`;
     const cdnUrl   = entry.image;
 
     f.state = "loading";
     this.activeLoads++;
 
-    const geo = new THREE.PlaneGeometry(g.artW, g.artH);
-    const mat = new THREE.MeshStandardMaterial({
+    // Swap to a loading-indicator material (pulsed in update())
+    const loadingMat = new THREE.MeshStandardMaterial({
       color:             0x1a2a3a,
       emissive:          new THREE.Color(0x4488ff),
       emissiveIntensity: 0.30,
       roughness:         0.9,
       side:              THREE.DoubleSide,
     });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.matrixAutoUpdate = false;
-    mesh.matrix.copy(f.origMatrix);
-    mesh.matrixWorldNeedsUpdate = true;
-    mesh.userData = {
-      isArtFrame:   true,
-      imageUrl:     cdnUrl,
-      galleryIndex: gi,
-      frameIndex:   i,
-    };
-    this.scene.add(mesh);
-    f.mesh = mesh;
+    (f.mesh.material as THREE.MeshStandardMaterial).dispose();
+    f.mesh.material = loadingMat;
 
-    g.artMesh.setMatrixAt(i, this.zeroMatrix);
-    g.artMesh.instanceMatrix.needsUpdate = true;
+    // Store CDN URL so click handler can show it in the zoom panel
+    f.mesh.userData.imageUrl = cdnUrl;
 
     try {
-      // Try local JPEG first (served by Vite, no CORS/AVIF issues)
-      // Fall back to CDN if local file isn't ready yet
       let tex: THREE.Texture;
       try {
         tex = await this.loadTexture(localUrl);
@@ -198,7 +165,6 @@ export class ProximityTextureManager {
         clone.repeat.x   = -1;
         clone.offset.x   =  1;
         clone.needsUpdate = true;
-        f.flippedTex = clone;
         map = clone;
       }
 
@@ -207,28 +173,21 @@ export class ProximityTextureManager {
         roughness: 0.85,
         side:      THREE.DoubleSide,
       });
-      (mesh.material as THREE.MeshStandardMaterial).dispose();
-      mesh.material = finalMat;
+      (f.mesh.material as THREE.MeshStandardMaterial).dispose();
+      f.mesh.material = finalMat;
       f.state = "loaded";
     } catch (err) {
-      console.error(`[ProximityTextureManager] Texture load failed gi=${gi} i=${i} url=${entry.image}:`, err);
+      console.error(`[ProximityTextureManager] Texture load failed gi=${gi} i=${i}:`, err);
       f.state = "error";
-      const m = mesh.material as THREE.MeshStandardMaterial;
-      m.emissive.set(0x220000);
+      const m = f.mesh.material as THREE.MeshStandardMaterial;
+      m.emissive?.set(0x220000);
       m.emissiveIntensity = 0.05;
     } finally {
       this.activeLoads--;
     }
   }
 
-  // ── Fetch-based texture loader (avoids AVIF format issues) ─────────────────
-  //
-  // Using fetch() instead of THREE.TextureLoader directly gives us:
-  //   1. An explicit Accept header so CDNs that do content-negotiation prefer
-  //      JPEG/PNG/WebP over AVIF, which has uneven WebGL support across devices.
-  //   2. Blob URLs that bypass any lingering CORS preflight caching issues.
-  //   3. Proper error propagation — TextureLoader swallows errors in some
-  //      Three.js versions; fetch() always throws on non-2xx.
+  // ── Fetch-based texture loader ─────────────────────────────────────────────
 
   private loadTexture(url: string): Promise<THREE.Texture> {
     const cached = this.textureCache.get(url);
@@ -242,12 +201,10 @@ export class ProximityTextureManager {
       let tex: THREE.Texture;
 
       if (url.startsWith("/")) {
-        // Local file served by Vite — use TextureLoader directly (no CORS, no AVIF)
         tex = await new Promise<THREE.Texture>((resolve, reject) => {
           new THREE.TextureLoader().load(url, resolve, undefined, reject);
         });
       } else {
-        // Remote CDN — fetch as blob so we control Accept header and error handling
         const resp = await fetch(url, {
           headers: { Accept: "image/jpeg, image/png, image/webp, image/avif, image/*;q=0.8" },
         });
@@ -288,28 +245,18 @@ export class ProximityTextureManager {
     return { metaReady: this.metaReady, total: loaded + loading + error + unloaded, loaded, loading, error, unloaded };
   }
 
-  getSpawnedMeshes(): THREE.Mesh[] {
-    const out: THREE.Mesh[] = [];
-    for (const gFrames of this.frames)
-      for (const f of gFrames)
-        if (f.mesh) out.push(f.mesh);
-    return out;
-  }
-
   getImageUrl(galleryIndex: number, frameIndex: number): string | undefined {
     const g = this.galleries[galleryIndex];
     if (!g) return undefined;
     return this.meta[g.metaOffset + frameIndex]?.image;
   }
 
-  /** Returns the token_id for a given gallery + instance slot, if metadata is ready. */
   getTokenId(galleryIndex: number, frameIndex: number): string | undefined {
     const g = this.galleries[galleryIndex];
     if (!g) return undefined;
     return this.meta[g.metaOffset + frameIndex]?.token_id;
   }
 
-  /** Returns rarity_rank and rarity_score for a given gallery + instance slot, if metadata is ready. */
   getMetaEntry(galleryIndex: number, frameIndex: number): { rarityRank: number | null; rarityScore: number } | undefined {
     const g = this.galleries[galleryIndex];
     if (!g) return undefined;
@@ -323,12 +270,7 @@ export class ProximityTextureManager {
   dispose() {
     for (const gFrames of this.frames) {
       for (const f of gFrames) {
-        if (f.mesh) {
-          this.scene.remove(f.mesh);
-          (f.mesh.material as THREE.MeshStandardMaterial).dispose();
-          f.mesh.geometry.dispose();
-        }
-        f.flippedTex?.dispose();
+        (f.mesh.material as THREE.MeshStandardMaterial).dispose();
       }
     }
     for (const tex of this.textureCache.values()) tex.dispose();

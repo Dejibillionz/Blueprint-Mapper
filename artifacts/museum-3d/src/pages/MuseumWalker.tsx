@@ -145,10 +145,10 @@ export default function MuseumWalker() {
     const collisionBoxes = buildCollisionBoxes();
     const {
       frameMeshes,
-      commonGalleryMesh,   commonArtMesh,   commonNFTs,
-      uncommonGalleryMesh, uncommonArtMesh, uncommonNFTs,
-      rareGalleryMesh,     rareArtMesh,     rareNFTs,
-      platinumGalleryMesh, platinumArtMesh, platinumNFTs,
+      commonGalleryMesh,   commonArtMeshes,   commonNFTs,
+      uncommonGalleryMesh, uncommonArtMeshes, uncommonNFTs,
+      rareGalleryMesh,     rareArtMeshes,     rareNFTs,
+      platinumGalleryMesh, platinumArtMeshes, platinumNFTs,
     } = buildScene(scene);
 
     frameMeshesRef.current          = frameMeshes;
@@ -162,19 +162,16 @@ export default function MuseumWalker() {
     platinumNFTsRef.current         = platinumNFTs;
 
     // ── Proximity texture manager ──────────────────────────────────
-    // Art-panel dimensions mirror what each gallery builder uses:
-    //   Common:    FW−0.10=0.42 × FH−0.07=0.29
-    //   Uncommon:  FW−0.12=0.94 × FH−0.09=0.522
-    //   Rare:      FW−0.16=2.12 × FH−0.14=1.52
-    //   Platinum:  FW−0.14=2.36 × FH−0.14=2.36
-    //
     // metaOffset maps gallery → metadata.json indices:
     //   Platinum 0-10, Rare 11-65, Uncommon 66-365, Common 366-3332
+    // Art plane meshes are pre-created by each gallery builder and
+    // positioned 5 mm past the gold border front face so they are
+    // never depth-culled.  PTM just swaps their material on load.
     const ptm = new ProximityTextureManager(scene, [
-      { artMesh: platinumArtMesh, artW: 2.36,  artH: 2.36,  metaOffset: 0,   loadDist: 30, roomId: "room_4" },
-      { artMesh: rareArtMesh,     artW: 2.12,  artH: 1.52,  metaOffset: 11,  loadDist: 25, roomId: "room_3" },
-      { artMesh: uncommonArtMesh, artW: 0.94,  artH: 0.522, metaOffset: 66,  loadDist: 15, roomId: "room_2" },
-      { artMesh: commonArtMesh,   artW: 0.42,  artH: 0.29,  metaOffset: 366, loadDist: 10, roomId: "room_1" },
+      { artMeshes: platinumArtMeshes, metaOffset: 0,   loadDist: 30, roomId: "room_4" },
+      { artMeshes: rareArtMeshes,     metaOffset: 11,  loadDist: 25, roomId: "room_3" },
+      { artMeshes: uncommonArtMeshes, metaOffset: 66,  loadDist: 15, roomId: "room_2" },
+      { artMeshes: commonArtMeshes,   metaOffset: 366, loadDist: 10, roomId: "room_1" },
     ]);
 
     // When metadata loads, update NFT titles/artists from real token data
@@ -271,47 +268,7 @@ export default function MuseumWalker() {
         }
       }
 
-      // 2. Spawned standalone art-panel meshes (ProximityTextureManager)
-      const ptm = proximityMgrRef.current;
-      if (ptm) {
-        const artMeshes = ptm.getSpawnedMeshes();
-        const artHits   = raycasterRef.current.intersectObjects(artMeshes, false);
-        const artNear   = artHits.find(h => h.distance < 8);
-        if (artNear) {
-          const ud = artNear.object.userData as {
-            isArtFrame?: boolean; imageUrl?: string;
-            galleryIndex?: number; frameIndex?: number;
-          };
-          if (ud.isArtFrame) {
-            const { pos, quat } = decomposeMatrix((artNear.object as THREE.Mesh).matrix);
-            const nftIdx = typeof ud.galleryIndex === "number" && typeof ud.frameIndex === "number"
-              ? (() => {
-                  // gallery order matches PTM constructor: 0=platinum,1=rare,2=uncommon,3=common
-                  const galleryNfts = [platinumNFTsRef, rareNFTsRef, uncommonNFTsRef, commonNFTsRef];
-                  return galleryNfts[ud.galleryIndex!]?.current[ud.frameIndex!];
-                })()
-              : undefined;
-            const tokenId = typeof ud.galleryIndex === "number" && typeof ud.frameIndex === "number"
-              ? ptm?.getTokenId(ud.galleryIndex, ud.frameIndex)
-              : undefined;
-            const metaEntry = typeof ud.galleryIndex === "number" && typeof ud.frameIndex === "number"
-              ? ptm?.getMetaEntry(ud.galleryIndex, ud.frameIndex)
-              : undefined;
-            triggerZoom(pos, quat, {
-              title:       nftIdx?.title  ?? "NFT",
-              artist:      nftIdx?.artist ?? "10K Squad",
-              imageUrl:    ud.imageUrl,
-              token_id:    tokenId,
-              rarityRank:  metaEntry?.rarityRank,
-              rarityScore: metaEntry?.rarityScore,
-            });
-            e.stopPropagation();
-            return;
-          }
-        }
-      }
-
-      // 3. Instanced border meshes (frame not yet loaded as standalone mesh)
+      // 2. Instanced border meshes — zoom on click via instanceId
       // Map: [instancedMesh, galleryIndex in PTM, nftRef]
       type NftLike = { title: string; artist: string };
       type GalleryEntry = [THREE.InstancedMesh | null, number, MutableRefObject<NftLike[]>];
