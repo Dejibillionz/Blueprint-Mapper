@@ -273,6 +273,13 @@ export class ProximityTextureManager {
     return this.meta[g.metaOffset + frameIndex]?.image;
   }
 
+  /** Returns the token_id for a given gallery + instance slot, if metadata is ready. */
+  getTokenId(galleryIndex: number, frameIndex: number): string | undefined {
+    const g = this.galleries[galleryIndex];
+    if (!g) return undefined;
+    return this.meta[g.metaOffset + frameIndex]?.token_id;
+  }
+
   // ── Cleanup ───────────────────────────────────────────────────────────────
 
   dispose() {

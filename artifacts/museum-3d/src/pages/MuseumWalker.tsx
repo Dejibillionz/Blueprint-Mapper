@@ -8,10 +8,13 @@ import { drawMinimap, MAP_W, MAP_H } from "../museum/minimap";
 import { AmbientAudio } from "../museum/AmbientAudio";
 import { ProximityTextureManager } from "../museum/ProximityTextureManager";
 
+const OPENSEA_CONTRACT = "0x818030837e8350ba63e64d7dc01a547fa73c8279";
+
 interface ZoomedFrame {
   title: string;
   artist: string;
   imageUrl?: string;
+  token_id?: string;
 }
 
 interface HoverFrame {
@@ -220,7 +223,7 @@ export default function MuseumWalker() {
     const triggerZoom = (
       framePos: THREE.Vector3,
       frameQuat: THREE.Quaternion,
-      frameData: { title: string; artist: string; imageUrl?: string },
+      frameData: { title: string; artist: string; imageUrl?: string; token_id?: string },
     ) => {
       const n = new THREE.Vector3(0, 0, 1).applyQuaternion(frameQuat);
       const targetPos = framePos.clone().add(n.multiplyScalar(1.2));
@@ -285,10 +288,14 @@ export default function MuseumWalker() {
                   return galleryNfts[ud.galleryIndex!]?.current[ud.frameIndex!];
                 })()
               : undefined;
+            const tokenId = typeof ud.galleryIndex === "number" && typeof ud.frameIndex === "number"
+              ? ptm?.getTokenId(ud.galleryIndex, ud.frameIndex)
+              : undefined;
             triggerZoom(pos, quat, {
               title:    nftIdx?.title  ?? "NFT",
               artist:   nftIdx?.artist ?? "10K Squad",
               imageUrl: ud.imageUrl,
+              token_id: tokenId,
             });
             e.stopPropagation();
             return;
@@ -317,10 +324,12 @@ export default function MuseumWalker() {
           const { pos, quat } = decomposeMatrix(m);
           const nft = nftRef.current[instanceId];
           const imageUrl = ptm?.getImageUrl(gi, instanceId);
+          const token_id = ptm?.getTokenId(gi, instanceId);
           triggerZoom(pos, quat, {
             title:    nft?.title  ?? "NFT",
             artist:   nft?.artist ?? "10K Squad",
             imageUrl,
+            token_id,
           });
           e.stopPropagation();
           return;
@@ -620,7 +629,12 @@ export default function MuseumWalker() {
                     <button
                       className="w-full py-2.5 rounded-lg font-bold text-sm text-black tracking-wide transition-all hover:brightness-110 active:scale-95"
                       style={{ background: `linear-gradient(135deg, ${r.color}, ${r.color}cc)` }}
-                      onClick={() => window.open("https://opensea.io", "_blank")}
+                      onClick={() => {
+                        const url = zoomedFrame.token_id
+                          ? `https://opensea.io/assets/ethereum/${OPENSEA_CONTRACT}/${zoomedFrame.token_id}`
+                          : "https://opensea.io";
+                        window.open(url, "_blank");
+                      }}
                     >
                       Place Bid
                     </button>
