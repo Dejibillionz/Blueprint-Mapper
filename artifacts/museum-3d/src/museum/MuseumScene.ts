@@ -173,6 +173,50 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     scene.add(buildWallMesh(x1, z1, x2, z2, 0.1, INNER_THICKNESS + 0.05, DOOR_HEIGHT - 0.05, doorFrameMat));
   }
 
+  // ── Open door panels ────────────────────────────────────────────
+  // Each door is a panel pivoting around its hinge edge.
+  // pivot.rotation.y = closedY + delta, where:
+  //   closedY aligns the panel with the wall gap
+  //   delta (~85°) swings it open into the adjacent space
+  // Panel world-direction = (cos θ, 0, -sin θ) for θ = pivot.rotation.y
+  const doorPanelMat = new THREE.MeshStandardMaterial({
+    color: 0x3d2310, roughness: 0.62, metalness: 0.15,
+  });
+  const OPEN_ANG = Math.PI * 0.47; // ≈ 84.6°
+
+  function addDoorPanel(
+    pivX: number, pivZ: number,
+    dW: number,
+    closedY: number,
+    delta: number,
+  ) {
+    const pivot = new THREE.Object3D();
+    pivot.position.set(pivX, 0, pivZ);
+    pivot.rotation.y = closedY + delta;
+    const panel = new THREE.Mesh(
+      new THREE.BoxGeometry(dW, DOOR_HEIGHT, 0.05),
+      doorPanelMat,
+    );
+    panel.position.set(dW / 2, DOOR_HEIGHT / 2, 0);
+    panel.castShadow = true;
+    panel.receiveShadow = true;
+    pivot.add(panel);
+    scene.add(pivot);
+  }
+
+  // D1 upper — x=26, z=13-15: opens west into Common Gallery
+  addDoorPanel(26, 13, 2, -Math.PI / 2, -OPEN_ANG);
+  // D1 lower — x=26, z=20-22: opens west into Common Gallery
+  addDoorPanel(26, 22, 2,  Math.PI / 2,  OPEN_ANG);
+  // D2 — z=22, x=38-42: double door, opens into corridor
+  addDoorPanel(38, 22, 2,  0,          -OPEN_ANG);
+  addDoorPanel(42, 22, 2,  Math.PI,     OPEN_ANG);
+  // D3 — z=22, x=62-66: double door, opens into corridor
+  addDoorPanel(62, 22, 2,  0,          -OPEN_ANG);
+  addDoorPanel(66, 22, 2,  Math.PI,     OPEN_ANG);
+  // Vault entrance — x=77, z=24-26: opens west into corridor
+  addDoorPanel(77, 24, 2, -Math.PI / 2, -OPEN_ANG);
+
   const ambient = new THREE.AmbientLight(0xfff5e8, 1.8);
   scene.add(ambient);
   const hemi = new THREE.HemisphereLight(0xffe8cc, 0x302010, 0.9);
