@@ -29,6 +29,33 @@ interface Frame {
   state:      FrameState;
   mesh?:      THREE.Mesh;
   origMatrix: THREE.Matrix4;   // saved so we can restore the instance if needed
+  /**
+   * Whether this frame's texture needs a horizontal U-flip.
+   *
+   * East/west-facing walls have a plane normal in the ±X direction. Players
+   * inside the gallery always approach these walls from the side OPPOSITE to
+   * where the normal points, so Three.js renders the *back* face of the
+   * DoubleSide plane. The back face is geometrically identical to the front
+   * face but appears horizontally mirrored because left and right are swapped
+   * when you look at any flat surface from behind.
+   *
+   * Detection: extract the local Z axis (normal direction) from origMatrix.
+   * If |normal.x| > 0.5 the wall is east/west-facing and needs the flip.
+   * North/south walls (normal.z dominant) show their front face to viewers
+   * and need no correction.
+   */
+  needsUFlip: boolean;
+  /**
+   * A cloned texture created when needsUFlip is true.
+   *
+   * The U-flip transform (repeat.x = −1, offset.x = 1) is applied to this
+   * clone, NOT to the LRU-cached original. This means a URL that appears on
+   * both a flipped and a non-flipped wall gets two independent texture
+   * objects — each configured correctly for its wall — without poisoning the
+   * shared cache entry. The clone must be disposed when the frame is torn
+   * down (see dispose()).
+   */
+  flippedTex?: THREE.Texture;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -60,15 +87,26 @@ export class ProximityTextureManager {
     this.galleries = galleries;
 
     // Pre-cache world positions from instance matrices
+    const _localZ = new THREE.Vector3();
     this.frames = galleries.map(g => {
       const arr: Frame[] = [];
       const m = new THREE.Matrix4();
       for (let i = 0; i < g.artMesh.count; i++) {
         g.artMesh.getMatrixAt(i, m);
+
+        // Extract the local Z axis (the plane normal direction in world space).
+        // Column 2 of the upper-left 3×3 of the matrix gives local +Z.
+        m.extractBasis(new THREE.Vector3(), new THREE.Vector3(), _localZ);
+        // East/west-facing frames (|normal.x| > 0.5) show their back face to
+        // interior viewers — the texture must be flipped horizontally so the
+        // image is not mirrored.
+        const needsUFlip = Math.abs(_localZ.x) > 0.5;
+
         arr.push({
           pos:        new THREE.Vector3().setFromMatrixPosition(m),
           state:      "unloaded",
           origMatrix: m.clone(),
+          needsUFlip,
         });
       }
       return arr;
@@ -164,8 +202,30 @@ export class ProximityTextureManager {
 
     try {
       const tex = await this.loadTexture(entry.image);
+
+      // ── UV orientation correction ──────────────────────────────────────────
+      // East/west-facing frames (needsUFlip=true) render their back face to
+      // interior viewers. Three.js DoubleSide doesn't flip UVs for the back
+      // face, so the image appears horizontally mirrored. Fix by negating the
+      // U repeat and shifting the offset so U still runs 0→1 (just reversed).
+      //
+      // IMPORTANT: the transform is applied to a *clone* of the cached texture,
+      // never to the cached original. If the same CDN URL is later requested by
+      // a non-flipped wall the cached copy is still in its default state.
+      // The clone is stored in f.flippedTex so dispose() can free it.
+      let map: THREE.Texture = tex;
+      if (f.needsUFlip) {
+        const clone    = tex.clone();
+        clone.wrapS    = THREE.RepeatWrapping;
+        clone.repeat.x = -1;
+        clone.offset.x =  1;
+        clone.needsUpdate = true;
+        f.flippedTex = clone;
+        map = clone;
+      }
+
       const finalMat = new THREE.MeshStandardMaterial({
-        map:       tex,
+        map,
         roughness: 0.85,
         side:      THREE.DoubleSide,
       });
@@ -246,6 +306,8 @@ export class ProximityTextureManager {
           (f.mesh.material as THREE.MeshStandardMaterial).dispose();
           f.mesh.geometry.dispose();
         }
+        // Dispose any cloned (flipped) texture that isn't in the LRU cache.
+        f.flippedTex?.dispose();
       }
     }
     for (const tex of this.textureCache.values()) tex.dispose();
