@@ -62,7 +62,7 @@ export const innerWalls: Wall[] = [
 
   // -- Room 4 west wall (gap at z=24-26 = vault entrance from rarity galleries)
   { from: [77, 4],  to: [77, 24] },
-  { from: [77, 26], to: [77, 35] },
+  { from: [77, 26], to: [77, 30] },
 
   // -- Rarity corridor NORTH wall split for D2 (x=38-42) and D3 (x=62-66)
   { from: [28, 22], to: [38, 22] },
@@ -90,14 +90,8 @@ export const innerWalls: Wall[] = [
   { from: [52, 35], to: [52, 46] },
   { from: [52, 40], to: [62, 40] },
 
-  // -- East wing interior wall (formerly outer — now separates gift-shop from legendary area)
-  { from: [62, 35], to: [62, 52] },
-
-  // -- Close east nook south of corridor (x=62-77, z=30)
-  { from: [62, 30], to: [77, 30] },
-
-  // -- Legendary Gallery west wall (x=77, z=35 to z=52)
-  { from: [77, 35], to: [77, 52] },
+  // -- Corridor south wall east section (seals the empty zone x=62-100 south of corridor)
+  { from: [62, 30], to: [100, 30] },
 ];
 
 export const rooms: Room[] = [
@@ -105,7 +99,6 @@ export const rooms: Room[] = [
   { id: "room_2", name: "The Uncommon Wing\n1,000 NFTs", x: 29, y: 4, width: 22, height: 18, color: 0x16213e },
   { id: "room_3", name: "The Rare Collection\n750 NFTs", x: 54, y: 4, width: 20, height: 18, color: 0x0f3460 },
   { id: "room_4", name: "The Platinum Vault", x: 77, y: 4, width: 23, height: 18, color: 0x533483 },
-  { id: "room_legendary", name: "The Legendary Gallery\n10 NFTs", x: 77, y: 22, width: 23, height: 30, color: 0x1a0a33 },
   { id: "corridor", name: "The Rarity Galleries", x: 28, y: 22, width: 48, height: 8, color: 0x222233 },
   { id: "entrance_hall", name: "Entrance Hall\nNav Hub", x: 33, y: 35, width: 15, height: 11, color: 0x1f4068 },
   { id: "ticket_info", name: "Ticket / Info", x: 14, y: 40, width: 8, height: 6, color: 0x2d4a22 },

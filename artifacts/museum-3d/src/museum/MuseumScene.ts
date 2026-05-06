@@ -217,9 +217,6 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     [64,  7, 5,  18, 0xffeedd],  // Room 3 north
     [86, 13, 8,  24, 0xffeedd],  // Room 4
     [86,  7, 5,  18, 0xffeedd],  // Room 4 north
-    [88, 37,  12, 30, 0xffd700], // Legendary Gallery — golden overhead
-    [80, 44,   6, 16, 0xff8c00], // Legendary Gallery — amber west accent
-    [97, 44,   6, 16, 0xff8c00], // Legendary Gallery — amber east accent
     [42, 26, 5,  20, 0xfff5e0],  // Corridor west
     [62, 26, 5,  20, 0xfff5e0],  // Corridor east
     [41, 41, 8,  20, 0xfff0e0],  // Entrance Hall
