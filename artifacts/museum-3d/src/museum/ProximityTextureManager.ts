@@ -309,6 +309,15 @@ export class ProximityTextureManager {
     return this.meta[g.metaOffset + frameIndex]?.token_id;
   }
 
+  /** Returns rarity_rank and rarity_score for a given gallery + instance slot, if metadata is ready. */
+  getMetaEntry(galleryIndex: number, frameIndex: number): { rarityRank: number | null; rarityScore: number } | undefined {
+    const g = this.galleries[galleryIndex];
+    if (!g) return undefined;
+    const entry = this.meta[g.metaOffset + frameIndex];
+    if (!entry) return undefined;
+    return { rarityRank: entry.rarity_rank, rarityScore: entry.rarity_score };
+  }
+
   // ── Cleanup ───────────────────────────────────────────────────────────────
 
   dispose() {

@@ -15,6 +15,8 @@ interface ZoomedFrame {
   artist: string;
   imageUrl?: string;
   token_id?: string;
+  rarityRank?: number | null;
+  rarityScore?: number;
 }
 
 interface HoverFrame {
@@ -224,7 +226,7 @@ export default function MuseumWalker() {
     const triggerZoom = (
       framePos: THREE.Vector3,
       frameQuat: THREE.Quaternion,
-      frameData: { title: string; artist: string; imageUrl?: string; token_id?: string },
+      frameData: { title: string; artist: string; imageUrl?: string; token_id?: string; rarityRank?: number | null; rarityScore?: number },
     ) => {
       const n = new THREE.Vector3(0, 0, 1).applyQuaternion(frameQuat);
       const targetPos = framePos.clone().add(n.multiplyScalar(1.2));
@@ -292,11 +294,16 @@ export default function MuseumWalker() {
             const tokenId = typeof ud.galleryIndex === "number" && typeof ud.frameIndex === "number"
               ? ptm?.getTokenId(ud.galleryIndex, ud.frameIndex)
               : undefined;
+            const metaEntry = typeof ud.galleryIndex === "number" && typeof ud.frameIndex === "number"
+              ? ptm?.getMetaEntry(ud.galleryIndex, ud.frameIndex)
+              : undefined;
             triggerZoom(pos, quat, {
-              title:    nftIdx?.title  ?? "NFT",
-              artist:   nftIdx?.artist ?? "10K Squad",
-              imageUrl: ud.imageUrl,
-              token_id: tokenId,
+              title:       nftIdx?.title  ?? "NFT",
+              artist:      nftIdx?.artist ?? "10K Squad",
+              imageUrl:    ud.imageUrl,
+              token_id:    tokenId,
+              rarityRank:  metaEntry?.rarityRank,
+              rarityScore: metaEntry?.rarityScore,
             });
             e.stopPropagation();
             return;
@@ -324,13 +331,16 @@ export default function MuseumWalker() {
           imesh.getMatrixAt(instanceId, m);
           const { pos, quat } = decomposeMatrix(m);
           const nft = nftRef.current[instanceId];
-          const imageUrl = ptm?.getImageUrl(gi, instanceId);
-          const token_id = ptm?.getTokenId(gi, instanceId);
+          const imageUrl  = ptm?.getImageUrl(gi, instanceId);
+          const token_id  = ptm?.getTokenId(gi, instanceId);
+          const metaEntry = ptm?.getMetaEntry(gi, instanceId);
           triggerZoom(pos, quat, {
-            title:    nft?.title  ?? "NFT",
-            artist:   nft?.artist ?? "10K Squad",
+            title:       nft?.title  ?? "NFT",
+            artist:      nft?.artist ?? "10K Squad",
             imageUrl,
             token_id,
+            rarityRank:  metaEntry?.rarityRank,
+            rarityScore: metaEntry?.rarityScore,
           });
           e.stopPropagation();
           return;
@@ -647,6 +657,23 @@ export default function MuseumWalker() {
                 <div className="px-5 py-4">
                   <p className="text-white text-xl font-bold leading-snug">{zoomedFrame.title}</p>
                   <p className="text-gray-400 text-sm mt-0.5">{zoomedFrame.artist}</p>
+                  {(zoomedFrame.rarityRank != null || zoomedFrame.rarityScore != null) && (
+                    <div className="mt-3 flex items-center gap-2">
+                      {zoomedFrame.rarityRank != null && (
+                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold font-mono border"
+                              style={{ color: r.color, borderColor: r.color + "55", background: r.bg }}>
+                          # {zoomedFrame.rarityRank}
+                          <span className="font-normal text-[10px] opacity-70 ml-0.5">RANK</span>
+                        </span>
+                      )}
+                      {zoomedFrame.rarityScore != null && (
+                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono border border-white/10 text-gray-300 bg-white/5">
+                          {zoomedFrame.rarityScore.toFixed(2)}
+                          <span className="text-[10px] text-gray-500 ml-0.5">SCORE</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-2 gap-2 text-xs text-gray-500 font-mono">
                     <div><span className="text-gray-600">Collection</span><br /><span className="text-gray-300">Genesis 3333</span></div>
                     <div><span className="text-gray-600">Blockchain</span><br /><span className="text-gray-300">Ethereum</span></div>
