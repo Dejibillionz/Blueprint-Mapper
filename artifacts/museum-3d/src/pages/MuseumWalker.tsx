@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
-import { buildScene, CommonNFT, UncommonNFT, RareNFT, RARE_NORTH_COUNT } from "../museum/MuseumScene";
+import { buildScene, CommonNFT, UncommonNFT, RareNFT } from "../museum/MuseumScene";
 import { FirstPersonControls } from "../museum/FirstPersonControls";
 import { buildCollisionBoxes } from "../museum/collision";
 import { rooms } from "../data/floorplan";
@@ -70,8 +70,7 @@ export default function MuseumWalker() {
   const commonNFTsRef = useRef<CommonNFT[]>([]);
   const uncommonGalleryMeshRef = useRef<THREE.InstancedMesh | null>(null);
   const uncommonNFTsRef = useRef<UncommonNFT[]>([]);
-  const rareGalleryNorthMeshRef = useRef<THREE.InstancedMesh | null>(null);
-  const rareGallerySidesMeshRef = useRef<THREE.InstancedMesh | null>(null);
+  const rareGalleryMeshRef = useRef<THREE.InstancedMesh | null>(null);
   const rareNFTsRef = useRef<RareNFT[]>([]);
   const raycasterRef = useRef(new THREE.Raycaster());
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
@@ -136,15 +135,14 @@ export default function MuseumWalker() {
     const {
       frameMeshes, commonGalleryMesh, commonNFTs,
       uncommonGalleryMesh, uncommonNFTs,
-      rareGalleryNorthMesh, rareGallerySidesMesh, rareNFTs,
+      rareGalleryMesh, rareNFTs,
     } = buildScene(scene);
     frameMeshesRef.current = frameMeshes;
     commonGalleryMeshRef.current = commonGalleryMesh;
     commonNFTsRef.current = commonNFTs;
     uncommonGalleryMeshRef.current = uncommonGalleryMesh;
     uncommonNFTsRef.current = uncommonNFTs;
-    rareGalleryNorthMeshRef.current = rareGalleryNorthMesh;
-    rareGallerySidesMeshRef.current = rareGallerySidesMesh;
+    rareGalleryMeshRef.current = rareGalleryMesh;
     rareNFTsRef.current = rareNFTs;
 
     const controls = new FirstPersonControls(camera, renderer.domElement, collisionBoxes);
@@ -250,23 +248,13 @@ export default function MuseumWalker() {
           }
         }
 
-        // 4. Check Rare Gallery InstancedMeshes (only when inside room_3)
-        if (!hData && getNearbyRoomId(camera.position) === "room_3") {
-          if (rareGalleryNorthMeshRef.current) {
-            const rNHits = raycasterRef.current.intersectObject(rareGalleryNorthMeshRef.current, false);
-            const rNNear = rNHits.find(h => h.distance < 5);
-            if (rNNear !== undefined && rNNear.instanceId !== undefined) {
-              const nft = rareNFTsRef.current[rNNear.instanceId];
-              if (nft) hData = { title: nft.title, artist: nft.artist };
-            }
-          }
-          if (!hData && rareGallerySidesMeshRef.current) {
-            const rSHits = raycasterRef.current.intersectObject(rareGallerySidesMeshRef.current, false);
-            const rSNear = rSHits.find(h => h.distance < 5);
-            if (rSNear !== undefined && rSNear.instanceId !== undefined) {
-              const nft = rareNFTsRef.current[RARE_NORTH_COUNT + rSNear.instanceId];
-              if (nft) hData = { title: nft.title, artist: nft.artist };
-            }
+        // 4. Check Rare Gallery InstancedMesh (only when inside room_3)
+        if (!hData && rareGalleryMeshRef.current && getNearbyRoomId(camera.position) === "room_3") {
+          const rHits = raycasterRef.current.intersectObject(rareGalleryMeshRef.current, false);
+          const rNear = rHits.find(h => h.distance < 5);
+          if (rNear !== undefined && rNear.instanceId !== undefined) {
+            const nft = rareNFTsRef.current[rNear.instanceId];
+            if (nft) hData = { title: nft.title, artist: nft.artist };
           }
         }
 
