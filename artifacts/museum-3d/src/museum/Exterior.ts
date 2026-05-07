@@ -214,5 +214,27 @@ export function buildExterior(scene: THREE.Scene): WallBox[] {
   corniceE.castShadow = true;
   scene.add(corniceE);
 
+  // ── Invisible exterior boundary walls ────────────────────────────────────
+  // These AABB boxes have no geometry — they are purely collision barriers that
+  // prevent the player from wandering into the infinite void beyond the plaza.
+  //
+  // Playable exterior footprint:
+  //   West boundary  x = -12  (12 m west of building)
+  //   East boundary  x = 112  (12 m east of building)
+  //   South boundary z = 98   (~46 m south of grand entrance at z=52)
+  //   North boundary handled by the building's own outer walls (z=0 wall)
+  //
+  // Each box is thick enough that even at max movement speed the player
+  // cannot tunnel through it in one frame.
+
+  // South invisible wall (spans across full width, z=98 outward)
+  extraBoxes.push({ minX: -20, maxX: 120, minZ: 98, maxZ: 9999 });
+  // East invisible wall
+  extraBoxes.push({ minX: 112, maxX: 9999, minZ: -20, maxZ: 110 });
+  // West invisible wall
+  extraBoxes.push({ minX: -9999, maxX: -12, minZ: -20, maxZ: 110 });
+  // North-exterior cap (prevents escaping behind the building via the notch area)
+  extraBoxes.push({ minX: -20, maxX: 120, minZ: -9999, maxZ: -12 });
+
   return extraBoxes;
 }
