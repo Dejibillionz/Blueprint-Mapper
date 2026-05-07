@@ -64,6 +64,23 @@ function isWebGLAvailable(): boolean {
   } catch { return false; }
 }
 
+interface NftTrait {
+  trait_type: string;
+  value: string | number;
+}
+
+interface NftDetail {
+  traits: NftTrait[];
+  owner: string | null;
+}
+
+const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+function shortenAddress(addr: string): string {
+  if (addr.length < 12) return addr;
+  return addr.slice(0, 6) + "…" + addr.slice(-4);
+}
+
 export default function MuseumWalker() {
   const mountRef = useRef<HTMLDivElement>(null);
   const [locked, setLocked] = useState(false);
@@ -73,6 +90,9 @@ export default function MuseumWalker() {
   const [webglSupported] = useState(isWebGLAvailable);
   const [muted, setMuted] = useState(false);
   const [dbg, setDbg] = useState<{meta:boolean;loaded:number;loading:number;error:number;total:number;room:string|null} | null>(null);
+  const [nftDetail, setNftDetail] = useState<NftDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(false);
 
   // Refs for the Three.js state that needs to persist between renders
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -104,6 +124,32 @@ export default function MuseumWalker() {
   useEffect(() => {
     audioRef.current.setMuted(muted);
   }, [muted]);
+
+  useEffect(() => {
+    if (!zoomedFrame?.token_id) {
+      setNftDetail(null);
+      setDetailLoading(false);
+      setDetailError(false);
+      return;
+    }
+    setNftDetail(null);
+    setDetailError(false);
+    setDetailLoading(true);
+    const controller = new AbortController();
+    fetch(`${API_BASE}/api/nft/${encodeURIComponent(zoomedFrame.token_id)}`, { signal: controller.signal })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<NftDetail>;
+      })
+      .then(d => { setNftDetail(d); setDetailLoading(false); })
+      .catch(err => {
+        if ((err as Error).name !== "AbortError") {
+          setDetailError(true);
+          setDetailLoading(false);
+        }
+      });
+    return () => controller.abort();
+  }, [zoomedFrame?.token_id]);
 
   const exitZoom = useCallback(() => {
     const st = zoomStateRef.current;
@@ -616,7 +662,7 @@ export default function MuseumWalker() {
                     />
                   </div>
                 )}
-                <div className="px-5 py-4">
+                <div className="px-5 py-4 overflow-y-auto" style={{ maxHeight: "55vh" }}>
                   <p className="text-white text-xl font-bold leading-snug">{zoomedFrame.title}</p>
                   <p className="text-gray-400 text-sm mt-0.5">{zoomedFrame.artist}</p>
                   {(zoomedFrame.rarityRank != null || zoomedFrame.rarityScore != null) && (
@@ -636,10 +682,71 @@ export default function MuseumWalker() {
                       )}
                     </div>
                   )}
+
+                  {/* ── Traits ── */}
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <p className="text-[10px] uppercase tracking-widest text-gray-500 font-mono mb-2">Traits</p>
+                    {detailLoading && (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[...Array(6)].map((_, i) => (
+                          <div key={i} className="rounded-lg px-2.5 py-2 bg-white/5 animate-pulse">
+                            <div className="h-2 w-10 bg-white/10 rounded mb-1.5" />
+                            <div className="h-2.5 w-14 bg-white/15 rounded" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {!detailLoading && detailError && (
+                      <p className="text-gray-600 text-xs font-mono">Metadata unavailable</p>
+                    )}
+                    {!detailLoading && !detailError && nftDetail && nftDetail.traits.length > 0 && (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {nftDetail.traits.map((t, i) => (
+                          <div key={i} className="rounded-lg px-2.5 py-2 border border-white/8"
+                               style={{ background: r.bg + "55" }}>
+                            <p className="text-[9px] uppercase tracking-wider font-mono leading-none"
+                               style={{ color: r.color + "cc" }}>
+                              {t.trait_type}
+                            </p>
+                            <p className="text-white text-[11px] font-semibold mt-1 leading-tight truncate">
+                              {String(t.value)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {!detailLoading && !detailError && nftDetail && nftDetail.traits.length === 0 && (
+                      <p className="text-gray-600 text-xs font-mono">No traits</p>
+                    )}
+                  </div>
+
+                  {/* ── Collection / Blockchain / Owner ── */}
                   <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-2 gap-2 text-xs text-gray-500 font-mono">
                     <div><span className="text-gray-600">Collection</span><br /><span className="text-gray-300">The 10K Squad</span></div>
                     <div><span className="text-gray-600">Blockchain</span><br /><span className="text-gray-300">Monad</span></div>
+                    <div className="col-span-2">
+                      <span className="text-gray-600">Owner</span><br />
+                      {detailLoading && (
+                        <span className="inline-block h-3 w-28 bg-white/10 rounded animate-pulse mt-0.5" />
+                      )}
+                      {!detailLoading && nftDetail?.owner && (
+                        <a
+                          href={`https://explorer.monad.xyz/address/${nftDetail.owner}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-gray-300 hover:underline pointer-events-auto"
+                          style={{ color: r.color }}
+                          title={nftDetail.owner}
+                        >
+                          {shortenAddress(nftDetail.owner)}
+                        </a>
+                      )}
+                      {!detailLoading && !nftDetail?.owner && !detailLoading && (
+                        <span className="text-gray-600">—</span>
+                      )}
+                    </div>
                   </div>
+
                   <div className="mt-4 pointer-events-auto">
                     <button
                       className="w-full py-2.5 rounded-lg font-bold text-sm text-black tracking-wide transition-all hover:brightness-110 active:scale-95"
