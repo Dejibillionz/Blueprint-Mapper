@@ -7,7 +7,7 @@ const OPENSEA_CHAIN    = "monad";
 
 router.get("/nft/:token_id", async (req, res) => {
   const { token_id } = req.params;
-  const apiKey = process.env.OPENSEA_API_KEY ?? "";
+  const apiKey = process.env.OPENSEA_API_KEY ?? process.env.VITE_OPENSEA_API_KEY ?? "";
 
   if (!apiKey) {
     res.status(503).json({ error: "OpenSea API key not configured" });
