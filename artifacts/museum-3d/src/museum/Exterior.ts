@@ -370,70 +370,37 @@ export function buildExterior(scene: THREE.Scene): WallBox[] {
   keystone.castShadow = true;
   scene.add(keystone);
 
-  // Lintel / sign panel — flat box with canvas texture showing "MUSEUM GENESIS"
-  // Strictly within the requested y=2.4–3.0 band: center=2.7, half-height=0.3
-  const signCanvas = document.createElement("canvas");
-  signCanvas.width = 1024;
-  signCanvas.height = 96;
-  const signCtx = signCanvas.getContext("2d")!;
-
-  // Background
-  signCtx.fillStyle = "#140f1e";
-  signCtx.fillRect(0, 0, 1024, 96);
-
-  // Gold border
-  signCtx.strokeStyle = "#c8a050";
-  signCtx.lineWidth = 6;
-  signCtx.strokeRect(5, 5, 1014, 86);
-
-  // Inner thin accent line
-  signCtx.strokeStyle = "#9a7030";
-  signCtx.lineWidth = 2;
-  signCtx.strokeRect(13, 13, 998, 70);
-
-  // Main text (fits within 96 px canvas height)
-  signCtx.fillStyle = "#e8c060";
-  signCtx.font = "bold 52px Georgia, serif";
-  signCtx.textAlign = "center";
-  signCtx.textBaseline = "middle";
-  signCtx.fillText("MUSEUM GENESIS", 512, 44);
-
-  // Subtle sub-text
-  signCtx.fillStyle = "#a07838";
-  signCtx.font = "italic 16px Georgia, serif";
-  signCtx.fillText("3333 NFT Collection", 512, 78);
-
-  const signTex = new THREE.CanvasTexture(signCanvas);
+  // Entrance sign panel — squadmania banner image fills the arch opening.
+  // Image aspect ratio ≈ 3.3 : 1  →  8 m wide × 2.4 m tall fits neatly.
+  // Center y=1.9 (bottom y=0.7, top y=3.1), strictly inside the 4 m arch.
+  const signTex = new THREE.TextureLoader().load("/squadmania.jpg");
+  signTex.colorSpace = THREE.SRGBColorSpace;
   const signMat = new THREE.MeshStandardMaterial({
     map: signTex,
-    emissive: new THREE.Color(0x221100),
-    emissiveIntensity: 0.35,
-    roughness: 0.55,
-    metalness: 0.1,
+    roughness: 0.45,
+    metalness: 0.05,
   });
-
-  // Sign panel: 9.2 m wide × 0.6 m tall (y=2.4→3.0 exactly) × 0.16 m deep
-  const signGeo = new THREE.BoxGeometry(9.2, 0.6, 0.16);
+  const signGeo = new THREE.BoxGeometry(8, 2.4, 0.16);
   const signMesh = new THREE.Mesh(signGeo, signMat);
-  signMesh.position.set(41, 2.7, 52.09);   // center y=2.7 → bottom 2.4, top 3.0
+  signMesh.position.set(41, 1.9, 52.09);
   signMesh.castShadow = true;
   scene.add(signMesh);
 
   // Dedicated spotlight aimed at the sign from outside (south, above)
-  const signSpot = new THREE.SpotLight(0xfff0cc, 12, 28, Math.PI / 9, 0.35, 1.2);
-  signSpot.position.set(41, 10, 60);
-  signSpot.target.position.set(41, 2.7, 52);
+  const signSpot = new THREE.SpotLight(0xfffaf0, 14, 30, Math.PI / 8, 0.3, 1.0);
+  signSpot.position.set(41, 10, 62);
+  signSpot.target.position.set(41, 1.9, 52);
   signSpot.castShadow = false;
   scene.add(signSpot);
   scene.add(signSpot.target);
 
-  // Two narrow fill lights hitting each side of the sign at low angle
-  const fillL = new THREE.PointLight(0xffddaa, 5, 14);
-  fillL.position.set(34, 5.5, 53.5);
+  // Two fill lights flanking the sign for even illumination
+  const fillL = new THREE.PointLight(0xffeedd, 5, 14);
+  fillL.position.set(34, 4.5, 54);
   scene.add(fillL);
 
-  const fillR = new THREE.PointLight(0xffddaa, 5, 14);
-  fillR.position.set(48, 5.5, 53.5);
+  const fillR = new THREE.PointLight(0xffeedd, 5, 14);
+  fillR.position.set(48, 4.5, 54);
   scene.add(fillR);
 
   // ── Invisible exterior boundary walls ────────────────────────────────────

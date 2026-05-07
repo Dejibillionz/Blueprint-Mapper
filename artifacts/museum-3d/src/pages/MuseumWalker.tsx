@@ -618,7 +618,7 @@ export default function MuseumWalker() {
   if (!webglSupported) {
     return (
       <div className="w-full h-screen bg-[#08080e] flex flex-col items-center justify-center text-white">
-        <p className="text-3xl font-bold text-indigo-300 mb-3">MUSEUM GENESIS</p>
+        <p className="text-3xl font-bold text-indigo-300 mb-3">10KSQUAD MUSEUM</p>
         <p className="text-gray-400 mb-6">3333 NFT Collection</p>
         <div className="border border-red-500/40 bg-red-900/20 rounded-lg px-8 py-6 max-w-md text-center">
           <p className="text-red-400 font-semibold mb-2">WebGL Not Available</p>
@@ -635,7 +635,7 @@ export default function MuseumWalker() {
       {/* ── Splash (pointer not locked) ── */}
       {!locked && !zoomedFrame && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 text-white pointer-events-none select-none">
-          <p className="text-5xl font-bold mb-1 tracking-widest text-indigo-300 drop-shadow-lg">MUSEUM GENESIS</p>
+          <p className="text-5xl font-bold mb-1 tracking-widest text-indigo-300 drop-shadow-lg">10KSQUAD MUSEUM</p>
           <p className="text-gray-400 mb-8 tracking-wider">3333 NFT Collection — 3D Experience</p>
           <div className="border border-indigo-500/30 rounded-xl px-10 py-6 text-center bg-black/50 space-y-2">
             <p className="text-sm text-indigo-300 uppercase tracking-widest mb-3 font-semibold">Controls</p>
@@ -699,7 +699,7 @@ export default function MuseumWalker() {
       {!zoomedFrame && (
         <div className="absolute top-4 left-4 flex items-start gap-3 select-none">
           <div className="pointer-events-none">
-            <p className="text-indigo-400 font-bold text-sm tracking-widest">MUSEUM GENESIS</p>
+            <p className="text-indigo-400 font-bold text-sm tracking-widest">10KSQUAD MUSEUM</p>
             <p className="text-gray-500 text-xs">3333 NFT Collection</p>
           </div>
           {allMeta.length > 0 && (
@@ -786,7 +786,7 @@ export default function MuseumWalker() {
                   <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: r.color }}>
                     ◆ {r.tier} Edition
                   </span>
-                  <span className="text-[10px] text-gray-400 font-mono">Museum Genesis</span>
+                  <span className="text-[10px] text-gray-400 font-mono">10ksquad Museum</span>
                 </div>
                 {zoomedFrame.imageUrl && (
                   <div className="relative w-full bg-black/40"
