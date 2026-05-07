@@ -47,9 +47,9 @@ export class FirstPersonControls {
     this.domElement = domElement;
     this.collisionBoxes = collisionBoxes;
 
-    // Start at the museum entrance, facing north into the building
-    this.camera.position.set(41, EYE_HEIGHT, 43);
-    this.yaw = 0; // facing north (-Z) toward the museum
+    // Start on the plaza outside, facing north toward the museum entrance
+    this.camera.position.set(41, EYE_HEIGHT, 68);
+    this.yaw = 0; // facing north (-Z) — museum facade straight ahead
     this.pitch = 0;
 
     document.addEventListener("pointerlockchange", this.onLockChange);

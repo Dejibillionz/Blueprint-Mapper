@@ -531,27 +531,88 @@ export function buildExterior(scene: THREE.Scene): WallBox[] {
   markerLight.position.set(41, 4.5, 63);
   scene.add(markerLight);
 
-  // ── Invisible exterior boundary walls ────────────────────────────────────
-  // These AABB boxes have no geometry — they are purely collision barriers that
-  // prevent the player from wandering into the infinite void beyond the plaza.
-  //
-  // Playable exterior footprint:
-  //   West boundary  x = -12  (12 m west of building)
-  //   East boundary  x = 112  (12 m east of building)
-  //   South boundary z = 98   (~46 m south of grand entrance at z=52)
-  //   North boundary handled by the building's own outer walls (z=0 wall)
-  //
-  // Each box is thick enough that even at max movement speed the player
-  // cannot tunnel through it in one frame.
+  // ── Perimeter fence around the plaza compound ────────────────────────────
+  // Wrought-iron style fence: dark metal posts + two horizontal rails.
+  // Compound footprint: x=25-57, z=52.5-90 (building south wall is the north edge).
+  //   West fence  : x=25,  z=52.5 → 90
+  //   East fence  : x=57,  z=52.5 → 90
+  //   South fence : z=90,  x=25   → 57
 
-  // South invisible wall (spans across full width, z=98 outward)
-  extraBoxes.push({ minX: -20, maxX: 120, minZ: 98, maxZ: 9999 });
-  // East invisible wall
-  extraBoxes.push({ minX: 112, maxX: 9999, minZ: -20, maxZ: 110 });
-  // West invisible wall
-  extraBoxes.push({ minX: -9999, maxX: -12, minZ: -20, maxZ: 110 });
-  // North-exterior cap (prevents escaping behind the building via the notch area)
-  extraBoxes.push({ minX: -20, maxX: 120, minZ: -9999, maxZ: -12 });
+  const fenceMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1612, roughness: 0.58, metalness: 0.70,
+  });
+
+  const POST_H       = 1.55;
+  const POST_W       = 0.12;
+  const RAIL_THICK   = 0.07;
+  const RAIL_Y_LOW   = 0.52;
+  const RAIL_Y_HIGH  = 1.18;
+  const POST_STEP    = 2.5;   // spacing between posts
+
+  // Helper: vertical post
+  const addPost = (px: number, pz: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(POST_W, POST_H, POST_W), fenceMat);
+    m.position.set(px, POST_H / 2, pz);
+    m.castShadow = true;
+    scene.add(m);
+  };
+  // Helper: horizontal rail along X (south fence)
+  const addRailX = (x1: number, x2: number, rz: number, ry: number) => {
+    const len = Math.abs(x2 - x1);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(len, RAIL_THICK, RAIL_THICK), fenceMat);
+    m.position.set((x1 + x2) / 2, ry, rz);
+    scene.add(m);
+  };
+  // Helper: horizontal rail along Z (east/west fences)
+  const addRailZ = (rx: number, z1: number, z2: number, ry: number) => {
+    const len = Math.abs(z2 - z1);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(RAIL_THICK, RAIL_THICK, len), fenceMat);
+    m.position.set(rx, ry, (z1 + z2) / 2);
+    scene.add(m);
+  };
+
+  // West fence  x=25, z=52.5 → 90
+  {
+    const X = 25, Z0 = 52.5, Z1 = 90;
+    for (let z = Z0; z <= Z1 + 0.01; z += POST_STEP) {
+      addPost(X, Math.min(z, Z1));
+    }
+    addRailZ(X, Z0, Z1, RAIL_Y_LOW);
+    addRailZ(X, Z0, Z1, RAIL_Y_HIGH);
+  }
+
+  // East fence  x=57, z=52.5 → 90
+  {
+    const X = 57, Z0 = 52.5, Z1 = 90;
+    for (let z = Z0; z <= Z1 + 0.01; z += POST_STEP) {
+      addPost(X, Math.min(z, Z1));
+    }
+    addRailZ(X, Z0, Z1, RAIL_Y_LOW);
+    addRailZ(X, Z0, Z1, RAIL_Y_HIGH);
+  }
+
+  // South fence  z=90, x=25 → 57
+  {
+    const Z = 90, X0 = 25, X1 = 57;
+    for (let x = X0; x <= X1 + 0.01; x += POST_STEP) {
+      addPost(Math.min(x, X1), Z);
+    }
+    addRailX(X0, X1, Z, RAIL_Y_LOW);
+    addRailX(X0, X1, Z, RAIL_Y_HIGH);
+  }
+
+  // ── Collision boundaries aligned to the fence ─────────────────────────────
+  // The visible fence IS the hard boundary — collision boxes sit just behind
+  // each fence face so the player stops at the fence line.
+
+  // South fence at z=90
+  extraBoxes.push({ minX: 20, maxX: 62, minZ: 89.8, maxZ: 9999 });
+  // West fence at x=25
+  extraBoxes.push({ minX: -9999, maxX: 25.2, minZ: 52, maxZ: 91 });
+  // East fence at x=57
+  extraBoxes.push({ minX: 56.8, maxX: 9999, minZ: 52, maxZ: 91 });
+  // North-exterior safety cap (behind building, unreachable but kept for safety)
+  extraBoxes.push({ minX: 20, maxX: 62, minZ: -9999, maxZ: -12 });
 
   return extraBoxes;
 }
