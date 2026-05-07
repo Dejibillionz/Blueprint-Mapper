@@ -214,6 +214,118 @@ export function buildExterior(scene: THREE.Scene): WallBox[] {
   corniceE.castShadow = true;
   scene.add(corniceE);
 
+  // ── Grand entrance arch + "MUSEUM GENESIS" sign ──────────────────────────
+  // Entrance gap: z=52, x=37–45 (width=8, centred at x=41)
+  // Players approach from z > 52, so signage faces the +z direction.
+
+  const archMat = new THREE.MeshStandardMaterial({
+    color: 0xd8cdb5,
+    roughness: 0.75,
+    metalness: 0.05,
+  });
+
+  // Pilasters flanking the entrance gap (taller decorative posts inside the gap edge)
+  // Plinth 0.3 + shaft 3.42 + cap 0.28 = exactly WALL_HEIGHT=4
+  const pilasterDefs: Array<[number]> = [[37], [45]];
+  for (const [px] of pilasterDefs) {
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.3, 0.55), archMat);
+    plinth.position.set(px, 0.15, 52);
+    plinth.castShadow = true;
+    scene.add(plinth);
+
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.42, 3.42, 0.42), archMat);
+    shaft.position.set(px, 0.3 + 1.71, 52);
+    shaft.castShadow = true;
+    scene.add(shaft);
+
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.28, 0.55), archMat);
+    cap.position.set(px, 0.3 + 3.42 + 0.14, 52);
+    cap.castShadow = true;
+    scene.add(cap);
+  }
+
+  // Semi-circular arch spanning the doorway (half-torus, radius=4 = half the 8 m gap)
+  // Center at y=0 (floor level) so crown lands exactly at y=4 = WALL_HEIGHT.
+  // Arc=PI sweeps the top half: left foot (37,0) → crown (41,4) → right foot (45,0).
+  // The tube bottom (y=-0.24) is hidden by the floor mesh.
+  const archGeo = new THREE.TorusGeometry(4, 0.24, 10, 40, Math.PI);
+  const archMesh = new THREE.Mesh(archGeo, archMat);
+  archMesh.position.set(41, 0, 52);
+  archMesh.castShadow = true;
+  scene.add(archMesh);
+
+  // Keystone at the crown of the arch (a slightly protruding block at y=4)
+  const keystone = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.5, 0.42), archMat);
+  keystone.position.set(41, 4.25, 52);
+  keystone.castShadow = true;
+  scene.add(keystone);
+
+  // Lintel / sign panel — flat box with canvas texture showing "MUSEUM GENESIS"
+  // Strictly within the requested y=2.4–3.0 band: center=2.7, half-height=0.3
+  const signCanvas = document.createElement("canvas");
+  signCanvas.width = 1024;
+  signCanvas.height = 96;
+  const signCtx = signCanvas.getContext("2d")!;
+
+  // Background
+  signCtx.fillStyle = "#140f1e";
+  signCtx.fillRect(0, 0, 1024, 96);
+
+  // Gold border
+  signCtx.strokeStyle = "#c8a050";
+  signCtx.lineWidth = 6;
+  signCtx.strokeRect(5, 5, 1014, 86);
+
+  // Inner thin accent line
+  signCtx.strokeStyle = "#9a7030";
+  signCtx.lineWidth = 2;
+  signCtx.strokeRect(13, 13, 998, 70);
+
+  // Main text (fits within 96 px canvas height)
+  signCtx.fillStyle = "#e8c060";
+  signCtx.font = "bold 52px Georgia, serif";
+  signCtx.textAlign = "center";
+  signCtx.textBaseline = "middle";
+  signCtx.fillText("MUSEUM GENESIS", 512, 44);
+
+  // Subtle sub-text
+  signCtx.fillStyle = "#a07838";
+  signCtx.font = "italic 16px Georgia, serif";
+  signCtx.fillText("3333 NFT Collection", 512, 78);
+
+  const signTex = new THREE.CanvasTexture(signCanvas);
+  const signMat = new THREE.MeshStandardMaterial({
+    map: signTex,
+    emissive: new THREE.Color(0x221100),
+    emissiveIntensity: 0.35,
+    roughness: 0.55,
+    metalness: 0.1,
+  });
+
+  // Sign panel: 9.2 m wide × 0.6 m tall (y=2.4→3.0 exactly) × 0.16 m deep
+  const signGeo = new THREE.BoxGeometry(9.2, 0.6, 0.16);
+  const signMesh = new THREE.Mesh(signGeo, signMat);
+  signMesh.position.set(41, 2.7, 52.09);   // center y=2.7 → bottom 2.4, top 3.0
+  signMesh.castShadow = true;
+  scene.add(signMesh);
+
+  // Dedicated spotlight aimed at the sign from outside (south, above)
+  const signSpot = new THREE.SpotLight(0xfff0cc, 12, 28, Math.PI / 9, 0.35, 1.2);
+  signSpot.position.set(41, 10, 60);
+  signSpot.target.position.set(41, 2.7, 52);
+  signSpot.castShadow = false;
+  scene.add(signSpot);
+  scene.add(signSpot.target);
+
+  // Two narrow fill lights hitting each side of the sign at low angle
+  const fillL = new THREE.PointLight(0xffddaa, 5, 14);
+  fillL.position.set(34, 5.5, 53.5);
+  scene.add(fillL);
+
+  const fillR = new THREE.PointLight(0xffddaa, 5, 14);
+  fillR.position.set(48, 5.5, 53.5);
+  scene.add(fillR);
+
   // ── Invisible exterior boundary walls ────────────────────────────────────
   // These AABB boxes have no geometry — they are purely collision barriers that
   // prevent the player from wandering into the infinite void beyond the plaza.
