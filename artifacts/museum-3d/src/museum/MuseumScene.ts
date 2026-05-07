@@ -103,10 +103,7 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
       f.position[2] + spotOffset.z
     );
     spot.target.position.set(f.position[0], f.position[1], f.position[2]);
-    spot.castShadow = true;
-    spot.shadow.mapSize.set(512, 512);
-    spot.shadow.camera.near = 0.5;
-    spot.shadow.camera.far = 10;
+    spot.castShadow = false;
     scene.add(spot);
     scene.add(spot.target);
   }
