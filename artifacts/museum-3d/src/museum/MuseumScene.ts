@@ -127,18 +127,21 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   ceilTex.anisotropy = 8;
   const ceilMat = new THREE.MeshStandardMaterial({ map: ceilTex, roughness: 1.0, color: 0xdddddd });
 
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), floorMat);
+  // Interior wood floor — sized to the building footprint so exterior shows stone ground.
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(106, 57), floorMat);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(50, 0, 26);
+  floor.position.set(50, 0.004, 26);   // 4 mm above exterior stone to avoid z-fight
   floor.receiveShadow = true;
   scene.add(floor);
 
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), ceilMat);
+  // Interior ceiling — sized to building footprint so it isn't visible from outside.
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(106, 57), ceilMat);
   ceil.rotation.x = Math.PI / 2;
   ceil.position.set(50, WALL_HEIGHT, 26);
   scene.add(ceil);
 
-  const outerMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.8 });
+  // Outer walls use a stone / limestone facade material.
+  const outerMat = new THREE.MeshStandardMaterial({ color: 0xD6CEBC, roughness: 0.82, metalness: 0.0 });
   const innerMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.75 });
 
   for (const w of outerWalls) {

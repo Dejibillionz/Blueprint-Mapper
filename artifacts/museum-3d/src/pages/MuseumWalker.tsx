@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { buildScene, CommonNFT, UncommonNFT, RareNFT, PlatinumNFT } from "../museum/MuseumScene";
 import { FirstPersonControls } from "../museum/FirstPersonControls";
 import { buildCollisionBoxes } from "../museum/collision";
+import { buildExterior } from "../museum/Exterior";
 import { rooms } from "../data/floorplan";
 import { drawMinimap, MAP_W, MAP_H } from "../museum/minimap";
 import { AmbientAudio } from "../museum/AmbientAudio";
@@ -274,10 +275,12 @@ export default function MuseumWalker() {
     if (!mount) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x08080e);
-    scene.fog = new THREE.Fog(0x08080e, 18, 55);
+    // Sky dome handles the background; this colour is the fallback / fog colour.
+    scene.background = new THREE.Color(0x06060e);
+    // Extended far distance so the building facade is fully visible from outside.
+    scene.fog = new THREE.Fog(0x06060e, 25, 200);
 
-    const camera = new THREE.PerspectiveCamera(72, mount.clientWidth / mount.clientHeight, 0.05, 200);
+    const camera = new THREE.PerspectiveCamera(72, mount.clientWidth / mount.clientHeight, 0.05, 500);
     cameraRef.current = camera;
 
     let renderer: THREE.WebGLRenderer;
@@ -294,6 +297,12 @@ export default function MuseumWalker() {
     mount.appendChild(renderer.domElement);
 
     const collisionBoxes = buildCollisionBoxes();
+
+    // Build exterior world (sky, ground, steps, columns, lampposts).
+    // Returns AABB boxes for columns + lamppost bases so the player can't walk through them.
+    const exteriorBoxes = buildExterior(scene);
+    collisionBoxes.push(...exteriorBoxes);
+
     const {
       frameMeshes,
       commonGalleryMesh,   commonArtMeshes,   commonNFTs,
