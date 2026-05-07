@@ -112,8 +112,7 @@ export const rooms: Room[] = [
 //   rotY=Math.PI/2  → facing east (+x), west wall of a room
 //   rotY=-Math.PI/2 → facing west (-x), east wall of a room
 
-const PI  = Math.PI;
-const PI2 = Math.PI / 2;
+const PI = Math.PI;
 
 export const frames: FrameData[] = [
   // ── Rarity Corridor north wall  z=22 → facing south (rotY=0) ──────────────
