@@ -17,20 +17,24 @@ interface ZoomedFrame {
   token_id?: string;
   rarityRank?: number | null;
   rarityScore?: number;
+  rarity?: string;
 }
 
 interface HoverFrame {
   title: string;
   artist: string;
+  rarity: string;
 }
 
-function getRarity(title: string): { tier: string; color: string; bg: string } {
-  if (title.startsWith("Diamond"))  return { tier: "Diamond",  color: "#00b4d8", bg: "rgba(0,180,216,0.18)" };
-  if (title.startsWith("Platinum")) return { tier: "Platinum", color: "#d4d4d4", bg: "rgba(200,200,200,0.18)" };
-  if (title.startsWith("Rare"))     return { tier: "Rare",      color: "#a855f7", bg: "rgba(168,85,247,0.18)" };
-  if (title.startsWith("Uncommon")) return { tier: "Uncommon",  color: "#06d6a0", bg: "rgba(6,214,160,0.18)" };
-  if (title.startsWith("Hall"))     return { tier: "Legendary", color: "#f77f00", bg: "rgba(247,127,0,0.18)" };
-  return                                   { tier: "Common",    color: "#3a86ff", bg: "rgba(58,134,255,0.18)" };
+function getRarity(title: string, rarity?: string): { tier: string; color: string; bg: string } {
+  const t = rarity ?? title;
+  if (t === "Platinum" || t.startsWith("Platinum")) return { tier: "Platinum", color: "#d4d4d4", bg: "rgba(200,200,200,0.18)" };
+  if (t === "Rare"     || t.startsWith("Rare"))     return { tier: "Rare",     color: "#a855f7", bg: "rgba(168,85,247,0.18)" };
+  if (t === "Uncommon" || t.startsWith("Uncommon")) return { tier: "Uncommon", color: "#06d6a0", bg: "rgba(6,214,160,0.18)" };
+  if (t === "Common"   || t.startsWith("Common"))   return { tier: "Common",   color: "#3a86ff", bg: "rgba(58,134,255,0.18)" };
+  if (t.startsWith("Diamond"))                       return { tier: "Diamond",  color: "#00b4d8", bg: "rgba(0,180,216,0.18)" };
+  if (t.startsWith("Hall"))                          return { tier: "Legendary",color: "#f77f00", bg: "rgba(247,127,0,0.18)" };
+  return                                                    { tier: "Common",   color: "#3a86ff", bg: "rgba(58,134,255,0.18)" };
 }
 
 function getNearbyRoom(pos: THREE.Vector3): string | null {
@@ -223,7 +227,7 @@ export default function MuseumWalker() {
     const triggerZoom = (
       framePos: THREE.Vector3,
       frameQuat: THREE.Quaternion,
-      frameData: { title: string; artist: string; imageUrl?: string; token_id?: string; rarityRank?: number | null; rarityScore?: number },
+      frameData: { title: string; artist: string; imageUrl?: string; token_id?: string; rarityRank?: number | null; rarityScore?: number; rarity?: string },
     ) => {
       const n = new THREE.Vector3(0, 0, 1).applyQuaternion(frameQuat);
       const targetPos = framePos.clone().add(n.multiplyScalar(1.2));
@@ -271,14 +275,14 @@ export default function MuseumWalker() {
       // 2. Instanced border meshes — zoom on click via instanceId
       // Map: [instancedMesh, galleryIndex in PTM, nftRef]
       type NftLike = { title: string; artist: string };
-      type GalleryEntry = [THREE.InstancedMesh | null, number, MutableRefObject<NftLike[]>];
+      type GalleryEntry = [THREE.InstancedMesh | null, number, MutableRefObject<NftLike[]>, string];
       const galleryEntries: GalleryEntry[] = [
-        [commonGalleryMeshRef.current,   3, commonNFTsRef   as MutableRefObject<NftLike[]>],
-        [uncommonGalleryMeshRef.current, 2, uncommonNFTsRef as MutableRefObject<NftLike[]>],
-        [rareGalleryMeshRef.current,     1, rareNFTsRef     as MutableRefObject<NftLike[]>],
-        [platinumGalleryMeshRef.current, 0, platinumNFTsRef as MutableRefObject<NftLike[]>],
+        [commonGalleryMeshRef.current,   3, commonNFTsRef   as MutableRefObject<NftLike[]>, "Common"],
+        [uncommonGalleryMeshRef.current, 2, uncommonNFTsRef as MutableRefObject<NftLike[]>, "Uncommon"],
+        [rareGalleryMeshRef.current,     1, rareNFTsRef     as MutableRefObject<NftLike[]>, "Rare"],
+        [platinumGalleryMeshRef.current, 0, platinumNFTsRef as MutableRefObject<NftLike[]>, "Platinum"],
       ];
-      for (const [imesh, gi, nftRef] of galleryEntries) {
+      for (const [imesh, gi, nftRef, rarity] of galleryEntries) {
         if (!imesh) continue;
         const iHits = raycasterRef.current.intersectObject(imesh, false);
         const iNear = iHits.find(h => h.distance < 8);
@@ -298,6 +302,7 @@ export default function MuseumWalker() {
             token_id,
             rarityRank:  metaEntry?.rarityRank,
             rarityScore: metaEntry?.rarityScore,
+            rarity,
           });
           e.stopPropagation();
           return;
@@ -333,14 +338,14 @@ export default function MuseumWalker() {
         // Proximity frame detection — raycast from crosshair, max 4 m
         raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera);
 
-        let hData: { title: string; artist: string } | null = null;
+        let hData: { title: string; artist: string; rarity: string } | null = null;
 
         // 1. Check hand-placed feature frames (all rooms)
         const hits = raycasterRef.current.intersectObjects(frameMeshesRef.current, false);
         const near = hits.find(h => h.distance < 4);
         if (near?.object.userData?.isFrame) {
           const ud = near.object.userData as { title: string; artist: string };
-          hData = { title: ud.title, artist: ud.artist };
+          hData = { title: ud.title, artist: ud.artist, rarity: "Common" };
         }
 
         // 2. Check Common Gallery InstancedMesh (only when inside room_1)
@@ -349,7 +354,7 @@ export default function MuseumWalker() {
           const cgNear = cgHits.find(h => h.distance < 3.5);
           if (cgNear !== undefined && cgNear.instanceId !== undefined) {
             const nft = commonNFTsRef.current[cgNear.instanceId];
-            if (nft) hData = { title: nft.title, artist: nft.artist };
+            if (nft) hData = { title: nft.title, artist: nft.artist, rarity: "Common" };
           }
         }
 
@@ -359,7 +364,7 @@ export default function MuseumWalker() {
           const ugNear = ugHits.find(h => h.distance < 3.5);
           if (ugNear !== undefined && ugNear.instanceId !== undefined) {
             const nft = uncommonNFTsRef.current[ugNear.instanceId];
-            if (nft) hData = { title: nft.title, artist: nft.artist };
+            if (nft) hData = { title: nft.title, artist: nft.artist, rarity: "Uncommon" };
           }
         }
 
@@ -369,7 +374,7 @@ export default function MuseumWalker() {
           const rNear = rHits.find(h => h.distance < 5);
           if (rNear !== undefined && rNear.instanceId !== undefined) {
             const nft = rareNFTsRef.current[rNear.instanceId];
-            if (nft) hData = { title: nft.title, artist: nft.artist };
+            if (nft) hData = { title: nft.title, artist: nft.artist, rarity: "Rare" };
           }
         }
 
@@ -379,14 +384,14 @@ export default function MuseumWalker() {
           const pNear = pHits.find(h => h.distance < 5);
           if (pNear !== undefined && pNear.instanceId !== undefined) {
             const nft = platinumNFTsRef.current[pNear.instanceId];
-            if (nft) hData = { title: nft.title, artist: nft.artist };
+            if (nft) hData = { title: nft.title, artist: nft.artist, rarity: "Platinum" };
           }
         }
 
         const newTitle = hData?.title ?? null;
         if (newTitle !== lastHoverTitleRef.current) {
           lastHoverTitleRef.current = newTitle;
-          setHoverFrame(hData ? { title: hData.title, artist: hData.artist } : null);
+          setHoverFrame(hData ? { title: hData.title, artist: hData.artist, rarity: hData.rarity } : null);
         }
       }
 
@@ -556,7 +561,7 @@ export default function MuseumWalker() {
 
       {/* ── Proximity info panel (bottom-right when looking at a frame) ── */}
       {locked && !zoomedFrame && hoverFrame && (() => {
-        const r = getRarity(hoverFrame.title);
+        const r = getRarity(hoverFrame.title, hoverFrame.rarity);
         return (
           <div className="absolute bottom-20 right-6 w-64 select-none pointer-events-none"
                style={{ animation: "fadeSlideIn 0.2s ease-out" }}>
@@ -583,7 +588,7 @@ export default function MuseumWalker() {
 
       {/* ── Frame zoom overlay ── */}
       {zoomedFrame && (() => {
-        const r = getRarity(zoomedFrame.title);
+        const r = getRarity(zoomedFrame.title, zoomedFrame.rarity);
         return (
           <div className="absolute inset-0 pointer-events-none select-none">
             <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60" />
