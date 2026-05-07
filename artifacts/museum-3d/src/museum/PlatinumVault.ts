@@ -108,7 +108,7 @@ export function buildPlatinumVault(scene: THREE.Scene): {
 
   const nfts: PlatinumNFT[] = positions.map((_, i) => ({
     id:     i + 1,
-    title:  `Platinum #${String(i + 1).padStart(4, "0")}`,
+    title:  `Legendary #${String(i + 1).padStart(4, "0")}`,
     artist: "Origin Protocol",
   }));
 

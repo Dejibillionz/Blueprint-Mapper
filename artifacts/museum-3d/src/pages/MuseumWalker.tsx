@@ -28,7 +28,7 @@ interface HoverFrame {
 
 function getRarity(title: string, rarity?: string): { tier: string; color: string; bg: string } {
   const t = rarity ?? title;
-  if (t === "Platinum" || t.startsWith("Platinum")) return { tier: "Platinum", color: "#d4d4d4", bg: "rgba(200,200,200,0.18)" };
+  if (t === "Legendary" || t.startsWith("Legendary") || t === "Platinum" || t.startsWith("Platinum")) return { tier: "Legendary", color: "#f77f00", bg: "rgba(247,127,0,0.18)" };
   if (t === "Rare"     || t.startsWith("Rare"))     return { tier: "Rare",     color: "#a855f7", bg: "rgba(168,85,247,0.18)" };
   if (t === "Uncommon" || t.startsWith("Uncommon")) return { tier: "Uncommon", color: "#06d6a0", bg: "rgba(6,214,160,0.18)" };
   if (t === "Common"   || t.startsWith("Common"))   return { tier: "Common",   color: "#3a86ff", bg: "rgba(58,134,255,0.18)" };
@@ -280,7 +280,7 @@ export default function MuseumWalker() {
         [commonGalleryMeshRef.current,   3, commonNFTsRef   as MutableRefObject<NftLike[]>, "Common"],
         [uncommonGalleryMeshRef.current, 2, uncommonNFTsRef as MutableRefObject<NftLike[]>, "Uncommon"],
         [rareGalleryMeshRef.current,     1, rareNFTsRef     as MutableRefObject<NftLike[]>, "Rare"],
-        [platinumGalleryMeshRef.current, 0, platinumNFTsRef as MutableRefObject<NftLike[]>, "Platinum"],
+        [platinumGalleryMeshRef.current, 0, platinumNFTsRef as MutableRefObject<NftLike[]>, "Legendary"],
       ];
       for (const [imesh, gi, nftRef, rarity] of galleryEntries) {
         if (!imesh) continue;
@@ -384,7 +384,7 @@ export default function MuseumWalker() {
           const pNear = pHits.find(h => h.distance < 5);
           if (pNear !== undefined && pNear.instanceId !== undefined) {
             const nft = platinumNFTsRef.current[pNear.instanceId];
-            if (nft) hData = { title: nft.title, artist: nft.artist, rarity: "Platinum" };
+            if (nft) hData = { title: nft.title, artist: nft.artist, rarity: "Legendary" };
           }
         }
 
