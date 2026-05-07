@@ -227,11 +227,12 @@ export default function MuseumWalker() {
     const framePos = new THREE.Vector3();
     artMesh.getWorldPosition(framePos);
 
-    const normal = new THREE.Vector3(0, 0, 1);
-    const q = new THREE.Quaternion();
-    artMesh.getWorldQuaternion(q);
-    normal.applyQuaternion(q);
-    normal.y = 0;
+    // Use the same room-facing formula the gallery builders use:
+    // towardRoom = (-sin(rotY), 0, cos(rotY))
+    // Rotating local (0,0,1) by rotY gives (+sin, 0, +cos) — wrong sign on X
+    // for east/west walls (rotY = ±π/2), which would put the viewer outside.
+    const rotY = artMesh.rotation.y;
+    const normal = new THREE.Vector3(-Math.sin(rotY), 0, Math.cos(rotY));
     normal.normalize();
 
     const STAND_DIST = 1.8;
