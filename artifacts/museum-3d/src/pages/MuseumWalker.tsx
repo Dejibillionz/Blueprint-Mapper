@@ -76,6 +76,8 @@ interface NftDetail {
 
 const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
+const nftDetailCache = new Map<string, NftDetail>();
+
 function shortenAddress(addr: string): string {
   if (addr.length < 12) return addr;
   return addr.slice(0, 6) + "…" + addr.slice(-4);
@@ -132,6 +134,15 @@ export default function MuseumWalker() {
       setDetailError(false);
       return;
     }
+
+    const cached = nftDetailCache.get(zoomedFrame.token_id);
+    if (cached) {
+      setNftDetail(cached);
+      setDetailLoading(false);
+      setDetailError(false);
+      return;
+    }
+
     setNftDetail(null);
     setDetailError(false);
     setDetailLoading(true);
@@ -142,7 +153,11 @@ export default function MuseumWalker() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<NftDetail>;
       })
-      .then(d => { setNftDetail(d); setDetailLoading(false); })
+      .then(d => {
+        nftDetailCache.set(zoomedFrame.token_id!, d);
+        setNftDetail(d);
+        setDetailLoading(false);
+      })
       .catch(err => {
         if ((err as Error).name !== "AbortError") {
           setDetailError(true);
