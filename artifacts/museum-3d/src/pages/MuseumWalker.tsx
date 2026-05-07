@@ -239,7 +239,12 @@ export default function MuseumWalker() {
     const viewerPos = framePos.clone().addScaledVector(normal, STAND_DIST);
     viewerPos.y = EYE_HEIGHT;
 
-    const yaw   = Math.atan2(-normal.x, -normal.z);
+    // Viewer is at framePos + normal * STAND_DIST, so they must look back
+    // toward the frame: forward direction = -normal.
+    // FirstPersonControls forward = (-sin(yaw), 0, -cos(yaw)), so:
+    //   -sin(yaw) = -(-sin(rotY)) = sin(rotY) = normal.x * -1... derivation
+    //   gives yaw = atan2(normal.x, normal.z)  (NOT negated)
+    const yaw   = Math.atan2(normal.x, normal.z);
     const pitch = Math.atan2(framePos.y - EYE_HEIGHT, STAND_DIST);
 
     cam.position.copy(viewerPos);
