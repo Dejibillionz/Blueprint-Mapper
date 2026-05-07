@@ -25,9 +25,8 @@ router.get("/nft/:token_id", async (req, res) => {
     });
 
     if (!upstream.ok) {
-      const text = await upstream.text();
       req.log.warn({ status: upstream.status, token_id }, "OpenSea upstream error");
-      res.status(upstream.status).json({ error: `OpenSea error ${upstream.status}`, detail: text });
+      res.status(upstream.status).json({ error: `OpenSea returned ${upstream.status}` });
       return;
     }
 

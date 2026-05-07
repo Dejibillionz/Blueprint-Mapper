@@ -74,8 +74,7 @@ interface NftDetail {
   owner: string | null;
 }
 
-const API_BASE        = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-const OPENSEA_API_KEY = import.meta.env.VITE_OPENSEA_API_KEY as string | undefined;
+const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 function shortenAddress(addr: string): string {
   if (addr.length < 12) return addr;
@@ -138,23 +137,11 @@ export default function MuseumWalker() {
     setDetailLoading(true);
 
     const controller = new AbortController();
-    const sig = controller.signal;
-
-    async function loadDetail(): Promise<NftDetail> {
-      if (OPENSEA_API_KEY) {
-        const url = `https://api.opensea.io/api/v2/chain/monad/contract/${OPENSEA_CONTRACT}/nfts/${encodeURIComponent(zoomedFrame!.token_id!)}`;
-        const r = await fetch(url, { signal: sig, headers: { "x-api-key": OPENSEA_API_KEY, "accept": "application/json" } });
-        if (!r.ok) throw new Error(`OpenSea ${r.status}`);
-        const data = await r.json() as { nft?: { traits?: NftTrait[]; owners?: { address: string }[] } };
-        const nft = data.nft ?? {};
-        return { traits: nft.traits ?? [], owner: nft.owners?.[0]?.address ?? null };
-      }
-      const r = await fetch(`${API_BASE}/api/nft/${encodeURIComponent(zoomedFrame!.token_id!)}`, { signal: sig });
-      if (!r.ok) throw new Error(`Proxy ${r.status}`);
-      return r.json() as Promise<NftDetail>;
-    }
-
-    loadDetail()
+    fetch(`${API_BASE}/api/nft/${encodeURIComponent(zoomedFrame.token_id)}`, { signal: controller.signal })
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<NftDetail>;
+      })
       .then(d => { setNftDetail(d); setDetailLoading(false); })
       .catch(err => {
         if ((err as Error).name !== "AbortError") {
