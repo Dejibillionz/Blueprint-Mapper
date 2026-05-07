@@ -127,15 +127,18 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   ceilTex.anisotropy = 8;
   const ceilMat = new THREE.MeshStandardMaterial({ map: ceilTex, roughness: 1.0, color: 0xdddddd });
 
-  // Interior wood floor — sized to the building footprint so exterior shows stone ground.
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(106, 57), floorMat);
+  // Interior wood floor — clipped to the inside of the outer walls so exterior
+  // stone ground is never covered by wood.  Outer walls are 0.5 m thick; their
+  // inner faces sit at ±0.25 m from the wall centre-lines.  The floor runs from
+  // x=0.5 to 99.5 and z=0.5 to 51.5 (safely inside all four outer walls).
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(99, 51), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(50, 0.004, 26);   // 4 mm above exterior stone to avoid z-fight
   floor.receiveShadow = true;
   scene.add(floor);
 
-  // Interior ceiling — sized to building footprint so it isn't visible from outside.
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(106, 57), ceilMat);
+  // Interior ceiling — same tight dimensions as the floor.
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(99, 51), ceilMat);
   ceil.rotation.x = Math.PI / 2;
   ceil.position.set(50, WALL_HEIGHT, 26);
   scene.add(ceil);
