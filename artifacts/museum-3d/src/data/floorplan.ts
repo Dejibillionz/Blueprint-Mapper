@@ -80,14 +80,17 @@ export const innerWalls: Wall[] = [
   { from: [14, 35], to: [33, 35] },
   { from: [48, 35], to: [62, 35] },
   { from: [33, 35], to: [33, 46] },
-  { from: [48, 35], to: [48, 46] },
+  // Entrance hall east wall — split for gift shop door gap at z=41–43
+  { from: [48, 35], to: [48, 41] },
+  { from: [48, 43], to: [48, 46] },
 
   // -- Ticket/Info room
   { from: [14, 40], to: [22, 40] },
   { from: [22, 35], to: [22, 46] },
 
-  // -- Gift shop
-  { from: [52, 35], to: [52, 46] },
+  // -- Gift shop west wall — matching gap at z=41–43 (door to entrance hall)
+  { from: [52, 35], to: [52, 41] },
+  { from: [52, 43], to: [52, 46] },
   { from: [52, 40], to: [62, 40] },
 
   // -- Corridor south wall east section (seals the empty zone x=62-100 south of corridor)
