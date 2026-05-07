@@ -80,17 +80,14 @@ export const innerWalls: Wall[] = [
   { from: [14, 35], to: [33, 35] },
   { from: [48, 35], to: [62, 35] },
   { from: [33, 35], to: [33, 46] },
-  // Entrance hall east wall — split for gift shop door gap at z=41–43
-  { from: [48, 35], to: [48, 41] },
-  { from: [48, 43], to: [48, 46] },
+  { from: [48, 35], to: [48, 46] },
 
   // -- Ticket/Info room
   { from: [14, 40], to: [22, 40] },
   { from: [22, 35], to: [22, 46] },
 
-  // -- Gift shop west wall — matching gap at z=41–43 (door to entrance hall)
-  { from: [52, 35], to: [52, 41] },
-  { from: [52, 43], to: [52, 46] },
+  // -- Gift shop
+  { from: [52, 35], to: [52, 46] },
   { from: [52, 40], to: [62, 40] },
 
   // -- Corridor south wall east section (seals the empty zone x=62-100 south of corridor)
@@ -119,16 +116,6 @@ const PI  = Math.PI;
 const PI2 = Math.PI / 2;
 
 export const frames: FrameData[] = [
-  // ── Gift Shop (x=52–62, z=40–46) ──────────────────────────────────────────
-  // North wall  z=40 → facing south (rotY=0).  3 evenly spaced frames.
-  { id:  1, title: "Collector's Pick I",   artist: "Museum Genesis", position: [54, 2.0, 40.14], rotationY: 0,    color: 0xDAA520 },
-  { id:  2, title: "Collector's Pick II",  artist: "Museum Genesis", position: [57, 2.0, 40.14], rotationY: 0,    color: 0xC8A010 },
-  { id:  3, title: "Collector's Pick III", artist: "Museum Genesis", position: [60, 2.0, 40.14], rotationY: 0,    color: 0xB89000 },
-  // West wall  x=52 → facing east (rotY=π/2).  3 frames along z=41–45.
-  { id:  4, title: "Exclusive Drop I",     artist: "Museum Genesis", position: [52.14, 2.0, 41.5], rotationY: PI2,  color: 0xE8C040 },
-  { id:  5, title: "Exclusive Drop II",    artist: "Museum Genesis", position: [52.14, 2.0, 43.5], rotationY: PI2,  color: 0xD4B030 },
-  { id:  6, title: "Exclusive Drop III",   artist: "Museum Genesis", position: [52.14, 2.0, 45.5], rotationY: PI2,  color: 0xC0A020 },
-
   // ── Rarity Corridor north wall  z=22 → facing south (rotY=0) ──────────────
   // Segment x=28–38 (gap at D1 x=26, next is D2 x=38-42)
   { id:  7, title: "Path of Rarity I",    artist: "Museum Genesis", position: [31, 2.0, 22.14], rotationY: 0,    color: 0x6655cc },

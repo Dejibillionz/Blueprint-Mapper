@@ -158,9 +158,6 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   scene.add(buildWallMesh(37, 30, 45, 30, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
   scene.add(buildWallMesh(37, 52, 45, 52, WALL_HEIGHT - DOOR_HEIGHT, OUTER_THICKNESS, DOOR_HEIGHT, lintelMat));
   scene.add(buildWallMesh(77, 24, 77, 26, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
-  // Gift shop entrance — x=48 and x=52, z=41–43
-  scene.add(buildWallMesh(48, 41, 48, 43, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
-  scene.add(buildWallMesh(52, 41, 52, 43, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
 
   const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x8b7355, metalness: 0.2, roughness: 0.6 });
   const doorFrames: Array<[number, number, number, number]> = [
@@ -168,7 +165,6 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     [38, 22, 42, 22], [62, 22, 66, 22],
     [37, 30, 45, 30], [37, 52, 45, 52],
     [77, 24, 77, 26],
-    [48, 41, 48, 43], [52, 41, 52, 43],
   ];
   for (const [x1, z1, x2, z2] of doorFrames) {
     scene.add(buildWallMesh(x1, z1, x2, z2, 0.1, INNER_THICKNESS + 0.05, DOOR_HEIGHT - 0.05, doorFrameMat));
@@ -217,9 +213,6 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   addDoorPanel(66, 22, 2,  Math.PI,     OPEN_ANG);
   // Vault entrance — x=77, z=24-26: opens west into corridor
   addDoorPanel(77, 24, 2, -Math.PI / 2, -OPEN_ANG);
-  // Gift shop entrance — both walls open east toward the shop
-  addDoorPanel(48, 41, 2, -Math.PI / 2, -OPEN_ANG);
-  addDoorPanel(52, 41, 2, -Math.PI / 2, -OPEN_ANG);
 
   const ambient = new THREE.AmbientLight(0xfff5e8, 1.8);
   scene.add(ambient);
