@@ -402,6 +402,10 @@ export default function MuseumWalker() {
         progress: 0,
       };
       setZoomedFrame(frameData);
+      // Release pointer lock so the detail panel sidebar can receive
+      // wheel/scroll events — browser routes all scroll to the locked
+      // element (canvas) while pointer lock is active.
+      document.exitPointerLock();
     };
 
     // ── Click handler: pointer lock OR frame zoom ──────────────
