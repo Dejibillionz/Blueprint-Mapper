@@ -58,17 +58,80 @@ export function buildExterior(scene: THREE.Scene): WallBox[] {
   });
   scene.add(new THREE.Points(starGeo, starMat));
 
-  // ── Exterior stone ground ─────────────────────────────────────────────────
-  const plazaMat = new THREE.MeshStandardMaterial({
-    color: 0x1e1b2a,
-    roughness: 0.95,
-    metalness: 0.03,
+  // ── Exterior stone ground (infinite dark plane) ───────────────────────────
+  const groundMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1824,
+    roughness: 0.97,
+    metalness: 0.02,
   });
-  const plaza = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), plazaMat);
-  plaza.rotation.x = -Math.PI / 2;
-  plaza.position.set(50, 0, 26);
-  plaza.receiveShadow = true;
-  scene.add(plaza);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set(50, 0, 26);
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // ── Plaza paving tile pattern (x=25-57, z=52-90) ─────────────────────────
+  // ShaderMaterial draws an alternating two-tone stone grid with grout lines.
+  // UV coords from PlaneGeometry map directly to world-space tile counts.
+  const PLAZA_W  = 32;   // x: 25 → 57
+  const PLAZA_D  = 38;   // z: 52 → 90
+  const TILE_SIZE = 1.6; // metres per tile
+  const pavingMat = new THREE.ShaderMaterial({
+    side: THREE.FrontSide,
+    uniforms: {
+      uTilesX: { value: PLAZA_W / TILE_SIZE },
+      uTilesZ: { value: PLAZA_D / TILE_SIZE },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float uTilesX;
+      uniform float uTilesZ;
+      varying vec2 vUv;
+      void main() {
+        vec2 tile = vUv * vec2(uTilesX, uTilesZ);
+        vec2 tileId  = floor(tile);
+        vec2 tileFrac = fract(tile);
+
+        // Grout lines — 5% of tile width
+        float grout = 0.055;
+        bool isGrout = tileFrac.x < grout || tileFrac.x > (1.0 - grout)
+                    || tileFrac.y < grout || tileFrac.y > (1.0 - grout);
+
+        // Checkerboard-style alternating stone colours
+        float checker = mod(tileId.x + tileId.y, 2.0);
+        vec3 stoneA = vec3(0.145, 0.128, 0.172); // dark slate
+        vec3 stoneB = vec3(0.172, 0.155, 0.205); // slightly lighter
+        vec3 groutCol = vec3(0.08, 0.07, 0.11);  // near-black grout
+
+        // Subtle inner bevel highlight along top/left edges of each tile
+        float bevel = 0.08;
+        bool isHighlight = (tileFrac.x < bevel && tileFrac.x > grout)
+                        || (tileFrac.y < bevel && tileFrac.y > grout);
+
+        vec3 col = isGrout
+          ? groutCol
+          : mix(stoneA, stoneB, checker);
+
+        if (!isGrout && isHighlight) col = col * 1.22;
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+  const plazaMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(PLAZA_W, PLAZA_D),
+    pavingMat,
+  );
+  plazaMesh.rotation.x = -Math.PI / 2;
+  plazaMesh.position.set(41, 0.002, 71); // centre of x=25-57, z=52-90; y slightly above ground
+  plazaMesh.receiveShadow = true;
+  scene.add(plazaMesh);
 
   // ── Moonlight ─────────────────────────────────────────────────────────────
   const moon = new THREE.DirectionalLight(0x8899cc, 0.35);
@@ -178,6 +241,53 @@ export function buildExterior(scene: THREE.Scene): WallBox[] {
       minX: lx - 0.2, maxX: lx + 0.2,
       minZ: lz - 0.2, maxZ: lz + 0.2,
     });
+  }
+
+  // ── Stone bollards lining the entrance path ──────────────────────────────
+  // 8 bollards total: 4 per side at x≈24.5 (west) and x≈57.5 (east), z=62-84.
+  // Each bollard: short cylinder shaft + domed cap, cast shadow, collision box.
+  const bollardMat = new THREE.MeshStandardMaterial({
+    color: 0xb0a898,
+    roughness: 0.88,
+    metalness: 0.04,
+  });
+  const capMat = new THREE.MeshStandardMaterial({
+    color: 0xc8bfae,
+    roughness: 0.75,
+    metalness: 0.06,
+  });
+
+  // 4 z positions per side, evenly spaced across z=62–84
+  const bollardZs = [63, 69, 75, 83];
+  const bollardXs: number[] = [24.5, 57.5];
+
+  for (const bx of bollardXs) {
+    for (const bz of bollardZs) {
+      // Shaft: radius 0.18, height 0.95
+      const shaft = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.18, 0.22, 0.95, 10),
+        bollardMat,
+      );
+      shaft.position.set(bx, 0.475, bz);
+      shaft.castShadow = true;
+      shaft.receiveShadow = true;
+      scene.add(shaft);
+
+      // Domed cap
+      const cap = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+        capMat,
+      );
+      cap.position.set(bx, 0.95, bz);
+      cap.castShadow = true;
+      scene.add(cap);
+
+      // Collision box — slightly generous so player can't squeeze through
+      extraBoxes.push({
+        minX: bx - 0.28, maxX: bx + 0.28,
+        minZ: bz - 0.28, maxZ: bz + 0.28,
+      });
+    }
   }
 
   // ── Decorative cornice along the top of the facade (south wall only) ──────
