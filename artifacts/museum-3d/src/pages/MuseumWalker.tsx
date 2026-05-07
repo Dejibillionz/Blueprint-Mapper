@@ -216,14 +216,12 @@ export default function MuseumWalker() {
   const teleportToNFT = useCallback((entry: SearchMeta) => {
     const cam  = cameraRef.current;
     const ctrl = controlsRef.current;
-    if (!cam || !ctrl) return;
+    const ptm  = proximityMgrRef.current;
+    if (!cam || !ctrl || !ptm) return;
 
-    let artMesh: THREE.Mesh | null = null;
-    if (entry.room === 4) artMesh = platinumArtMeshesRef.current[entry.room_index] ?? null;
-    else if (entry.room === 3) artMesh = rareArtMeshesRef.current[entry.room_index] ?? null;
-    else if (entry.room === 2) artMesh = uncommonArtMeshesRef.current[entry.room_index] ?? null;
-    else                       artMesh = commonArtMeshesRef.current[entry.room_index] ?? null;
-
+    // Use the PTM to find the exact mesh — same mapping the texture loader uses,
+    // so the frame we stand in front of is always the one displaying this token.
+    const artMesh = ptm.findArtMeshByTokenId(entry.token_id);
     if (!artMesh) return;
 
     const framePos = new THREE.Vector3();

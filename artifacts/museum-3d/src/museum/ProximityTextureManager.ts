@@ -231,6 +231,20 @@ export class ProximityTextureManager {
     })();
   }
 
+  // ── Find a mesh by token_id (same mapping the texture loader uses) ─────────
+
+  findArtMeshByTokenId(token_id: string): THREE.Mesh | null {
+    for (let gi = 0; gi < this.galleries.length; gi++) {
+      const g = this.galleries[gi];
+      for (let i = 0; i < g.artMeshes.length; i++) {
+        if (this.meta[g.metaOffset + i]?.token_id === token_id) {
+          return g.artMeshes[i];
+        }
+      }
+    }
+    return null;
+  }
+
   // ── Public accessors ──────────────────────────────────────────────────────
 
   getStats(): { metaReady: boolean; total: number; loaded: number; loading: number; error: number; unloaded: number } {
