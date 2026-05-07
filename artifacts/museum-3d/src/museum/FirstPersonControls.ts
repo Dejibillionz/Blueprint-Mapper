@@ -18,10 +18,14 @@ export class FirstPersonControls {
   private keys: Record<string, boolean> = {};
 
   private onKeyDown = (e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     this.keys[e.code] = true;
     e.preventDefault();
   };
-  private onKeyUp = (e: KeyboardEvent) => { this.keys[e.code] = false; };
+  private onKeyUp = (e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    this.keys[e.code] = false;
+  };
   private onMouseMove = (e: MouseEvent) => {
     if (!this.isLocked) return;
     const sens = 0.002;
