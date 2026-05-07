@@ -403,6 +403,134 @@ export function buildExterior(scene: THREE.Scene): WallBox[] {
   fillR.position.set(48, 4.5, 54);
   scene.add(fillR);
 
+  // ── Ground welcome marker — plaza inset slab ─────────────────────────────
+  // A flat canvas-texture plane at x=41, z=63 (just in front of the outer
+  // step front face at z=60), y=0.012 so it floats just above the paving tiles without z-fighting.
+  // Displays "MUSEUM GENESIS" in an art-deco style matching the arch sign.
+  const markerW = 10;   // world metres wide  (x direction)
+  const markerD = 4.0;  // world metres deep  (z direction)
+
+  const markerCanvas = document.createElement("canvas");
+  markerCanvas.width  = 1024;
+  markerCanvas.height = 430;
+  const mc = markerCanvas.getContext("2d")!;
+
+  // Dark stone background
+  mc.fillStyle = "#10091a";
+  mc.fillRect(0, 0, 1024, 430);
+
+  // Outer gold border
+  mc.strokeStyle = "#c8a050";
+  mc.lineWidth = 8;
+  mc.strokeRect(6, 6, 1012, 418);
+
+  // Inner double-line accent
+  mc.strokeStyle = "#9a7030";
+  mc.lineWidth = 2.5;
+  mc.strokeRect(18, 18, 988, 394);
+  mc.strokeStyle = "#c8a050";
+  mc.lineWidth = 1.2;
+  mc.strokeRect(24, 24, 976, 382);
+
+  // Corner diamond ornaments
+  const drawDiamond = (x: number, y: number, r: number) => {
+    mc.beginPath();
+    mc.moveTo(x, y - r);
+    mc.lineTo(x + r, y);
+    mc.lineTo(x, y + r);
+    mc.lineTo(x - r, y);
+    mc.closePath();
+    mc.fillStyle = "#c8a050";
+    mc.fill();
+  };
+  for (const [dx, dy] of [[36, 36], [988, 36], [36, 394], [988, 394]] as [number, number][]) {
+    drawDiamond(dx, dy, 9);
+  }
+
+  // Horizontal rule lines flanking text area
+  mc.strokeStyle = "#c8a050";
+  mc.lineWidth = 1.5;
+  // Top rule pair
+  mc.beginPath(); mc.moveTo(60, 100); mc.lineTo(964, 100); mc.stroke();
+  mc.beginPath(); mc.moveTo(60, 107); mc.lineTo(964, 107); mc.stroke();
+  // Bottom rule pair
+  mc.beginPath(); mc.moveTo(60, 323); mc.lineTo(964, 323); mc.stroke();
+  mc.beginPath(); mc.moveTo(60, 330); mc.lineTo(964, 330); mc.stroke();
+
+  // Small centered ornament above title — a simple art-deco fan motif
+  const fanCx = 512, fanCy = 80;
+  mc.strokeStyle = "#c8a050";
+  mc.lineWidth = 1.8;
+  for (let a = -60; a <= 60; a += 15) {
+    const rad = (a * Math.PI) / 180;
+    mc.beginPath();
+    mc.moveTo(fanCx, fanCy);
+    mc.lineTo(fanCx + Math.sin(rad) * 36, fanCy - Math.cos(rad) * 36);
+    mc.stroke();
+  }
+  // Fan arc
+  mc.beginPath();
+  mc.arc(fanCx, fanCy, 36, (-120 * Math.PI) / 180, (-60 * Math.PI) / 180);
+  mc.stroke();
+
+  // Main title
+  mc.fillStyle = "#e8c060";
+  mc.font = "bold 96px Georgia, serif";
+  mc.textAlign = "center";
+  mc.textBaseline = "middle";
+  mc.fillText("MUSEUM GENESIS", 512, 215);
+
+  // Subtitle
+  mc.fillStyle = "#a07838";
+  mc.font = "italic 30px Georgia, serif";
+  mc.textBaseline = "middle";
+  mc.fillText("3333 NFT Collection", 512, 295);
+
+  // Mirrored fan ornament below subtitle
+  mc.save();
+  mc.translate(fanCx, 350);
+  mc.scale(1, -1);
+  mc.translate(-fanCx, -fanCy);
+  mc.strokeStyle = "#c8a050";
+  mc.lineWidth = 1.8;
+  for (let a = -60; a <= 60; a += 15) {
+    const rad = (a * Math.PI) / 180;
+    mc.beginPath();
+    mc.moveTo(fanCx, fanCy);
+    mc.lineTo(fanCx + Math.sin(rad) * 36, fanCy - Math.cos(rad) * 36);
+    mc.stroke();
+  }
+  mc.beginPath();
+  mc.arc(fanCx, fanCy, 36, (-120 * Math.PI) / 180, (-60 * Math.PI) / 180);
+  mc.stroke();
+  mc.restore();
+
+  const markerTex = new THREE.CanvasTexture(markerCanvas);
+  const markerMat = new THREE.MeshStandardMaterial({
+    map: markerTex,
+    emissive: new THREE.Color(0x1a0e00),
+    emissiveIntensity: 0.28,
+    roughness: 0.62,
+    metalness: 0.08,
+    transparent: false,
+  });
+
+  const markerMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(markerW, markerD),
+    markerMat,
+  );
+  markerMesh.rotation.x = -Math.PI / 2;
+  // Rotate the canvas texture so text reads correctly when approaching from +z
+  markerMesh.rotation.z = Math.PI;
+  markerMesh.position.set(41, 0.012, 63);
+  markerMesh.receiveShadow = true;
+  scene.add(markerMesh);
+
+  // Subtle warm fill light aimed at the ground marker from above
+  const markerLight = new THREE.PointLight(0xffe8b0, 4, 16);
+  markerLight.position.set(41, 4.5, 63);
+  scene.add(markerLight);
+
   // ── Invisible exterior boundary walls ────────────────────────────────────
   // These AABB boxes have no geometry — they are purely collision barriers that
   // prevent the player from wandering into the infinite void beyond the plaza.
