@@ -74,9 +74,31 @@ interface NftDetail {
   owner: string | null;
 }
 
-const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+const API_BASE   = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+const EYE_HEIGHT = 1.7;
 
 const nftDetailCache = new Map<string, NftDetail>();
+
+interface SearchMeta {
+  token_id:   string;
+  rarity_rank: number | null;
+  room:        number;
+  room_index:  number;
+}
+
+const ROOM_NAMES: Record<number, string> = {
+  1: "Common Gallery",
+  2: "Uncommon Wing",
+  3: "Rare Collection",
+  4: "Legendary Vault",
+};
+
+const ROOM_RARITY: Record<number, { tier: string; color: string }> = {
+  1: { tier: "Common",    color: "#3a86ff" },
+  2: { tier: "Uncommon",  color: "#06d6a0" },
+  3: { tier: "Rare",      color: "#a855f7" },
+  4: { tier: "Legendary", color: "#f77f00" },
+};
 
 function shortenAddress(addr: string): string {
   if (addr.length < 12) return addr;
@@ -95,6 +117,10 @@ export default function MuseumWalker() {
   const [nftDetail, setNftDetail] = useState<NftDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [allMeta, setAllMeta] = useState<SearchMeta[]>([]);
+  const [teleportBanner, setTeleportBanner] = useState<string | null>(null);
 
   // Refs for the Three.js state that needs to persist between renders
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -108,6 +134,10 @@ export default function MuseumWalker() {
   const rareNFTsRef = useRef<RareNFT[]>([]);
   const platinumGalleryMeshRef = useRef<THREE.InstancedMesh | null>(null);
   const platinumNFTsRef = useRef<PlatinumNFT[]>([]);
+  const commonArtMeshesRef   = useRef<THREE.Mesh[]>([]);
+  const uncommonArtMeshesRef = useRef<THREE.Mesh[]>([]);
+  const rareArtMeshesRef     = useRef<THREE.Mesh[]>([]);
+  const platinumArtMeshesRef = useRef<THREE.Mesh[]>([]);
   const proximityMgrRef = useRef<ProximityTextureManager | null>(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
@@ -183,6 +213,54 @@ export default function MuseumWalker() {
     setZoomedFrame(null);
   }, []);
 
+  const teleportToNFT = useCallback((entry: SearchMeta) => {
+    const cam  = cameraRef.current;
+    const ctrl = controlsRef.current;
+    if (!cam || !ctrl) return;
+
+    let artMesh: THREE.Mesh | null = null;
+    if (entry.room === 4) artMesh = platinumArtMeshesRef.current[entry.room_index] ?? null;
+    else if (entry.room === 3) artMesh = rareArtMeshesRef.current[entry.room_index] ?? null;
+    else if (entry.room === 2) artMesh = uncommonArtMeshesRef.current[entry.room_index] ?? null;
+    else                       artMesh = commonArtMeshesRef.current[entry.room_index] ?? null;
+
+    if (!artMesh) return;
+
+    const framePos = new THREE.Vector3();
+    artMesh.getWorldPosition(framePos);
+
+    const normal = new THREE.Vector3(0, 0, 1);
+    const q = new THREE.Quaternion();
+    artMesh.getWorldQuaternion(q);
+    normal.applyQuaternion(q);
+    normal.y = 0;
+    normal.normalize();
+
+    const viewerPos = framePos.clone().addScaledVector(normal, 1.8);
+    viewerPos.y = EYE_HEIGHT;
+
+    cam.position.copy(viewerPos);
+    ctrl.setYaw(Math.atan2(-normal.x, -normal.z));
+    ctrl.setPitch(0);
+    const euler = new THREE.Euler(0, Math.atan2(-normal.x, -normal.z), 0, "YXZ");
+    cam.quaternion.setFromEuler(euler);
+
+    setSearchOpen(false);
+    setSearchQuery("");
+    setTeleportBanner(`NFT #${entry.token_id} — ${ROOM_NAMES[entry.room] ?? "Museum"}`);
+    setTimeout(() => setTeleportBanner(null), 3500);
+  }, []);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.code === "Slash") { e.preventDefault(); setSearchOpen(s => !s); if (searchOpen) setSearchQuery(""); }
+      if (e.code === "Escape" && searchOpen) { setSearchOpen(false); setSearchQuery(""); }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [searchOpen]);
+
   useEffect(() => {
     if (!webglSupported) return;
     const mount = mountRef.current;
@@ -226,6 +304,10 @@ export default function MuseumWalker() {
     rareNFTsRef.current             = rareNFTs;
     platinumGalleryMeshRef.current  = platinumGalleryMesh;
     platinumNFTsRef.current         = platinumNFTs;
+    commonArtMeshesRef.current      = commonArtMeshes;
+    uncommonArtMeshesRef.current    = uncommonArtMeshes;
+    rareArtMeshesRef.current        = rareArtMeshes;
+    platinumArtMeshesRef.current    = platinumArtMeshes;
 
     // ── Proximity texture manager ──────────────────────────────────
     // metaOffset maps gallery → metadata.json indices:
@@ -262,6 +344,13 @@ export default function MuseumWalker() {
         const m = meta[366 + i];
         if (m) { nft.title = `10K Squad #${m.token_id}`; nft.artist = "10K Squad"; }
       });
+      // Populate search index
+      setAllMeta(meta.map(m => ({
+        token_id:   m.token_id,
+        rarity_rank: m.rarity_rank,
+        room:        m.room,
+        room_index:  m.room_index,
+      })));
     };
 
     proximityMgrRef.current = ptm;
@@ -573,6 +662,7 @@ export default function MuseumWalker() {
             <p>W A S D — Walk</p>
             <p>Mouse — Look</p>
             <p>Click painting — Zoom</p>
+            <p>/ — Search NFT</p>
             <p>ESC — Release cursor</p>
           </div>
           <button
@@ -585,11 +675,23 @@ export default function MuseumWalker() {
         </div>
       )}
 
-      {/* ── Title (top-left) ── */}
-      {locked && !zoomedFrame && (
-        <div className="absolute top-4 left-4 pointer-events-none select-none">
-          <p className="text-indigo-400 font-bold text-sm tracking-widest">MUSEUM GENESIS</p>
-          <p className="text-gray-500 text-xs">3333 NFT Collection</p>
+      {/* ── Title + Search button (top-left) ── */}
+      {!zoomedFrame && (
+        <div className="absolute top-4 left-4 flex items-start gap-3 select-none">
+          <div className="pointer-events-none">
+            <p className="text-indigo-400 font-bold text-sm tracking-widest">MUSEUM GENESIS</p>
+            <p className="text-gray-500 text-xs">3333 NFT Collection</p>
+          </div>
+          {allMeta.length > 0 && (
+            <button
+              onClick={() => setSearchOpen(s => !s)}
+              className="mt-0.5 flex items-center gap-1.5 bg-black/60 border border-indigo-500/40 hover:border-indigo-400 rounded-lg px-2.5 py-1 text-xs font-mono text-indigo-300 hover:text-white transition-all pointer-events-auto"
+              title="Search NFT by number (press /)"
+            >
+              🔍 <span className="hidden sm:inline">Search</span>
+              <kbd className="ml-0.5 text-[9px] bg-white/10 rounded px-1">/</kbd>
+            </button>
+          )}
         </div>
       )}
 
@@ -796,6 +898,104 @@ export default function MuseumWalker() {
       {zoomedFrame && (
         <EscListener onEsc={exitZoom} />
       )}
+
+      {/* ── Teleport banner ── */}
+      {teleportBanner && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 pointer-events-none select-none z-50"
+             style={{ animation: "fadeSlideIn 0.3s ease-out" }}>
+          <div className="flex items-center gap-2 bg-black/80 border border-indigo-500/60 rounded-xl px-5 py-2.5 backdrop-blur-sm">
+            <span className="text-indigo-400 text-sm">📍</span>
+            <span className="text-white text-sm font-semibold">{teleportBanner}</span>
+            <span className="text-gray-400 text-xs font-mono ml-1">Click to walk</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── NFT Search overlay ── */}
+      {searchOpen && (() => {
+        const q = searchQuery.trim().toLowerCase();
+        const results = q.length === 0
+          ? []
+          : allMeta
+              .filter(m => m.token_id.toLowerCase().includes(q))
+              .slice(0, 8);
+        return (
+          <div className="absolute inset-0 z-50 flex items-start justify-center pt-24 pointer-events-auto"
+               style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+               onClick={e => { if (e.target === e.currentTarget) { setSearchOpen(false); setSearchQuery(""); } }}>
+            <div className="w-full max-w-md mx-4">
+              {/* Input */}
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none">🔍</span>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Search by NFT number (e.g. 2490)"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.code === "Escape") { setSearchOpen(false); setSearchQuery(""); }
+                    if (e.code === "Enter" && results.length === 1) teleportToNFT(results[0]);
+                  }}
+                  className="w-full bg-[#0d0d1a] border border-indigo-500/60 focus:border-indigo-400 outline-none rounded-2xl pl-11 pr-5 py-3.5 text-white text-base font-mono placeholder-gray-600 transition-all"
+                  style={{ boxShadow: "0 0 24px rgba(99,102,241,0.25)" }}
+                />
+              </div>
+
+              {/* Results */}
+              {results.length > 0 && (
+                <div className="mt-2 rounded-2xl overflow-hidden border border-white/10"
+                     style={{ background: "rgba(8,8,20,0.97)", backdropFilter: "blur(16px)" }}>
+                  {results.map((entry, i) => {
+                    const rr = ROOM_RARITY[entry.room] ?? ROOM_RARITY[1];
+                    return (
+                      <button
+                        key={entry.token_id + i}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0"
+                        onClick={() => teleportToNFT(entry)}
+                      >
+                        <span className="text-white font-bold font-mono text-sm flex-shrink-0">
+                          #{entry.token_id}
+                        </span>
+                        <span className="flex-1 text-gray-400 text-xs font-mono">
+                          {ROOM_NAMES[entry.room] ?? "Museum"}
+                        </span>
+                        {entry.rarity_rank != null && (
+                          <span className="text-[10px] font-mono text-gray-500 flex-shrink-0">
+                            Rank #{entry.rarity_rank}
+                          </span>
+                        )}
+                        <span className="flex-shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border"
+                              style={{ color: rr.color, borderColor: rr.color + "55", background: rr.color + "18" }}>
+                          {rr.tier}
+                        </span>
+                        <span className="text-indigo-400 text-xs flex-shrink-0">→ Go</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {q.length > 0 && results.length === 0 && (
+                <div className="mt-2 rounded-2xl border border-white/10 px-5 py-4 text-center"
+                     style={{ background: "rgba(8,8,20,0.97)" }}>
+                  <p className="text-gray-500 text-sm font-mono">No NFT found with that number</p>
+                </div>
+              )}
+
+              {/* Hint */}
+              {q.length === 0 && (
+                <div className="mt-3 text-center">
+                  <p className="text-gray-600 text-xs font-mono">
+                    Type an NFT number · Press <kbd className="bg-white/10 rounded px-1">↵ Enter</kbd> for single match · <kbd className="bg-white/10 rounded px-1">ESC</kbd> to close
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
