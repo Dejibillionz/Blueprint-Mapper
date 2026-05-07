@@ -324,6 +324,96 @@ export function buildExterior(scene: THREE.Scene): WallBox[] {
   corniceE.castShadow = true;
   scene.add(corniceE);
 
+  // ── Flat roof: stone slab + parapet walls + entrance pediment ─────────────
+  // The building has an L-shaped footprint (x=0-100, z=0-52 minus the
+  // southwest notch x=0-14, z=35-52).  Two rectangular slabs cover it.
+  //
+  //  Roof slab (darker weathered stone, top surface visible from plaza)
+  //  Parapet  (same stone as facade, raised edge running all the way round)
+  //  Pediment (triangular gable above grand entrance, classical style)
+
+  const roofMat = new THREE.MeshStandardMaterial({
+    color: 0xA8A098, roughness: 0.92, metalness: 0.0,
+  });
+  const parMat = new THREE.MeshStandardMaterial({
+    color: 0xD6CEBC, roughness: 0.82, metalness: 0.0,
+  });
+
+  const ROOF_Y = WALL_TOP;  // 4.0 m
+  const SLAB_H = 0.26;      // roof slab thickness
+  const PAR_H  = 0.52;      // parapet height above slab top
+  const PAR_W  = 0.45;      // parapet wall thickness
+
+  const addSlab = (cx: number, cz: number, sx: number, sz: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, SLAB_H, sz), roofMat);
+    m.position.set(cx, ROOF_Y + SLAB_H / 2, cz);
+    m.receiveShadow = true;
+    scene.add(m);
+  };
+  const rParY = ROOF_Y + SLAB_H + PAR_H / 2;
+  const addPar = (cx: number, cz: number, sx: number, sz: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, PAR_H, sz), parMat);
+    m.position.set(cx, rParY, cz);
+    m.castShadow = true;
+    scene.add(m);
+  };
+
+  // Roof slabs — north body + south body (L-shape)
+  addSlab(50,  17.5, 100, 35);  // x=0-100,  z=0-35
+  addSlab(57,  43.5,  86, 17);  // x=14-100, z=35-52
+
+  // Parapet walls around the outer perimeter
+  addPar(50,    0,   100,  PAR_W); // north       z=0,  x=0-100
+  addPar(100,  26,   PAR_W, 52);   // east        x=100, z=0-52
+  addPar(72.5, 52,    55,  PAR_W); // south-east  z=52, x=45-100
+  addPar(25.5, 52,    23,  PAR_W); // south-west  z=52, x=14-37 (entrance gap skipped)
+  addPar(14,  43.5,  PAR_W, 17);   // notch-east  x=14, z=35-52
+  addPar(7,    35,    14,  PAR_W); // notch-south z=35, x=0-14
+  addPar(0,   17.5,  PAR_W, 35);   // west        x=0,  z=0-35
+
+  // ── Entrance pediment ──────────────────────────────────────────────────
+  // Classical triangular gable centred on the entrance (x=30-52, 22 m wide).
+  // Protrudes 0.65 m south of the facade, sits on top of the parapet.
+  const PED_HALF_W = 11;    // half-width  → 22 m total
+  const PED_H      = 2.8;   // rise above parapet top
+  const PED_DEPTH  = 0.65;  // southward protrusion
+  const PED_BASE_Y = ROOF_Y + SLAB_H + PAR_H;  // ≈ 4.78 m
+
+  const pedShape = new THREE.Shape();
+  pedShape.moveTo(-PED_HALF_W, 0);
+  pedShape.lineTo( PED_HALF_W, 0);
+  pedShape.lineTo(0, PED_H);
+  pedShape.closePath();
+
+  const pedGeo = new THREE.ExtrudeGeometry(pedShape, {
+    depth: PED_DEPTH,
+    bevelEnabled: false,
+  });
+  const pedMesh = new THREE.Mesh(pedGeo, parMat);
+  pedMesh.rotation.y = Math.PI;           // rotate so triangular face points south (+Z)
+  pedMesh.position.set(41, PED_BASE_Y, 52.9);  // back face flush with facade at z=52.25
+  pedMesh.castShadow = true;
+  scene.add(pedMesh);
+
+  // Raking cornices — slightly proud boxes along each sloped edge
+  const SLOPE_ANGLE = Math.atan2(PED_H, PED_HALF_W);       // ≈ 14.3°
+  const SLOPE_LEN   = Math.hypot(PED_HALF_W, PED_H);        // ≈ 11.35 m
+  const rcGeo       = new THREE.BoxGeometry(SLOPE_LEN, 0.28, PED_DEPTH + 0.08);
+
+  // West raking cornice: x=30 (corner) → x=41 (apex)
+  const rcL = new THREE.Mesh(rcGeo, parMat);
+  rcL.position.set(41 - PED_HALF_W / 2, PED_BASE_Y + PED_H / 2, 52.9);
+  rcL.rotation.z = SLOPE_ANGLE;
+  rcL.castShadow = true;
+  scene.add(rcL);
+
+  // East raking cornice: x=41 (apex) → x=52 (corner)
+  const rcR = new THREE.Mesh(rcGeo, parMat);
+  rcR.position.set(41 + PED_HALF_W / 2, PED_BASE_Y + PED_H / 2, 52.9);
+  rcR.rotation.z = -SLOPE_ANGLE;
+  rcR.castShadow = true;
+  scene.add(rcR);
+
   // ── Grand entrance arch + "MUSEUM GENESIS" sign ──────────────────────────
   // Entrance gap: z=52, x=37–45 (width=8, centred at x=41)
   // Players approach from z > 52, so signage faces the +z direction.
