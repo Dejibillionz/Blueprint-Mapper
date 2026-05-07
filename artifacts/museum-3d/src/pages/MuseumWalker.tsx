@@ -236,14 +236,17 @@ export default function MuseumWalker() {
     normal.y = 0;
     normal.normalize();
 
-    const viewerPos = framePos.clone().addScaledVector(normal, 1.8);
+    const STAND_DIST = 1.8;
+    const viewerPos = framePos.clone().addScaledVector(normal, STAND_DIST);
     viewerPos.y = EYE_HEIGHT;
 
+    const yaw   = Math.atan2(-normal.x, -normal.z);
+    const pitch = Math.atan2(framePos.y - EYE_HEIGHT, STAND_DIST);
+
     cam.position.copy(viewerPos);
-    ctrl.setYaw(Math.atan2(-normal.x, -normal.z));
-    ctrl.setPitch(0);
-    const euler = new THREE.Euler(0, Math.atan2(-normal.x, -normal.z), 0, "YXZ");
-    cam.quaternion.setFromEuler(euler);
+    ctrl.setYaw(yaw);
+    ctrl.setPitch(pitch);
+    cam.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, "YXZ"));
 
     setSearchOpen(false);
     setSearchQuery("");
