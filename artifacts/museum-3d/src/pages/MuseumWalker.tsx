@@ -4,7 +4,6 @@ import { buildScene, CommonNFT, UncommonNFT, RareNFT, PlatinumNFT } from "../mus
 import { FirstPersonControls } from "../museum/FirstPersonControls";
 import { buildCollisionBoxes } from "../museum/collision";
 import { buildExterior } from "../museum/Exterior";
-import { buildReceptionist } from "../museum/Receptionist";
 import { rooms } from "../data/floorplan";
 import { drawMinimap, MAP_W, MAP_H } from "../museum/minimap";
 import { AmbientAudio } from "../museum/AmbientAudio";
@@ -317,24 +316,6 @@ export default function MuseumWalker() {
     collisionBoxes.push(...exterior.boxes);
     exteriorTick = exterior.tick;
 
-    let receptionistTick: (elapsed: number) => void = () => {};
-    let receptionistDispose: (() => void) | null = null;
-    let receptionistMounted = true;
-    void (async () => {
-      try {
-        const { tick, boxes, dispose } = await buildReceptionist(scene, camera);
-        if (!receptionistMounted) {
-          dispose(); // component unmounted while loading — clean up immediately
-          return;
-        }
-        receptionistTick = tick;
-        receptionistDispose = dispose;
-        collisionBoxes.push(...boxes);
-      } catch (err: unknown) {
-        console.error("[Receptionist] setup failed:", err);
-      }
-    })();
-
     const {
       frameMeshes,
       commonGalleryMesh,   commonArtMeshes,   commonNFTs,
@@ -547,9 +528,6 @@ export default function MuseumWalker() {
         proximityMgrRef.current?.update(camera.position, elapsed, currentRoomId);
         exteriorTick(elapsed);
 
-        // ── Receptionist tick ──────────────────────────────────
-        receptionistTick(elapsed);
-
         // Proximity frame detection — raycast from crosshair, max 4 m
         raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera);
 
@@ -638,8 +616,6 @@ export default function MuseumWalker() {
     window.addEventListener("resize", onResize);
 
     return () => {
-      receptionistMounted = false;
-      receptionistDispose?.();
       if (welcomeHideTimerRef.current !== null) clearTimeout(welcomeHideTimerRef.current);
       clearInterval(statsInterval);
       cancelAnimationFrame(animId);
