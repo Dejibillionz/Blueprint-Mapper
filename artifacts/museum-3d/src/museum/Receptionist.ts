@@ -10,7 +10,6 @@ const DIALOGUE_LINES = [
 ];
 
 const PROX_TALK = 5;
-const DIALOGUE_INTERVAL = 4.5;
 
 export interface ReceptionistController {
   tick: (elapsed: number) => void;
@@ -45,21 +44,28 @@ export async function buildReceptionist(
     }),
   ]);
 
-  // ── Helper: scale model so its height matches targetH, rest on floor ──
-  function autoScale(model: THREE.Group, targetH: number): number {
+  // ── Helper: scale model so its height matches targetH, rest on
+  //    floor (y=0). Returns the world-space top Y after placement. ──
+  function autoScale(model: THREE.Group, targetH: number): void {
     const box = new THREE.Box3().setFromObject(model);
     const h = box.max.y - box.min.y;
     const scale = targetH / Math.max(h, 0.01);
     model.scale.setScalar(scale);
+    // Recompute bbox after scaling and lift so min.y rests on y=0
     const box2 = new THREE.Box3().setFromObject(model);
     model.position.y -= box2.min.y;
-    return box2.max.y * scale + model.position.y;
+  }
+
+  function worldTopY(model: THREE.Group): number {
+    const box = new THREE.Box3().setFromObject(model);
+    return box.max.y;
   }
 
   // ── Desk (world pos 41, 0, 46) ─────────────────────────────────
   if (deskScene) {
     autoScale(deskScene, 1.0);
-    deskScene.position.set(41, 0, 46);
+    const deskAdjY = deskScene.position.y; // preserve floor-rest offset
+    deskScene.position.set(41, deskAdjY, 46);
     deskScene.rotation.y = 0;
     deskScene.traverse((c) => {
       if ((c as THREE.Mesh).isMesh) {
@@ -72,12 +78,12 @@ export async function buildReceptionist(
     buildProceduralDesk(scene);
   }
 
-  // ── Seat (world pos 41, 0, 44) ─────────────────────────────────
+  // ── Seat (world pos 41, ?, 44) — preserve floor-rest Y ─────────
   let seatTopY = 0.52;
   if (seatScene) {
-    const top = autoScale(seatScene, 0.5);
-    seatTopY = top;
-    seatScene.position.set(41, 0, 44);
+    autoScale(seatScene, 0.5);
+    const seatAdjY = seatScene.position.y; // preserve floor-rest offset
+    seatScene.position.set(41, seatAdjY, 44);
     seatScene.rotation.y = 0;
     seatScene.traverse((c) => {
       if ((c as THREE.Mesh).isMesh) {
@@ -86,8 +92,10 @@ export async function buildReceptionist(
       }
     });
     scene.add(seatScene);
+    seatTopY = worldTopY(seatScene); // actual world-space top after placement
   } else {
     buildProceduralChair(scene, 41, 0, 44);
+    // procedural chair seat top is at 0.52 m (matches seatTopY default)
   }
 
   // ── Character group (world pos 41, seatTopY, 44.5) ─────────────
@@ -196,8 +204,10 @@ export async function buildReceptionist(
   };
 
   // ── Tick state ─────────────────────────────────────────────────
+  // dialogueIdx tracks which line to show on the NEXT approach entry.
+  // Each new approach (wasNear→isNear) shows the current line then
+  // advances the index, so lines cycle across consecutive visits.
   let dialogueIdx = 0;
-  let lastLineTime = -15;
   let wasNear = false;
   const charWorldPos = new THREE.Vector3(41, 1.0, 44.5);
 
@@ -233,15 +243,11 @@ export async function buildReceptionist(
       }
     }
 
-    // ── Dialogue cycling ───────────────────────────────────────
+    // ── Dialogue: show one line per approach, advance on each entry ──
     if (isTalking && !wasNear) {
-      dialogueIdx = 0;
-      lastLineTime = elapsed;
+      // Player just entered range — show current line and advance index
       showLine(dialogueIdx);
-    } else if (isTalking && elapsed - lastLineTime > DIALOGUE_INTERVAL) {
       dialogueIdx = (dialogueIdx + 1) % DIALOGUE_LINES.length;
-      lastLineTime = elapsed;
-      showLine(dialogueIdx);
     } else if (!isTalking && wasNear) {
       hideDialogue();
     }
