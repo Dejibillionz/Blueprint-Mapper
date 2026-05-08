@@ -279,6 +279,7 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
       vertexShader: `
         uniform float uTime;
         varying float vWave;
+        varying vec2  vPos;
         void main() {
           vec3 p = position;
           float w = sin(p.x * 0.04  + uTime * 0.7)  * 0.15
@@ -286,16 +287,62 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
                   + sin((p.x + p.z) * 0.022 + uTime * 0.5) * 0.08;
           p.y += w;
           vWave = w;
+          vPos  = p.xz;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
         }
       `,
       fragmentShader: `
+        uniform float uTime;
         varying float vWave;
+        varying vec2  vPos;
+
+        /* Low-cost hash — returns pseudo-random float in [0,1) */
+        float hash(vec2 p) {
+          p = fract(p * vec2(127.1, 311.7));
+          p += dot(p, p + 19.19);
+          return fract(p.x * p.y);
+        }
+
+        /* Cellular sparkle grid.
+           uv   — scaled world XZ (one cell ≈ 20 m of ocean)
+           time — drives pulse; 2×2 neighbourhood, no drift trig in loop */
+        float sparkle(vec2 uv, float time) {
+          vec2 cell = floor(uv);
+          vec2 frc  = fract(uv);
+          float result = 0.0;
+          for (int dy = 0; dy <= 1; dy++) {
+            for (int dx = 0; dx <= 1; dx++) {
+              vec2 nb = cell + vec2(float(dx), float(dy));
+              float h1 = hash(nb);
+              float h2 = hash(nb + 3.7);
+              float h3 = hash(nb + 7.1);
+              /* Fixed random position inside its cell — no trig drift needed */
+              vec2 center = vec2(h1, h2);
+              float dist  = length(frc - vec2(float(dx), float(dy)) - center);
+              /* Each glint breathes at its own rate (one sin per cell) */
+              float pulse = 0.5 + 0.5 * sin(time * (1.4 + h3 * 2.2) + h1 * 6.2832);
+              result += pulse * smoothstep(0.13, 0.0, dist);
+            }
+          }
+          return clamp(result, 0.0, 1.0);
+        }
+
         void main() {
-          vec3 deep  = vec3(0.012, 0.055, 0.140);
-          vec3 crest = vec3(0.028, 0.110, 0.240);
-          float t    = smoothstep(-0.12, 0.18, vWave);
-          vec3 col   = mix(deep, crest, t);
+          vec3 deep   = vec3(0.012, 0.055, 0.140);
+          vec3 crest  = vec3(0.028, 0.110, 0.240);
+          vec3 silver = vec3(0.76, 0.86, 0.98);
+
+          float t   = smoothstep(-0.12, 0.18, vWave);
+          vec3  col = mix(deep, crest, t);
+
+          /* Moonlight silver tint at wave crests */
+          float crestGlint = smoothstep(0.07, 0.22, vWave);
+          col = mix(col, silver, crestGlint * 0.32);
+
+          /* Procedural sparkle grid — cells ~20 m across ocean */
+          float sp = sparkle(vPos * 0.05 + uTime * vec2(0.010, 0.007), uTime);
+          col = mix(col, silver, sp * 0.80);
+
           gl_FragColor = vec4(col, 1.0);
         }
       `,
