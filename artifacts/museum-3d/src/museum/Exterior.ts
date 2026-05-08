@@ -429,6 +429,108 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
     scene.add(frondIM);
   }
 
+  // ── Distant mountain ridge silhouettes ───────────────────────────────────
+  // Low-poly BoxGeometry stacked shapes ~300 units north of world centre (50,0,50).
+  // MeshBasicMaterial so they read as pure dark silhouettes unaffected by scene lights.
+  {
+    const mtMat = new THREE.MeshBasicMaterial({ color: 0x0b0f1a });
+
+    // Each entry: [localX offset from 50, localZ offset from 50, boxW, boxD, boxH]
+    // Positive Z = south, negative Z = north — mountains sit to the north.
+    const ridgePeaks: Array<[number, number, number, number, number]> = [
+      // Front ridge — z offset ~−300
+      [-120, -295,  90, 35, 52],
+      [ -50, -308,  80, 32, 68],
+      [  15, -300,  72, 30, 50],
+      [  80, -312,  85, 32, 64],
+      [ 150, -298,  75, 30, 44],
+      [ 210, -292,  80, 30, 36],
+      // Back ridge — further and shorter for depth layering
+      [-160, -345, 130, 45, 28],
+      [  50, -352, 150, 45, 34],
+      [ 220, -338, 110, 38, 26],
+    ];
+
+    for (const [lx, lz, w, d, h] of ridgePeaks) {
+      const wx = 50 + lx;
+      const wz = 50 + lz;
+
+      // Main body
+      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mtMat);
+      body.position.set(wx, h / 2 - 6, wz);
+      scene.add(body);
+
+      // Narrower peak stacked on top for jagged silhouette
+      const pkH = h * 0.52;
+      const pkXOff = (_hash(lx * 0.1, lz * 0.1) - 0.5) * w * 0.28;
+      const peak = new THREE.Mesh(new THREE.BoxGeometry(w * 0.48, pkH, d * 0.75), mtMat);
+      peak.position.set(wx + pkXOff, h - 6 + pkH / 2, wz);
+      scene.add(peak);
+    }
+  }
+
+  // ── City lights on the horizon ────────────────────────────────────────────
+  // Faint orange/amber horizon glow + tiny window-light cubes simulating a
+  // distant city nestled against the northern mountain ridge.
+  {
+    // Horizon glow band — large tilted plane, purely additive-looking via transparency
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: 0xff7722,
+      transparent: true,
+      opacity: 0.07,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const glowBand = new THREE.Mesh(new THREE.PlaneGeometry(320, 20), glowMat);
+    glowBand.rotation.x = -Math.PI * 0.10;  // slight tilt toward viewer
+    glowBand.position.set(90, 10, 50 - 285);
+    scene.add(glowBand);
+
+    // Warmer secondary glow blob (slightly different hue/position for depth)
+    const glowMat2 = new THREE.MeshBasicMaterial({
+      color: 0xffaa33,
+      transparent: true,
+      opacity: 0.05,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const glowBand2 = new THREE.Mesh(new THREE.PlaneGeometry(180, 14), glowMat2);
+    glowBand2.rotation.x = -Math.PI * 0.10;
+    glowBand2.position.set(50 + 60, 8, 50 - 300);
+    scene.add(glowBand2);
+
+    // Ambient city-glow PointLights — kept very close to the mountain ridge so
+    // they illuminate only the distant backdrop and cannot reach foreground assets.
+    // Intensity is deliberately low; the visual glow comes primarily from the
+    // emissive planes and window cubes above.
+    const cityGlowDefs: Array<[number, number, number, number, number]> = [
+      [50 - 50,  14, 50 - 275,  2.5, 80],
+      [50 + 30,  12, 50 - 285,  2.0, 70],
+      [50 + 110, 16, 50 - 268,  1.8, 70],
+      [50 - 110, 13, 50 - 262,  1.8, 75],
+    ];
+    for (const [cx, cy, cz, intensity, dist] of cityGlowDefs) {
+      const pl = new THREE.PointLight(0xff9944, intensity, dist);
+      pl.position.set(cx, cy, cz);
+      scene.add(pl);
+    }
+
+    // Individual building / window lights — tiny emissive cubes on the horizon
+    const winMatOrange = new THREE.MeshBasicMaterial({ color: 0xffcc55 });
+    const winMatWhite  = new THREE.MeshBasicMaterial({ color: 0xddeeff });
+    const winGeo = new THREE.BoxGeometry(1.2, 0.9, 0.4);
+
+    for (let i = 0; i < 80; i++) {
+      const wx = 50 + (_hash(i * 3.13, 1.71) - 0.5) * 260;
+      const wz = 50 - 248 - _hash(i * 1.97, 4.37) * 65;
+      const wy = _hash(i * 2.73, 8.19) * 28 + 2;
+      const mat = i % 3 === 0 ? winMatWhite : winMatOrange;
+      const cube = new THREE.Mesh(winGeo, mat);
+      cube.position.set(wx, wy, wz);
+      scene.add(cube);
+    }
+  }
+
   // ── Moonlight ─────────────────────────────────────────────────────────────
   const moon = new THREE.DirectionalLight(0x8899cc, 0.35);
   moon.position.set(60, 120, -80);
