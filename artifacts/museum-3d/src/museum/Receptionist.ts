@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import type { WallBox } from "./collision";
 
 const DIALOGUE_LINES = [
@@ -22,7 +23,10 @@ export async function buildReceptionist(
   camera: THREE.Camera,
 ): Promise<ReceptionistController> {
   const BASE = import.meta.env.BASE_URL as string;
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath(`${BASE}draco/`);
   const loader = new GLTFLoader();
+  loader.setDRACOLoader(dracoLoader);
 
   const load = (url: string) =>
     new Promise<THREE.Group>((res, rej) =>
@@ -262,6 +266,7 @@ export async function buildReceptionist(
     if (document.body.contains(dialogueEl)) {
       document.body.removeChild(dialogueEl);
     }
+    dracoLoader.dispose();
   };
 
   return { tick, boxes, dispose };
