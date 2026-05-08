@@ -4,7 +4,41 @@ import type { WallBox } from "./collision";
 export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t: number) => void } {
   const extraBoxes: WallBox[] = [];
   // Uniforms shared with the twinkling star shader — updated every frame by tick().
-  const starUniforms = { uTime: { value: 0.0 } };
+  const starUniforms  = { uTime: { value: 0.0 } };
+  // Uniforms for the animated ocean wave shader — also driven by tick().
+  const oceanUniforms = { uTime: { value: 0.0 } };
+
+  // ── Terrain noise helpers (no external packages) ──────────────────────────
+  const _hash = (x: number, y: number): number => {
+    const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+    return n - Math.floor(n);
+  };
+  const _sNoise = (x: number, y: number): number => {
+    const ix = Math.floor(x), iy = Math.floor(y);
+    const fx = x - ix, fy = y - iy;
+    const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+    return _hash(ix,   iy)   * (1-ux) * (1-uy)
+         + _hash(ix+1, iy)   * ux     * (1-uy)
+         + _hash(ix,   iy+1) * (1-ux) * uy
+         + _hash(ix+1, iy+1) * ux     * uy;
+  };
+  const _fbm = (x: number, y: number): number => {
+    let v = 0, a = 0.5, f = 1.0;
+    for (let i = 0; i < 5; i++) { v += a * _sNoise(x * f, y * f); a *= 0.5; f *= 2.1; }
+    return v;
+  };
+  // Smooth-step helper (CPU side)
+  const _ss = (e0: number, e1: number, x: number): number => {
+    const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+    return t * t * (3 - 2 * t);
+  };
+  // Terrain height at world (wx, wz) — returns 0 inside the museum/plaza plateau
+  const terrainHeight = (wx: number, wz: number): number => {
+    const dx = wx - 50, dz = wz - 50;
+    const edgeDist = Math.max(Math.abs(dx) - 55, Math.abs(dz) - 55, 0);
+    const blend = _ss(0, 45, edgeDist);
+    return _fbm(wx * 0.012, wz * 0.012) * 14.0 * blend;
+  };
 
   // ── Sky dome ──────────────────────────────────────────────────────────────
   // Photo-textured sphere — deep blue twilight sky with natural stars.
@@ -71,17 +105,67 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
   });
   scene.add(new THREE.Points(starGeo, starMat));
 
-  // ── Exterior stone ground (infinite dark plane) ───────────────────────────
-  const groundMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1824,
-    roughness: 0.97,
-    metalness: 0.02,
-  });
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), groundMat);
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set(50, 0, 26);
-  ground.receiveShadow = true;
-  scene.add(ground);
+  // ── Procedural coastal terrain ────────────────────────────────────────────
+  // 128×128 segment plane displaced by layered noise (fBm).
+  // The museum + plaza footprint sits on a flat plateau (blend=0 inside ±55 units
+  // of world centre (50,50)); terrain rises freely beyond that zone.
+  // Height-based GLSL shader blends: deep-sand → beach sand → dark grass → rock → cliff.
+  {
+    const SEGS = 128;
+    const terrainGeo = new THREE.PlaneGeometry(700, 700, SEGS, SEGS);
+    terrainGeo.rotateX(-Math.PI / 2); // bake rotation so position.y is world-up
+
+    const pos = terrainGeo.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) {
+      // local x/z relative to mesh origin (50,0,50)
+      const lx = pos.getX(i);
+      const lz = pos.getZ(i);
+      pos.setY(i, terrainHeight(50 + lx, 50 + lz));
+    }
+    terrainGeo.computeVertexNormals();
+
+    const terrainMat = new THREE.ShaderMaterial({
+      side: THREE.FrontSide,
+      vertexShader: `
+        varying float vHeight;
+        varying vec3  vNrm;
+        void main() {
+          vHeight = position.y;
+          vNrm    = normalize(normalMatrix * normal);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying float vHeight;
+        varying vec3  vNrm;
+        void main() {
+          // Night-tinted coastal colour bands
+          vec3 deepSand = vec3(0.12,  0.09,  0.05);   // submerged / very low
+          vec3 sand     = vec3(0.38,  0.30,  0.18);   // beach sand
+          vec3 grass    = vec3(0.07,  0.18,  0.03);   // dark night grass
+          vec3 rock     = vec3(0.18,  0.165, 0.14);   // rocky hillside
+          vec3 cliff    = vec3(0.28,  0.265, 0.250);  // pale cliff top
+
+          vec3 col = deepSand;
+          col = mix(col, sand,  smoothstep(-1.8,  0.2, vHeight));
+          col = mix(col, grass, smoothstep( 0.6,  2.2, vHeight));
+          col = mix(col, rock,  smoothstep( 4.0,  7.0, vHeight));
+          col = mix(col, cliff, smoothstep( 9.0, 12.0, vHeight));
+
+          // Simple diffuse from moon direction (matches DirectionalLight above)
+          float ndl = max(dot(vNrm, normalize(vec3(0.3, 1.0, -0.5))), 0.0);
+          col *= 0.50 + 0.50 * ndl;
+
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+    });
+
+    const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+    terrainMesh.position.set(50, 0, 50);
+    terrainMesh.receiveShadow = true;
+    scene.add(terrainMesh);
+  }
 
   // ── Plaza paving tile pattern (x=25-57, z=52-90) ─────────────────────────
   // ShaderMaterial draws an alternating two-tone stone grid with grout lines.
@@ -145,6 +229,110 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
   plazaMesh.position.set(41, 0.002, 71); // centre of x=25-57, z=52-90; y slightly above ground
   plazaMesh.receiveShadow = true;
   scene.add(plazaMesh);
+
+  // ── Ocean plane (animated wave shader) ───────────────────────────────────
+  // Large plane sitting 2 m below ground-zero.  The wave vertex shader uses
+  // uTime (shared with star tick) to animate two crossing sine waves.
+  // Scene fog fades the far edge so there is no hard cutoff at the horizon.
+  {
+    const oceanGeo = new THREE.PlaneGeometry(1200, 1200, 80, 80);
+    oceanGeo.rotateX(-Math.PI / 2);
+    const oceanMat = new THREE.ShaderMaterial({
+      uniforms: oceanUniforms,
+      side: THREE.FrontSide,
+      transparent: false,
+      vertexShader: `
+        uniform float uTime;
+        varying float vWave;
+        void main() {
+          vec3 p = position;
+          float w = sin(p.x * 0.032 + uTime * 0.7)  * 0.18
+                  + sin(p.z * 0.048 + uTime * 1.1)  * 0.12
+                  + sin((p.x + p.z) * 0.022 + uTime * 0.5) * 0.09;
+          p.y += w;
+          vWave = w;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying float vWave;
+        void main() {
+          // Base deep-ocean blue, slightly lighter on wave crests
+          vec3 deep  = vec3(0.012, 0.060, 0.145);
+          vec3 crest = vec3(0.030, 0.120, 0.250);
+          float t    = smoothstep(-0.15, 0.20, vWave);
+          vec3 col   = mix(deep, crest, t);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+    });
+    const oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
+    oceanMesh.position.set(50, -2.0, 50);
+    scene.add(oceanMesh);
+  }
+
+  // ── Stylised palm trees ───────────────────────────────────────────────────
+  // ~40 palms scattered pseudo-randomly outside the museum compound.
+  // Each palm: cylinder trunk + 3 angled cone fronds.
+  // Positions use the same terrainHeight() function so trunks sit flush with terrain.
+  {
+    const trunkMat = new THREE.MeshStandardMaterial({
+      color: 0x3d2208, roughness: 0.92, metalness: 0.0,
+    });
+    const frondMat = new THREE.MeshStandardMaterial({
+      color: 0x0e3a04, roughness: 0.85, metalness: 0.0,
+    });
+    const trunkGeo = new THREE.CylinderGeometry(0.12, 0.22, 3.8, 6);
+    const frondGeo = new THREE.ConeGeometry(1.5, 1.1, 6);
+
+    const PALM_TARGET = 40;
+    let planted = 0;
+
+    // Try candidate positions: scatter in a ring 70-260 units from world centre
+    for (let i = 0; i < 600 && planted < PALM_TARGET; i++) {
+      // Deterministic pseudo-random using hash
+      const angle = _hash(i * 1.137, 3.779) * Math.PI * 2;
+      const dist  = 70 + _hash(7.531, i * 2.619) * 190;
+      const wx = 50 + Math.cos(angle) * dist;
+      const wz = 50 + Math.sin(angle) * dist;
+
+      // Terrain height at this spot
+      const py = terrainHeight(wx, wz);
+
+      // Only plant on beach / low grass (−0.5 … 2.8 m) — skip steep hills & ocean
+      if (py < -0.5 || py > 2.8) continue;
+
+      // Don't plant inside the fence compound
+      if (wx > 22 && wx < 60 && wz > 50 && wz < 93) continue;
+
+      // Trunk centred at py + half trunk height
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.set(wx, py + 1.9, wz);
+      // Slight random lean
+      trunk.rotation.z = (_hash(wx, wz) - 0.5) * 0.25;
+      trunk.rotation.x = (_hash(wz, wx) - 0.5) * 0.15;
+      trunk.castShadow = true;
+      scene.add(trunk);
+
+      // 3 fronds evenly spaced around the trunk top
+      for (let f = 0; f < 3; f++) {
+        const fa    = (f / 3) * Math.PI * 2 + _hash(i, f) * 0.8;
+        const frond = new THREE.Mesh(frondGeo, frondMat);
+        const tiltX = Math.cos(fa + Math.PI) * 0.65;
+        const tiltZ = Math.sin(fa + Math.PI) * 0.65;
+        frond.rotation.x = tiltX;
+        frond.rotation.z = tiltZ;
+        frond.position.set(
+          wx + Math.sin(fa) * 0.55,
+          py + 3.8 + 0.35,
+          wz + Math.cos(fa) * 0.55,
+        );
+        frond.castShadow = true;
+        scene.add(frond);
+      }
+      planted++;
+    }
+  }
 
   // ── Moonlight ─────────────────────────────────────────────────────────────
   const moon = new THREE.DirectionalLight(0x8899cc, 0.35);
@@ -717,6 +905,9 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
   // North-exterior safety cap (behind building, unreachable but kept for safety)
   extraBoxes.push({ minX: 20, maxX: 62, minZ: -9999, maxZ: -12 });
 
-  const tick = (t: number) => { starUniforms.uTime.value = t; };
+  const tick = (t: number) => {
+    starUniforms.uTime.value  = t;
+    oceanUniforms.uTime.value = t;
+  };
   return { boxes: extraBoxes, tick };
 }
