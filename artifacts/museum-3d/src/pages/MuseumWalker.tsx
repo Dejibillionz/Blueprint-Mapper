@@ -319,15 +319,21 @@ export default function MuseumWalker() {
 
     let receptionistTick: (elapsed: number) => void = () => {};
     let receptionistDispose: (() => void) | null = null;
-    buildReceptionist(scene, camera)
-      .then(({ tick, boxes, dispose }) => {
+    let receptionistMounted = true;
+    void (async () => {
+      try {
+        const { tick, boxes, dispose } = await buildReceptionist(scene, camera);
+        if (!receptionistMounted) {
+          dispose(); // component unmounted while loading — clean up immediately
+          return;
+        }
         receptionistTick = tick;
         receptionistDispose = dispose;
         collisionBoxes.push(...boxes);
-      })
-      .catch((err: unknown) =>
-        console.error("[Receptionist] setup failed:", err),
-      );
+      } catch (err: unknown) {
+        console.error("[Receptionist] setup failed:", err);
+      }
+    })();
 
     const {
       frameMeshes,
@@ -632,6 +638,7 @@ export default function MuseumWalker() {
     window.addEventListener("resize", onResize);
 
     return () => {
+      receptionistMounted = false;
       receptionistDispose?.();
       if (welcomeHideTimerRef.current !== null) clearTimeout(welcomeHideTimerRef.current);
       clearInterval(statsInterval);
