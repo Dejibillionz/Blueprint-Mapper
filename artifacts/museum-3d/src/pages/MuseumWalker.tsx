@@ -122,6 +122,7 @@ export default function MuseumWalker() {
   const [searchQuery, setSearchQuery] = useState("");
   const [allMeta, setAllMeta] = useState<SearchMeta[]>([]);
   const [teleportBanner, setTeleportBanner] = useState<string | null>(null);
+  const [detailPage, setDetailPage] = useState(0);   // 0 = artwork, 1 = details
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const welcomeTriggeredRef = useRef(false);
   const welcomeHideTimerRef = useRef<number | null>(null);
@@ -168,6 +169,7 @@ export default function MuseumWalker() {
   }, [muted]);
 
   useEffect(() => {
+    setDetailPage(0);   // always start on the artwork page when a new frame opens
     if (!zoomedFrame?.token_id) {
       setNftDetail(null);
       setDetailLoading(false);
@@ -796,51 +798,79 @@ export default function MuseumWalker() {
             <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/60" />
             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/10" />
 
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-80">
+            {/* ── Card ── pointer-events-auto so all taps register */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-80 pointer-events-auto">
               <div className="rounded-2xl overflow-hidden border"
-                   style={{ borderColor: r.color + "55", background: "rgba(8,8,14,0.90)", backdropFilter: "blur(14px)" }}>
+                   style={{ borderColor: r.color + "55", background: "rgba(8,8,14,0.92)", backdropFilter: "blur(14px)" }}>
+
+                {/* Rarity header */}
                 <div className="px-5 py-2.5 flex items-center justify-between"
                      style={{ background: r.bg, borderBottom: `1px solid ${r.color}33` }}>
                   <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: r.color }}>
                     ◆ {r.tier} Edition
                   </span>
-                  <span className="text-[10px] text-gray-400 font-mono">10ksquad Museum</span>
-                </div>
-                {zoomedFrame.imageUrl && (
-                  <div className="relative w-full bg-black/40"
-                       style={{ borderBottom: `1px solid ${r.color}22` }}>
-                    <img
-                      src={zoomedFrame.imageUrl}
-                      alt={zoomedFrame.title}
-                      className="w-full object-contain"
-                      style={{ maxHeight: 260 }}
-                      crossOrigin="anonymous"
-                    />
+                  {/* Page indicator dots */}
+                  <div className="flex items-center gap-1.5">
+                    {[0, 1].map(p => (
+                      <button key={p} onClick={() => setDetailPage(p)}
+                              className="rounded-full transition-all"
+                              style={{ width: 6, height: 6, background: detailPage === p ? r.color : r.color + "44" }} />
+                    ))}
                   </div>
-                )}
-                <div className="px-5 py-4 overflow-y-auto" style={{ maxHeight: "55vh" }}>
-                  <p className="text-white text-xl font-bold leading-snug">{zoomedFrame.title}</p>
-                  <p className="text-gray-400 text-sm mt-0.5">{zoomedFrame.artist}</p>
-                  {(zoomedFrame.rarityRank != null || zoomedFrame.rarityScore != null) && (
-                    <div className="mt-3 flex items-center gap-2">
-                      {zoomedFrame.rarityRank != null && (
-                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold font-mono border"
-                              style={{ color: r.color, borderColor: r.color + "55", background: r.bg }}>
-                          # {zoomedFrame.rarityRank}
-                          <span className="font-normal text-[10px] opacity-70 ml-0.5">RANK</span>
-                        </span>
-                      )}
-                      {zoomedFrame.rarityScore != null && (
-                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono border border-white/10 text-gray-300 bg-white/5">
-                          {zoomedFrame.rarityScore.toFixed(2)}
-                          <span className="text-[10px] text-gray-500 ml-0.5">SCORE</span>
-                        </span>
-                      )}
-                    </div>
-                  )}
+                </div>
 
-                  {/* ── Traits ── */}
-                  <div className="mt-3 pt-3 border-t border-white/10">
+                {/* ── Page 0: Artwork ── */}
+                {detailPage === 0 && (
+                  <>
+                    {zoomedFrame.imageUrl && (
+                      <div className="relative w-full bg-black/40"
+                           style={{ borderBottom: `1px solid ${r.color}22` }}>
+                        <img
+                          src={zoomedFrame.imageUrl}
+                          alt={zoomedFrame.title}
+                          className="w-full object-contain"
+                          style={{ maxHeight: 240 }}
+                          crossOrigin="anonymous"
+                        />
+                      </div>
+                    )}
+                    <div className="px-5 py-4">
+                      <p className="text-white text-xl font-bold leading-snug">{zoomedFrame.title}</p>
+                      <p className="text-gray-400 text-sm mt-0.5">{zoomedFrame.artist}</p>
+                      {(zoomedFrame.rarityRank != null || zoomedFrame.rarityScore != null) && (
+                        <div className="mt-3 flex items-center gap-2">
+                          {zoomedFrame.rarityRank != null && (
+                            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold font-mono border"
+                                  style={{ color: r.color, borderColor: r.color + "55", background: r.bg }}>
+                              # {zoomedFrame.rarityRank}
+                              <span className="font-normal text-[10px] opacity-70 ml-0.5">RANK</span>
+                            </span>
+                          )}
+                          {zoomedFrame.rarityScore != null && (
+                            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono border border-white/10 text-gray-300 bg-white/5">
+                              {zoomedFrame.rarityScore.toFixed(2)}
+                              <span className="text-[10px] text-gray-500 ml-0.5">SCORE</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {/* Tap for details CTA */}
+                      <button
+                        className="mt-4 w-full py-2.5 rounded-lg font-bold text-sm tracking-wide transition-all hover:brightness-110 active:scale-95 flex items-center justify-center gap-1.5"
+                        style={{ background: r.bg, border: `1px solid ${r.color}55`, color: r.color }}
+                        onClick={() => setDetailPage(1)}
+                      >
+                        Tap for Details
+                        <span style={{ fontSize: 16, lineHeight: 1 }}>›</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {/* ── Page 1: Details ── */}
+                {detailPage === 1 && (
+                  <div className="px-5 py-4">
+                    {/* Traits */}
                     <p className="text-[10px] uppercase tracking-widest text-gray-500 font-mono mb-2">Traits</p>
                     {detailLoading && (
                       <div className="grid grid-cols-2 gap-1.5">
@@ -857,7 +887,7 @@ export default function MuseumWalker() {
                     )}
                     {!detailLoading && !detailError && nftDetail && nftDetail.traits.length > 0 && (
                       <div className="grid grid-cols-2 gap-1.5">
-                        {nftDetail.traits.map((t, i) => (
+                        {nftDetail.traits.slice(0, 8).map((t, i) => (
                           <div key={i} className="rounded-lg px-2.5 py-2 border border-white/8"
                                style={{ background: r.bg + "55" }}>
                             <p className="text-[9px] uppercase tracking-wider font-mono leading-none"
@@ -874,53 +904,62 @@ export default function MuseumWalker() {
                     {!detailLoading && !detailError && nftDetail && nftDetail.traits.length === 0 && (
                       <p className="text-gray-600 text-xs font-mono">No traits</p>
                     )}
-                  </div>
 
-                  {/* ── Collection / Blockchain / Owner ── */}
-                  <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-2 gap-2 text-xs text-gray-500 font-mono">
-                    <div><span className="text-gray-600">Collection</span><br /><span className="text-gray-300">The 10K Squad</span></div>
-                    <div><span className="text-gray-600">Blockchain</span><br /><span className="text-gray-300">Monad</span></div>
-                    <div className="col-span-2">
-                      <span className="text-gray-600">Owner</span><br />
-                      {detailLoading && (
-                        <span className="inline-block h-3 w-28 bg-white/10 rounded animate-pulse mt-0.5" />
-                      )}
-                      {!detailLoading && nftDetail?.owner && (
-                        <a
-                          href={`https://explorer.monad.xyz/address/${nftDetail.owner}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-gray-300 hover:underline pointer-events-auto"
-                          style={{ color: r.color }}
-                          title={nftDetail.owner}
-                        >
-                          {shortenAddress(nftDetail.owner)}
-                        </a>
-                      )}
-                      {!detailLoading && !nftDetail?.owner && !detailLoading && (
-                        <span className="text-gray-600">—</span>
-                      )}
+                    {/* Collection / Blockchain / Owner */}
+                    <div className="mt-3 pt-3 border-t border-white/10 grid grid-cols-2 gap-2 text-xs text-gray-500 font-mono">
+                      <div><span className="text-gray-600">Collection</span><br /><span className="text-gray-300">The 10K Squad</span></div>
+                      <div><span className="text-gray-600">Blockchain</span><br /><span className="text-gray-300">Monad</span></div>
+                      <div className="col-span-2">
+                        <span className="text-gray-600">Owner</span><br />
+                        {detailLoading && (
+                          <span className="inline-block h-3 w-28 bg-white/10 rounded animate-pulse mt-0.5" />
+                        )}
+                        {!detailLoading && nftDetail?.owner && (
+                          <a
+                            href={`https://explorer.monad.xyz/address/${nftDetail.owner}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                            style={{ color: r.color }}
+                            title={nftDetail.owner}
+                          >
+                            {shortenAddress(nftDetail.owner)}
+                          </a>
+                        )}
+                        {!detailLoading && !nftDetail?.owner && (
+                          <span className="text-gray-600">—</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions row */}
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        className="flex-1 py-2.5 rounded-lg font-bold text-sm tracking-wide transition-all hover:brightness-110 active:scale-95"
+                        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#9ca3af" }}
+                        onClick={() => setDetailPage(0)}
+                      >
+                        ‹ Artwork
+                      </button>
+                      <button
+                        className="flex-1 py-2.5 rounded-lg font-bold text-sm text-black tracking-wide transition-all hover:brightness-110 active:scale-95"
+                        style={{ background: `linear-gradient(135deg, ${r.color}, ${r.color}cc)` }}
+                        onClick={() => {
+                          const url = zoomedFrame.token_id
+                            ? `https://opensea.io/assets/monad/${OPENSEA_CONTRACT}/${zoomedFrame.token_id}`
+                            : "https://opensea.io";
+                          window.open(url, "_blank");
+                        }}
+                      >
+                        Place Bid
+                      </button>
                     </div>
                   </div>
-
-                  <div className="mt-4 pointer-events-auto">
-                    <button
-                      className="w-full py-2.5 rounded-lg font-bold text-sm text-black tracking-wide transition-all hover:brightness-110 active:scale-95"
-                      style={{ background: `linear-gradient(135deg, ${r.color}, ${r.color}cc)` }}
-                      onClick={() => {
-                        const url = zoomedFrame.token_id
-                          ? `https://opensea.io/assets/monad/${OPENSEA_CONTRACT}/${zoomedFrame.token_id}`
-                          : "https://opensea.io";
-                        window.open(url, "_blank");
-                      }}
-                    >
-                      Place Bid
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
+            {/* Back button */}
             <div className="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-auto">
               <button
                 onClick={exitZoom}
