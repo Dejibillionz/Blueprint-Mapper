@@ -966,7 +966,7 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
   mc.font = "bold 96px Georgia, serif";
   mc.textAlign = "center";
   mc.textBaseline = "middle";
-  mc.fillText("MUSEUM GENESIS", 512, 215);
+  mc.fillText("10KSQUAD MUSEUM", 512, 215);
 
   // Subtitle
   mc.fillStyle = "#a07838";
