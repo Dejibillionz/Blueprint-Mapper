@@ -32,12 +32,17 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
     const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
     return t * t * (3 - 2 * t);
   };
-  // Terrain height at world (wx, wz) — returns 0 inside the museum/plaza plateau
+  // Terrain height at world (wx, wz).
+  // fBm is offset so the result spans roughly −7 to +11 m.
+  // Negative values fall below the ocean plane (y=−2) creating a real shoreline.
+  // Inside the museum/plaza plateau (±55 units of centre 50,50) blend→0 → height=0.
   const terrainHeight = (wx: number, wz: number): number => {
     const dx = wx - 50, dz = wz - 50;
     const edgeDist = Math.max(Math.abs(dx) - 55, Math.abs(dz) - 55, 0);
     const blend = _ss(0, 45, edgeDist);
-    return _fbm(wx * 0.012, wz * 0.012) * 14.0 * blend;
+    // fBm ∈ [0,1] → shift so midpoint ≈ 0, giving negative coastal terrain
+    const raw = (_fbm(wx * 0.012, wz * 0.012) - 0.42) * 18.0;
+    return raw * blend;
   };
 
   // ── Sky dome ──────────────────────────────────────────────────────────────
@@ -129,32 +134,58 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
       vertexShader: `
         varying float vHeight;
         varying vec3  vNrm;
+        varying vec2  vWXZ;   // world XZ for per-band noise variation
         void main() {
           vHeight = position.y;
           vNrm    = normalize(normalMatrix * normal);
+          // mesh is centred at world (50,0,50), so world XZ = local XZ + 50
+          vWXZ    = position.xz + vec2(50.0, 50.0);
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
         varying float vHeight;
         varying vec3  vNrm;
+        varying vec2  vWXZ;
+
+        // ── Noise helpers (GLSL) ─────────────────────────────────────
+        float hash2(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+        }
+        float smoothN(vec2 p) {
+          vec2 i = floor(p), f = fract(p);
+          vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(mix(hash2(i),               hash2(i + vec2(1.0, 0.0)), u.x),
+                     mix(hash2(i + vec2(0.0, 1.0)), hash2(i + vec2(1.0, 1.0)), u.x), u.y);
+        }
+        float fbmN(vec2 p) {
+          float v = 0.0, a = 0.5;
+          for (int i = 0; i < 4; i++) { v += a * smoothN(p); p *= 2.1; a *= 0.5; }
+          return v;
+        }
+
         void main() {
-          // Night-tinted coastal colour bands
-          vec3 deepSand = vec3(0.12,  0.09,  0.05);   // submerged / very low
-          vec3 sand     = vec3(0.38,  0.30,  0.18);   // beach sand
-          vec3 grass    = vec3(0.07,  0.18,  0.03);   // dark night grass
-          vec3 rock     = vec3(0.18,  0.165, 0.14);   // rocky hillside
-          vec3 cliff    = vec3(0.28,  0.265, 0.250);  // pale cliff top
+          // Per-band noise variation: medium + fine scale
+          float nv = fbmN(vWXZ * 0.05);          // 0..1 low-freq shape
+          nv = nv * 2.0 - 1.0;                   // remap → −1..1
+          nv *= 0.18;                             // ±18 % variation
+
+          // Night-tinted coastal colour bands (with noise warp applied per-band)
+          vec3 deepSand = vec3(0.10, 0.075, 0.040) * (1.0 + nv * 0.6);
+          vec3 sand     = vec3(0.36, 0.280, 0.165) * (1.0 + nv * 0.5);
+          vec3 grass    = vec3(0.06, 0.160, 0.025) * (1.0 + nv * 0.8);
+          vec3 rock     = vec3(0.17, 0.155, 0.130) * (1.0 + nv * 0.7);
+          vec3 cliff    = vec3(0.27, 0.255, 0.240) * (1.0 + nv * 0.5);
 
           vec3 col = deepSand;
-          col = mix(col, sand,  smoothstep(-1.8,  0.2, vHeight));
-          col = mix(col, grass, smoothstep( 0.6,  2.2, vHeight));
-          col = mix(col, rock,  smoothstep( 4.0,  7.0, vHeight));
-          col = mix(col, cliff, smoothstep( 9.0, 12.0, vHeight));
+          col = mix(col, sand,  smoothstep(-1.8,  0.3, vHeight));
+          col = mix(col, grass, smoothstep( 0.7,  2.5, vHeight));
+          col = mix(col, rock,  smoothstep( 4.0,  7.5, vHeight));
+          col = mix(col, cliff, smoothstep( 9.0, 12.5, vHeight));
 
           // Simple diffuse from moon direction (matches DirectionalLight above)
           float ndl = max(dot(vNrm, normalize(vec3(0.3, 1.0, -0.5))), 0.0);
-          col *= 0.50 + 0.50 * ndl;
+          col *= 0.48 + 0.52 * ndl;
 
           gl_FragColor = vec4(col, 1.0);
         }
@@ -231,9 +262,10 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
   scene.add(plazaMesh);
 
   // ── Ocean plane (animated wave shader) ───────────────────────────────────
-  // Large plane sitting 2 m below ground-zero.  The wave vertex shader uses
-  // uTime (shared with star tick) to animate two crossing sine waves.
-  // Scene fog fades the far edge so there is no hard cutoff at the horizon.
+  // Sits at y=−2.  Terrain dips below y=−2 in coastal areas, so the ocean
+  // naturally covers those low spots creating a real shoreline.
+  // polygonOffset pushes ocean fragments slightly behind terrain at the shore
+  // edge to prevent z-fighting where terrain height ≈ −2.
   {
     const oceanGeo = new THREE.PlaneGeometry(1200, 1200, 80, 80);
     oceanGeo.rotateX(-Math.PI / 2);
@@ -241,14 +273,17 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
       uniforms: oceanUniforms,
       side: THREE.FrontSide,
       transparent: false,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
       vertexShader: `
         uniform float uTime;
         varying float vWave;
         void main() {
           vec3 p = position;
-          float w = sin(p.x * 0.032 + uTime * 0.7)  * 0.18
-                  + sin(p.z * 0.048 + uTime * 1.1)  * 0.12
-                  + sin((p.x + p.z) * 0.022 + uTime * 0.5) * 0.09;
+          float w = sin(p.x * 0.04  + uTime * 0.7)  * 0.15
+                  + sin(p.z * 0.06  + uTime * 1.3)  * 0.10
+                  + sin((p.x + p.z) * 0.022 + uTime * 0.5) * 0.08;
           p.y += w;
           vWave = w;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
@@ -257,10 +292,9 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
       fragmentShader: `
         varying float vWave;
         void main() {
-          // Base deep-ocean blue, slightly lighter on wave crests
-          vec3 deep  = vec3(0.012, 0.060, 0.145);
-          vec3 crest = vec3(0.030, 0.120, 0.250);
-          float t    = smoothstep(-0.15, 0.20, vWave);
+          vec3 deep  = vec3(0.012, 0.055, 0.140);
+          vec3 crest = vec3(0.028, 0.110, 0.240);
+          float t    = smoothstep(-0.12, 0.18, vWave);
           vec3 col   = mix(deep, crest, t);
           gl_FragColor = vec4(col, 1.0);
         }
@@ -271,67 +305,81 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
     scene.add(oceanMesh);
   }
 
-  // ── Stylised palm trees ───────────────────────────────────────────────────
-  // ~40 palms scattered pseudo-randomly outside the museum compound.
-  // Each palm: cylinder trunk + 3 angled cone fronds.
-  // Positions use the same terrainHeight() function so trunks sit flush with terrain.
+  // ── Stylised palm trees (InstancedMesh) ──────────────────────────────────
+  // Trunk: one InstancedMesh (PALM_COUNT instances).
+  // Fronds: one InstancedMesh (PALM_COUNT × 3 instances).
+  // Positions are scatter-sampled in a ring outside the museum compound,
+  // filtered to beach / low-grass terrain height (−0.5 … 2.8 m).
   {
-    const trunkMat = new THREE.MeshStandardMaterial({
-      color: 0x3d2208, roughness: 0.92, metalness: 0.0,
-    });
-    const frondMat = new THREE.MeshStandardMaterial({
-      color: 0x0e3a04, roughness: 0.85, metalness: 0.0,
-    });
-    const trunkGeo = new THREE.CylinderGeometry(0.12, 0.22, 3.8, 6);
-    const frondGeo = new THREE.ConeGeometry(1.5, 1.1, 6);
-
     const PALM_TARGET = 40;
-    let planted = 0;
+    const FRONDS_PER  = 3;
 
-    // Try candidate positions: scatter in a ring 70-260 units from world centre
-    for (let i = 0; i < 600 && planted < PALM_TARGET; i++) {
-      // Deterministic pseudo-random using hash
+    // ── collect valid positions first ──
+    type PalmInfo = { wx: number; wz: number; py: number; idx: number };
+    const palms: PalmInfo[] = [];
+
+    for (let i = 0; i < 600 && palms.length < PALM_TARGET; i++) {
       const angle = _hash(i * 1.137, 3.779) * Math.PI * 2;
       const dist  = 70 + _hash(7.531, i * 2.619) * 190;
       const wx = 50 + Math.cos(angle) * dist;
       const wz = 50 + Math.sin(angle) * dist;
-
-      // Terrain height at this spot
       const py = terrainHeight(wx, wz);
+      if (py < -0.5 || py > 2.8) continue;                   // ocean / steep hill
+      if (wx > 22 && wx < 60 && wz > 50 && wz < 93) continue; // inside compound
+      palms.push({ wx, wz, py, idx: i });
+    }
 
-      // Only plant on beach / low grass (−0.5 … 2.8 m) — skip steep hills & ocean
-      if (py < -0.5 || py > 2.8) continue;
+    const count = palms.length;
 
-      // Don't plant inside the fence compound
-      if (wx > 22 && wx < 60 && wz > 50 && wz < 93) continue;
+    // ── trunk InstancedMesh ──
+    const trunkGeo = new THREE.CylinderGeometry(0.12, 0.22, 3.8, 6);
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3d2208, roughness: 0.92, metalness: 0.0 });
+    const trunkIM  = new THREE.InstancedMesh(trunkGeo, trunkMat, count);
+    trunkIM.castShadow = true;
 
-      // Trunk centred at py + half trunk height
-      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-      trunk.position.set(wx, py + 1.9, wz);
-      // Slight random lean
-      trunk.rotation.z = (_hash(wx, wz) - 0.5) * 0.25;
-      trunk.rotation.x = (_hash(wz, wx) - 0.5) * 0.15;
-      trunk.castShadow = true;
-      scene.add(trunk);
+    // ── frond InstancedMesh ──
+    const frondGeo = new THREE.ConeGeometry(1.5, 1.1, 6);
+    const frondMat = new THREE.MeshStandardMaterial({ color: 0x0e3a04, roughness: 0.85, metalness: 0.0 });
+    const frondIM  = new THREE.InstancedMesh(frondGeo, frondMat, count * FRONDS_PER);
+    frondIM.castShadow = true;
 
-      // 3 fronds evenly spaced around the trunk top
-      for (let f = 0; f < 3; f++) {
-        const fa    = (f / 3) * Math.PI * 2 + _hash(i, f) * 0.8;
-        const frond = new THREE.Mesh(frondGeo, frondMat);
-        const tiltX = Math.cos(fa + Math.PI) * 0.65;
-        const tiltZ = Math.sin(fa + Math.PI) * 0.65;
-        frond.rotation.x = tiltX;
-        frond.rotation.z = tiltZ;
-        frond.position.set(
+    const dummy = new THREE.Object3D();
+
+    palms.forEach(({ wx, wz, py, idx }, p) => {
+      // Trunk
+      dummy.position.set(wx, py + 1.9, wz);
+      dummy.rotation.set(
+        (_hash(wz, wx) - 0.5) * 0.15,  // slight fore-aft lean
+        0,
+        (_hash(wx, wz) - 0.5) * 0.25,  // slight side lean
+      );
+      dummy.scale.setScalar(1);
+      dummy.updateMatrix();
+      trunkIM.setMatrixAt(p, dummy.matrix);
+
+      // 3 fronds around trunk crown
+      for (let f = 0; f < FRONDS_PER; f++) {
+        const fa = (f / FRONDS_PER) * Math.PI * 2 + _hash(idx, f) * 0.8;
+        dummy.position.set(
           wx + Math.sin(fa) * 0.55,
           py + 3.8 + 0.35,
           wz + Math.cos(fa) * 0.55,
         );
-        frond.castShadow = true;
-        scene.add(frond);
+        dummy.rotation.set(
+          Math.cos(fa + Math.PI) * 0.65,
+          0,
+          Math.sin(fa + Math.PI) * 0.65,
+        );
+        dummy.scale.setScalar(1);
+        dummy.updateMatrix();
+        frondIM.setMatrixAt(p * FRONDS_PER + f, dummy.matrix);
       }
-      planted++;
-    }
+    });
+
+    trunkIM.instanceMatrix.needsUpdate = true;
+    frondIM.instanceMatrix.needsUpdate = true;
+    scene.add(trunkIM);
+    scene.add(frondIM);
   }
 
   // ── Moonlight ─────────────────────────────────────────────────────────────
