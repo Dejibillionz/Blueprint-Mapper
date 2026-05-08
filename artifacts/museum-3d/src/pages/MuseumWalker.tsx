@@ -127,8 +127,6 @@ export default function MuseumWalker() {
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const welcomeTriggeredRef = useRef(false);
   const welcomeHideTimerRef = useRef<number | null>(null);
-  const [receptionistDialogue, setReceptionistDialogue] = useState<string | null>(null);
-  const lastDialogueRef = useRef<string | null>(null);
 
   // Refs for the Three.js state that needs to persist between renders
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -319,11 +317,17 @@ export default function MuseumWalker() {
     collisionBoxes.push(...exterior.boxes);
     exteriorTick = exterior.tick;
 
-    let receptionistTick: (elapsed: number, camPos: THREE.Vector3) => { dialogueLine: string | null } =
-      () => ({ dialogueLine: null });
-    const receptionist = buildReceptionist(scene);
-    collisionBoxes.push(...receptionist.boxes);
-    receptionistTick = receptionist.tick;
+    let receptionistTick: (elapsed: number) => void = () => {};
+    let receptionistDispose: (() => void) | null = null;
+    buildReceptionist(scene, camera)
+      .then(({ tick, boxes, dispose }) => {
+        receptionistTick = tick;
+        receptionistDispose = dispose;
+        collisionBoxes.push(...boxes);
+      })
+      .catch((err: unknown) =>
+        console.error("[Receptionist] setup failed:", err),
+      );
 
     const {
       frameMeshes,
@@ -538,11 +542,7 @@ export default function MuseumWalker() {
         exteriorTick(elapsed);
 
         // ── Receptionist tick ──────────────────────────────────
-        const { dialogueLine } = receptionistTick(elapsed, camera.position);
-        if (dialogueLine !== lastDialogueRef.current) {
-          lastDialogueRef.current = dialogueLine;
-          setReceptionistDialogue(dialogueLine);
-        }
+        receptionistTick(elapsed);
 
         // Proximity frame detection — raycast from crosshair, max 4 m
         raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera);
@@ -632,6 +632,7 @@ export default function MuseumWalker() {
     window.addEventListener("resize", onResize);
 
     return () => {
+      receptionistDispose?.();
       if (welcomeHideTimerRef.current !== null) clearTimeout(welcomeHideTimerRef.current);
       clearInterval(statsInterval);
       cancelAnimationFrame(animId);
@@ -808,45 +809,6 @@ export default function MuseumWalker() {
           </div>
         );
       })()}
-
-      {/* ── Receptionist dialogue panel ── */}
-      {locked && !zoomedFrame && receptionistDialogue && (
-        <div
-          className="absolute bottom-24 left-1/2 -translate-x-1/2 pointer-events-none select-none"
-          style={{ animation: "fadeSlideIn 0.3s ease-out", zIndex: 40 }}
-        >
-          <div
-            className="rounded-2xl px-6 py-4 max-w-sm text-center"
-            style={{
-              background: "rgba(6,6,18,0.92)",
-              backdropFilter: "blur(16px)",
-              border: "1.5px solid rgba(212,160,23,0.6)",
-              boxShadow: "0 0 32px rgba(212,160,23,0.18), inset 0 0 20px rgba(212,160,23,0.04)",
-            }}
-          >
-            <div
-              className="text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center justify-center gap-1.5"
-              style={{ color: "#d4a017" }}
-            >
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 7,
-                  height: 7,
-                  borderRadius: "50%",
-                  background: "#d4a017",
-                  boxShadow: "0 0 6px #d4a017",
-                  animation: "pulse 1.2s ease-in-out infinite",
-                }}
-              />
-              Receptionist
-            </div>
-            <p className="text-white text-sm font-medium leading-relaxed">
-              {receptionistDialogue}
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* ── Frame zoom overlay ── */}
       {zoomedFrame && (() => {
