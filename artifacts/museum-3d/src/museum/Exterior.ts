@@ -470,39 +470,42 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
   }
 
   // ── City lights on the horizon ────────────────────────────────────────────
-  // Faint orange/amber horizon glow + tiny window-light cubes simulating a
-  // distant city nestled against the northern mountain ridge.
+  // Faint orange/amber horizon glow (breathing) + tiny window-light cubes
+  // (flickering via per-instance phase ShaderMaterial) simulating a distant
+  // city nestled against the northern mountain ridge.
+
+  // Uniforms shared with tick() so the glow and windows animate every frame.
+  const cityUniforms = { uTime: { value: 0.0 } };
+
+  // Horizon glow band — large tilted plane, opacity breathes via tick()
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: 0xff7722,
+    transparent: true,
+    opacity: 0.07,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const glowBand = new THREE.Mesh(new THREE.PlaneGeometry(320, 20), glowMat);
+  glowBand.rotation.x = -Math.PI * 0.10;
+  glowBand.position.set(90, 10, 50 - 285);
+  scene.add(glowBand);
+
+  // Warmer secondary glow blob (slightly different hue/position for depth)
+  const glowMat2 = new THREE.MeshBasicMaterial({
+    color: 0xffaa33,
+    transparent: true,
+    opacity: 0.05,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const glowBand2 = new THREE.Mesh(new THREE.PlaneGeometry(180, 14), glowMat2);
+  glowBand2.rotation.x = -Math.PI * 0.10;
+  glowBand2.position.set(50 + 60, 8, 50 - 300);
+  scene.add(glowBand2);
+
+  // Ambient city-glow PointLights — kept very close to the mountain ridge so
+  // they illuminate only the distant backdrop and cannot reach foreground assets.
   {
-    // Horizon glow band — large tilted plane, purely additive-looking via transparency
-    const glowMat = new THREE.MeshBasicMaterial({
-      color: 0xff7722,
-      transparent: true,
-      opacity: 0.07,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    const glowBand = new THREE.Mesh(new THREE.PlaneGeometry(320, 20), glowMat);
-    glowBand.rotation.x = -Math.PI * 0.10;  // slight tilt toward viewer
-    glowBand.position.set(90, 10, 50 - 285);
-    scene.add(glowBand);
-
-    // Warmer secondary glow blob (slightly different hue/position for depth)
-    const glowMat2 = new THREE.MeshBasicMaterial({
-      color: 0xffaa33,
-      transparent: true,
-      opacity: 0.05,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    const glowBand2 = new THREE.Mesh(new THREE.PlaneGeometry(180, 14), glowMat2);
-    glowBand2.rotation.x = -Math.PI * 0.10;
-    glowBand2.position.set(50 + 60, 8, 50 - 300);
-    scene.add(glowBand2);
-
-    // Ambient city-glow PointLights — kept very close to the mountain ridge so
-    // they illuminate only the distant backdrop and cannot reach foreground assets.
-    // Intensity is deliberately low; the visual glow comes primarily from the
-    // emissive planes and window cubes above.
     const cityGlowDefs: Array<[number, number, number, number, number]> = [
       [50 - 50,  14, 50 - 275,  2.5, 80],
       [50 + 30,  12, 50 - 285,  2.0, 70],
@@ -514,21 +517,83 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
       pl.position.set(cx, cy, cz);
       scene.add(pl);
     }
+  }
 
-    // Individual building / window lights — tiny emissive cubes on the horizon
-    const winMatOrange = new THREE.MeshBasicMaterial({ color: 0xffcc55 });
-    const winMatWhite  = new THREE.MeshBasicMaterial({ color: 0xddeeff });
-    const winGeo = new THREE.BoxGeometry(1.2, 0.9, 0.4);
+  // Window-light cubes — two InstancedMeshes (orange / white) with a
+  // ShaderMaterial that reads uTime + a per-instance aPhase attribute so
+  // every window flickers at its own independent rate.
+  {
+    // Vertex shader: slow sine pulse + faster flicker combined.
+    // instanceMatrix must be applied explicitly when using ShaderMaterial with
+    // InstancedMesh — THREE.js does not inject it automatically.
+    const winVert = `
+      uniform float uTime;
+      attribute float aPhase;
+      varying float vBrightness;
+      void main() {
+        float slow   = sin(uTime * 0.85 + aPhase)             * 0.5 + 0.5;
+        float fast   = sin(uTime * 6.10 + aPhase * 3.14159)   * 0.5 + 0.5;
+        vBrightness  = 0.50 + 0.32 * slow + 0.18 * fast;
+        vec4 worldPos = instanceMatrix * vec4(position, 1.0);
+        gl_Position   = projectionMatrix * modelViewMatrix * worldPos;
+      }
+    `;
 
+    // Helper: build one InstancedMesh for a colour group
+    const buildWinIM = (
+      positions: Array<{ wx: number; wy: number; wz: number }>,
+      r: number, g: number, b: number,
+    ): void => {
+      const count = positions.length;
+      if (count === 0) return;
+
+      const geo = new THREE.BoxGeometry(1.2, 0.9, 0.4);
+
+      // Per-instance random phase offset
+      const phases = new Float32Array(count);
+      for (let k = 0; k < count; k++) phases[k] = Math.random() * Math.PI * 2;
+      geo.setAttribute("aPhase", new THREE.InstancedBufferAttribute(phases, 1));
+
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { uTime: cityUniforms.uTime },
+        vertexShader: winVert,
+        fragmentShader: `
+          varying float vBrightness;
+          void main() {
+            gl_FragColor = vec4(
+              vec3(${r.toFixed(4)}, ${g.toFixed(4)}, ${b.toFixed(4)}) * vBrightness,
+              1.0
+            );
+          }
+        `,
+      });
+
+      const im = new THREE.InstancedMesh(geo, mat, count);
+      const dummy = new THREE.Object3D();
+      positions.forEach(({ wx, wy, wz }, idx) => {
+        dummy.position.set(wx, wy, wz);
+        dummy.updateMatrix();
+        im.setMatrixAt(idx, dummy.matrix);
+      });
+      im.instanceMatrix.needsUpdate = true;
+      scene.add(im);
+    };
+
+    // Collect window positions, split by colour group
+    const orangePos: Array<{ wx: number; wy: number; wz: number }> = [];
+    const whitePos:  Array<{ wx: number; wy: number; wz: number }> = [];
     for (let i = 0; i < 80; i++) {
       const wx = 50 + (_hash(i * 3.13, 1.71) - 0.5) * 260;
       const wz = 50 - 248 - _hash(i * 1.97, 4.37) * 65;
       const wy = _hash(i * 2.73, 8.19) * 28 + 2;
-      const mat = i % 3 === 0 ? winMatWhite : winMatOrange;
-      const cube = new THREE.Mesh(winGeo, mat);
-      cube.position.set(wx, wy, wz);
-      scene.add(cube);
+      if (i % 3 === 0) whitePos.push({ wx, wy, wz });
+      else             orangePos.push({ wx, wy, wz });
     }
+
+    // Orange-amber windows  (0xffcc55 → r=1, g=0.8, b=0.333)
+    buildWinIM(orangePos, 1.0, 0.8, 0.333);
+    // Cool white / blue-white windows  (0xddeeff → r=0.867, g=0.933, b=1)
+    buildWinIM(whitePos,  0.867, 0.933, 1.0);
   }
 
   // ── Moonlight ─────────────────────────────────────────────────────────────
@@ -1105,6 +1170,12 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
   const tick = (t: number) => {
     starUniforms.uTime.value  = t;
     oceanUniforms.uTime.value = t;
+    cityUniforms.uTime.value  = t;
+
+    // Horizon glow bands breathe slowly — two different frequencies so they
+    // never pulse perfectly in sync, giving a more organic city-atmosphere feel.
+    glowMat.opacity  = 0.055 + 0.022 * Math.sin(t * 0.31);
+    glowMat2.opacity = 0.038 + 0.018 * Math.sin(t * 0.47 + 1.2);
   };
   return { boxes: extraBoxes, tick };
 }
