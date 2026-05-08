@@ -140,7 +140,7 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   // Interior ceiling — same tight dimensions as the floor.
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(99, 51), ceilMat);
   ceil.rotation.x = Math.PI / 2;
-  ceil.position.set(50, WALL_HEIGHT, 26);
+  ceil.position.set(50, WALL_HEIGHT - 0.005, 26);  // 5 mm below roof slab to stop z-fight
   scene.add(ceil);
 
   // Outer walls use a stone / limestone facade material.

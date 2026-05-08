@@ -1,8 +1,10 @@
 import * as THREE from "three";
 import type { WallBox } from "./collision";
 
-export function buildExterior(scene: THREE.Scene): WallBox[] {
+export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t: number) => void } {
   const extraBoxes: WallBox[] = [];
+  // Uniforms shared with the twinkling star shader — updated every frame by tick().
+  const starUniforms = { uTime: { value: 0.0 } };
 
   // ── Sky dome ──────────────────────────────────────────────────────────────
   // Photo-textured sphere — deep blue twilight sky with natural stars.
@@ -22,6 +24,52 @@ export function buildExterior(scene: THREE.Scene): WallBox[] {
   const skyDome = new THREE.Mesh(skyGeo, skyMat);
   skyDome.position.set(50, -10, 26);
   scene.add(skyDome);
+
+  // ── Twinkling stars ────────────────────────────────────────────────────────
+  // Shader-based particle system.  Each star has a unique random phase so they
+  // sparkle independently.  uTime is driven every frame via tick().
+  const STAR_COUNT = 700;
+  const starPos    = new Float32Array(STAR_COUNT * 3);
+  const starPhase  = new Float32Array(STAR_COUNT);
+  for (let i = 0; i < STAR_COUNT; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi   = Math.acos(Math.random() * 0.88);   // upper hemisphere only
+    const r     = 420;
+    starPos[i * 3]     = 50  + r * Math.sin(phi) * Math.cos(theta);
+    starPos[i * 3 + 1] = -10 + r * Math.cos(phi);
+    starPos[i * 3 + 2] = 26  + r * Math.sin(phi) * Math.sin(theta);
+    starPhase[i] = Math.random() * Math.PI * 2;
+  }
+  const starGeo = new THREE.BufferGeometry();
+  starGeo.setAttribute("position", new THREE.BufferAttribute(starPos,   3));
+  starGeo.setAttribute("aPhase",   new THREE.BufferAttribute(starPhase, 1));
+  const starMat = new THREE.ShaderMaterial({
+    uniforms: starUniforms,
+    transparent: true,
+    depthWrite: false,
+    vertexShader: `
+      uniform float uTime;
+      attribute float aPhase;
+      varying float vAlpha;
+      void main() {
+        float wave   = sin(uTime * 1.6 + aPhase);
+        vAlpha       = 0.35 + 0.65 * (0.5 + 0.5 * wave);
+        gl_PointSize = 1.1  + 1.3  * (0.5 + 0.5 * wave);
+        gl_Position  = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying float vAlpha;
+      void main() {
+        vec2  uv = gl_PointCoord - 0.5;
+        float r  = length(uv) * 2.0;
+        if (r > 1.0) discard;
+        float a  = (1.0 - smoothstep(0.0, 1.0, r)) * vAlpha;
+        gl_FragColor = vec4(0.88, 0.94, 1.0, a);
+      }
+    `,
+  });
+  scene.add(new THREE.Points(starGeo, starMat));
 
   // ── Exterior stone ground (infinite dark plane) ───────────────────────────
   const groundMat = new THREE.MeshStandardMaterial({
@@ -669,5 +717,6 @@ export function buildExterior(scene: THREE.Scene): WallBox[] {
   // North-exterior safety cap (behind building, unreachable but kept for safety)
   extraBoxes.push({ minX: 20, maxX: 62, minZ: -9999, maxZ: -12 });
 
-  return extraBoxes;
+  const tick = (t: number) => { starUniforms.uTime.value = t; };
+  return { boxes: extraBoxes, tick };
 }
