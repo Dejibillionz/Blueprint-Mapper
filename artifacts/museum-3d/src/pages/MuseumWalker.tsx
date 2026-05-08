@@ -122,6 +122,9 @@ export default function MuseumWalker() {
   const [searchQuery, setSearchQuery] = useState("");
   const [allMeta, setAllMeta] = useState<SearchMeta[]>([]);
   const [teleportBanner, setTeleportBanner] = useState<string | null>(null);
+  const [welcomeVisible, setWelcomeVisible] = useState(false);
+  const welcomeTriggeredRef = useRef(false);
+  const welcomeHideTimerRef = useRef<number | null>(null);
 
   // Refs for the Three.js state that needs to persist between renders
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -153,6 +156,12 @@ export default function MuseumWalker() {
     targetLookAt: THREE.Vector3;
     progress: number;
   } | null>(null);
+
+  useEffect(() => {
+    if (sessionStorage.getItem("museum_welcome_shown") === "1") {
+      welcomeTriggeredRef.current = true;
+    }
+  }, []);
 
   useEffect(() => {
     audioRef.current.setMuted(muted);
@@ -503,6 +512,14 @@ export default function MuseumWalker() {
         setRoomName(getNearbyRoom(camera.position));
         audioRef.current.setRoom(currentRoomId);
 
+        // ── Welcome message: fire once when player crosses entrance threshold ──
+        if (!welcomeTriggeredRef.current && camera.position.z < 58) {
+          welcomeTriggeredRef.current = true;
+          sessionStorage.setItem("museum_welcome_shown", "1");
+          setWelcomeVisible(true);
+          welcomeHideTimerRef.current = window.setTimeout(() => setWelcomeVisible(false), 5000);
+        }
+
         // ── Proximity texture loading ──────────────────────────
         proximityMgrRef.current?.update(camera.position, elapsed, currentRoomId);
 
@@ -594,6 +611,7 @@ export default function MuseumWalker() {
     window.addEventListener("resize", onResize);
 
     return () => {
+      if (welcomeHideTimerRef.current !== null) clearTimeout(welcomeHideTimerRef.current);
       clearInterval(statsInterval);
       cancelAnimationFrame(animId);
       controls.dispose();
@@ -917,6 +935,29 @@ export default function MuseumWalker() {
 
       {zoomedFrame && (
         <EscListener onEsc={exitZoom} />
+      )}
+
+      {/* ── Welcome message (first time crossing the entrance threshold) ── */}
+      {welcomeVisible && locked && (
+        <div className="absolute top-1/3 left-1/2 pointer-events-none select-none z-40"
+             style={{ animation: "welcomeFadeInOut 5s ease forwards" }}>
+          <div className="text-center px-10 py-6 rounded-2xl border"
+               style={{
+                 background: "rgba(8,8,14,0.90)",
+                 backdropFilter: "blur(14px)",
+                 borderColor: "#c9a84c66",
+                 boxShadow: "0 0 40px rgba(201,168,76,0.15), 0 0 80px rgba(201,168,76,0.06)",
+               }}>
+            <p className="text-xs uppercase tracking-[0.3em] font-semibold mb-3"
+               style={{ color: "#c9a84c" }}>◆ Museum Genesis ◆</p>
+            <p className="text-white text-2xl font-bold tracking-wide leading-snug">
+              Welcome to Museum Genesis
+            </p>
+            <p className="text-gray-400 text-sm mt-2 tracking-wide">
+              3333 unique works await
+            </p>
+          </div>
+        </div>
       )}
 
       {/* ── Teleport banner ── */}
