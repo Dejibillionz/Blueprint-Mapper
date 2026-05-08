@@ -5,58 +5,23 @@ export function buildExterior(scene: THREE.Scene): WallBox[] {
   const extraBoxes: WallBox[] = [];
 
   // ── Sky dome ──────────────────────────────────────────────────────────────
-  // Large inverted sphere with a GLSL gradient — dark indigo horizon → near-black zenith
-  const skyGeo = new THREE.SphereGeometry(450, 32, 16);
-  const skyMat = new THREE.ShaderMaterial({
+  // Photo-textured sphere — deep blue twilight sky with natural stars.
+  // Tiled 4×2 so it wraps smoothly and the star density looks uniform.
+  const skyTex = new THREE.TextureLoader().load("/sky.png");
+  skyTex.colorSpace  = THREE.SRGBColorSpace;
+  skyTex.wrapS       = THREE.RepeatWrapping;
+  skyTex.wrapT       = THREE.RepeatWrapping;
+  skyTex.repeat.set(4, 2);
+
+  const skyGeo = new THREE.SphereGeometry(450, 48, 24);
+  const skyMat = new THREE.MeshBasicMaterial({
+    map: skyTex,
     side: THREE.BackSide,
     depthWrite: false,
-    vertexShader: `
-      varying vec3 vPos;
-      void main() {
-        vPos = position;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      varying vec3 vPos;
-      void main() {
-        float h = clamp(normalize(vPos).y, 0.0, 1.0);
-        // horizon → mid → zenith gradient
-        vec3 hor = vec3(0.038, 0.026, 0.088);
-        vec3 mid = vec3(0.018, 0.013, 0.052);
-        vec3 top = vec3(0.005, 0.004, 0.018);
-        vec3 col = h < 0.25
-          ? mix(hor, mid, h / 0.25)
-          : mix(mid, top, (h - 0.25) / 0.75);
-        gl_FragColor = vec4(col, 1.0);
-      }
-    `,
   });
   const skyDome = new THREE.Mesh(skyGeo, skyMat);
   skyDome.position.set(50, -10, 26);
   scene.add(skyDome);
-
-  // ── Stars ─────────────────────────────────────────────────────────────────
-  const STAR_COUNT = 2800;
-  const starPos = new Float32Array(STAR_COUNT * 3);
-  for (let i = 0; i < STAR_COUNT; i++) {
-    const theta = Math.random() * Math.PI * 2;
-    const phi   = Math.acos(Math.random() * 0.9);   // upper ~90% of sphere
-    const r     = 400;
-    starPos[i * 3]     = 50  + r * Math.sin(phi) * Math.cos(theta);
-    starPos[i * 3 + 1] = -10 + r * Math.cos(phi);
-    starPos[i * 3 + 2] = 26  + r * Math.sin(phi) * Math.sin(theta);
-  }
-  const starGeo = new THREE.BufferGeometry();
-  starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
-  const starMat = new THREE.PointsMaterial({
-    color: 0xd8e8ff,
-    size: 0.7,
-    sizeAttenuation: false,
-    transparent: true,
-    opacity: 0.85,
-  });
-  scene.add(new THREE.Points(starGeo, starMat));
 
   // ── Exterior stone ground (infinite dark plane) ───────────────────────────
   const groundMat = new THREE.MeshStandardMaterial({

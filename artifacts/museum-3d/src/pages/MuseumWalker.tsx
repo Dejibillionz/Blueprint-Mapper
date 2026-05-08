@@ -284,10 +284,10 @@ export default function MuseumWalker() {
     if (!mount) return;
 
     const scene = new THREE.Scene();
-    // Sky dome handles the background; this colour is the fallback / fog colour.
-    scene.background = new THREE.Color(0x06060e);
+    // Match the horizon colour of the photo sky texture.
+    scene.background = new THREE.Color(0x0d1f3c);
     // Extended far distance so the building facade is fully visible from outside.
-    scene.fog = new THREE.Fog(0x06060e, 25, 200);
+    scene.fog = new THREE.Fog(0x0d1f3c, 25, 200);
 
     const camera = new THREE.PerspectiveCamera(72, mount.clientWidth / mount.clientHeight, 0.05, 500);
     cameraRef.current = camera;
