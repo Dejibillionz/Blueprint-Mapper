@@ -311,10 +311,8 @@ export default function MuseumWalker() {
 
     // Build exterior world (sky, ground, steps, columns, lampposts).
     // Returns collision boxes + a tick() to drive the twinkling star shader each frame.
-    let exteriorTick: (t: number) => void = () => {};
     const exterior = buildExterior(scene);
     collisionBoxes.push(...exterior.boxes);
-    exteriorTick = exterior.tick;
 
     const {
       frameMeshes,
@@ -526,7 +524,8 @@ export default function MuseumWalker() {
 
         // ── Proximity texture loading ──────────────────────────
         proximityMgrRef.current?.update(camera.position, elapsed, currentRoomId);
-        exteriorTick(elapsed);
+        exterior.tick(elapsed);
+        exterior.updateDoor(camera.position, delta);
 
         // Proximity frame detection — raycast from crosshair, max 4 m
         raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera);
