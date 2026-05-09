@@ -293,6 +293,8 @@ export default function MuseumWalker() {
     cam.position.set(pos[0], pos[1], pos[2]);
     ctrl.setYaw(yaw);
     ctrl.setPitch(0);
+    ctrl.suspended = false;
+    receptionistOpenRef.current = false;
     cam.quaternion.setFromEuler(new THREE.Euler(0, yaw, 0, "YXZ"));
     setReceptionistOpen(false);
     setReceptionistQuery("");
