@@ -155,6 +155,7 @@ export default function MuseumWalker() {
   const receptionistRef      = useRef<Receptionist | null>(null);
   const receptionistNearbyRef = useRef(false);
   const lastRecHintRef        = useRef(false);
+  const receptionistOpenRef   = useRef(false);
   const zoomStateRef = useRef<{
     active: boolean;
     savedPos: THREE.Vector3;
@@ -279,8 +280,10 @@ export default function MuseumWalker() {
 
   const closeReceptionist = useCallback(() => {
     setReceptionistOpen(false);
+    receptionistOpenRef.current = false;
     setReceptionistQuery("");
     receptionistRef.current?.setState("idle");
+    if (controlsRef.current) controlsRef.current.suspended = false;
   }, []);
 
   const teleportToRoom = useCallback((name: string, pos: [number, number, number], yaw: number) => {
@@ -313,8 +316,9 @@ export default function MuseumWalker() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.code === "KeyE") {
         if (!receptionistOpen && receptionistNearbyRef.current) {
-          document.exitPointerLock();
           setReceptionistOpen(true);
+          receptionistOpenRef.current = true;
+          if (controlsRef.current) controlsRef.current.suspended = true;
           receptionistRef.current?.setState("talk");
         } else if (receptionistOpen) {
           closeReceptionist();
@@ -325,6 +329,44 @@ export default function MuseumWalker() {
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, [receptionistOpen, closeReceptionist]);
+
+  // Keyboard-driven search and room navigation while panel is open (pointer-lock stays active)
+  useEffect(() => {
+    if (!receptionistOpen) return;
+    const ROOM_DEST_KEYS: Array<{ name: string; pos: [number, number, number]; yaw: number }> = [
+      { name: "Common Gallery",  pos: [27.5, EYE_HEIGHT, 14.0], yaw: -Math.PI / 2 },
+      { name: "Uncommon Wing",   pos: [40.0, EYE_HEIGHT, 21.0], yaw:  0           },
+      { name: "Rare Collection", pos: [64.0, EYE_HEIGHT, 21.0], yaw:  0           },
+      { name: "Platinum Vault",  pos: [75.5, EYE_HEIGHT, 25.0], yaw:  Math.PI / 2 },
+    ];
+    const h = (e: KeyboardEvent) => {
+      // Digit 1-4: teleport to room
+      if (e.code === "Digit1") { const d = ROOM_DEST_KEYS[0]; teleportToRoom(d.name, d.pos, d.yaw); return; }
+      if (e.code === "Digit2") { const d = ROOM_DEST_KEYS[1]; teleportToRoom(d.name, d.pos, d.yaw); return; }
+      if (e.code === "Digit3") { const d = ROOM_DEST_KEYS[2]; teleportToRoom(d.name, d.pos, d.yaw); return; }
+      if (e.code === "Digit4") { const d = ROOM_DEST_KEYS[3]; teleportToRoom(d.name, d.pos, d.yaw); return; }
+      // Enter: teleport to first search result
+      if (e.code === "Enter") {
+        const q = receptionistQuery.trim().toLowerCase();
+        if (q) {
+          const first = allMeta.find(m => m.token_id.toLowerCase().includes(q));
+          if (first) { teleportToNFT(first); closeReceptionist(); }
+        }
+        return;
+      }
+      // Backspace: delete last character from search
+      if (e.code === "Backspace") {
+        setReceptionistQuery(prev => prev.slice(0, -1));
+        return;
+      }
+      // Printable characters: append to search query
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        setReceptionistQuery(prev => prev + e.key);
+      }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [receptionistOpen, receptionistQuery, allMeta, teleportToRoom, teleportToNFT, closeReceptionist]);
 
   useEffect(() => {
     if (!webglSupported) return;
@@ -1080,9 +1122,15 @@ export default function MuseumWalker() {
       )}
 
       {/* ── Receptionist proximity hint ── */}
-      {locked && !zoomedFrame && receptionistHint && !receptionistOpen && (
-        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 pointer-events-none select-none z-30"
-             style={{ animation: "fadeSlideIn 0.3s ease-out" }}>
+      {!zoomedFrame && receptionistHint && !receptionistOpen && (
+        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 select-none z-30 cursor-pointer"
+             style={{ animation: "fadeSlideIn 0.3s ease-out" }}
+             onClick={() => {
+               setReceptionistOpen(true);
+               receptionistOpenRef.current = true;
+               controlsRef.current && (controlsRef.current.suspended = true);
+               receptionistRef.current?.setState("talk");
+             }}>
           <div className="flex items-center gap-2 bg-black/75 border border-amber-400/50 rounded-xl px-5 py-2.5 backdrop-blur-sm"
                style={{ boxShadow: "0 0 20px rgba(251,191,36,0.12)" }}>
             <span className="text-amber-400 text-sm">👤</span>
@@ -1132,20 +1180,15 @@ export default function MuseumWalker() {
 
                 {/* ── Find an NFT ── */}
                 <div>
-                  <p className="text-xs uppercase tracking-widest text-gray-500 font-mono mb-2">🔍 Find an NFT</p>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">🔍</span>
-                    <input
-                      autoFocus
-                      type="text"
-                      placeholder="NFT number (e.g. 2490)"
-                      value={receptionistQuery}
-                      onChange={e => setReceptionistQuery(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.code === "Enter" && recResults.length === 1) { teleportToNFT(recResults[0]); closeReceptionist(); }
-                      }}
-                      className="w-full bg-white/5 border border-white/15 focus:border-amber-400/60 outline-none rounded-xl pl-9 pr-4 py-2.5 text-white text-sm font-mono placeholder-gray-600 transition-all"
-                    />
+                  <p className="text-xs uppercase tracking-widest text-gray-500 font-mono mb-2">🔍 Find an NFT — type to search</p>
+                  <div className="flex items-center gap-2 bg-white/5 border border-amber-400/30 rounded-xl px-4 py-2.5 font-mono text-sm min-h-[42px]">
+                    <span className="text-gray-500 text-sm flex-shrink-0">🔍</span>
+                    {receptionistQuery
+                      ? <span className="text-white">{receptionistQuery}<span className="animate-pulse">▍</span></span>
+                      : <span className="text-gray-600">Type NFT number…</span>}
+                    {receptionistQuery && (
+                      <button className="ml-auto text-gray-500 hover:text-white text-xs flex-shrink-0" onClick={() => setReceptionistQuery("")}>✕</button>
+                    )}
                   </div>
 
                   {recResults.length > 0 && (
@@ -1181,15 +1224,18 @@ export default function MuseumWalker() {
                 <div>
                   <p className="text-xs uppercase tracking-widest text-gray-500 font-mono mb-2">🚶 Take me to…</p>
                   <div className="grid grid-cols-2 gap-2">
-                    {ROOM_DESTINATIONS.map(dest => {
+                    {ROOM_DESTINATIONS.map((dest, idx) => {
                       const rr = ROOM_RARITY[dest.room] ?? ROOM_RARITY[1];
                       return (
                         <button key={dest.name}
                                 className="rounded-xl px-3 py-3 text-left transition-all hover:brightness-110 active:scale-95 border"
                                 style={{ background: rr.color + "14", borderColor: rr.color + "40", color: rr.color }}
                                 onClick={() => teleportToRoom(dest.name, dest.pos, dest.yaw)}>
-                          <p className="font-bold text-sm leading-tight">{dest.name}</p>
-                          <p className="text-[11px] opacity-60 mt-0.5 font-mono uppercase tracking-wide">{rr.tier}</p>
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <kbd className="bg-black/30 border border-current/30 rounded text-[10px] font-mono px-1 opacity-70 flex-shrink-0">{idx + 1}</kbd>
+                            <p className="font-bold text-sm leading-tight">{dest.name}</p>
+                          </div>
+                          <p className="text-[11px] opacity-60 font-mono uppercase tracking-wide">{rr.tier}</p>
                         </button>
                       );
                     })}
@@ -1197,7 +1243,9 @@ export default function MuseumWalker() {
                 </div>
 
                 <p className="text-center text-gray-600 text-[11px] font-mono pt-1">
-                  Press <kbd className="bg-white/10 rounded px-1">E</kbd> or <kbd className="bg-white/10 rounded px-1">ESC</kbd> to close
+                  <kbd className="bg-white/10 rounded px-1">1–4</kbd> rooms &nbsp;·&nbsp;
+                  <kbd className="bg-white/10 rounded px-1">Enter</kbd> first result &nbsp;·&nbsp;
+                  <kbd className="bg-white/10 rounded px-1">E</kbd>/<kbd className="bg-white/10 rounded px-1">ESC</kbd> close
                 </p>
               </div>
             </div>

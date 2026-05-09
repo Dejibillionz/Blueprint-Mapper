@@ -11,6 +11,8 @@ export class FirstPersonControls {
   camera: THREE.PerspectiveCamera;
   domElement: HTMLElement;
   isLocked = false;
+  /** When true, movement and look inputs are ignored (e.g. receptionist panel is open). */
+  suspended = false;
   collisionBoxes: WallBox[] = [];
 
   private yaw = 0;
@@ -19,6 +21,7 @@ export class FirstPersonControls {
 
   private onKeyDown = (e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    if (this.suspended) return;
     this.keys[e.code] = true;
     e.preventDefault();
   };
@@ -27,7 +30,7 @@ export class FirstPersonControls {
     this.keys[e.code] = false;
   };
   private onMouseMove = (e: MouseEvent) => {
-    if (!this.isLocked) return;
+    if (!this.isLocked || this.suspended) return;
     const sens = 0.002;
     this.yaw -= e.movementX * sens;
     this.pitch -= e.movementY * sens;
@@ -63,7 +66,7 @@ export class FirstPersonControls {
   }
 
   update(delta: number) {
-    if (!this.isLocked) return;
+    if (!this.isLocked || this.suspended) return;
 
     const forward = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));

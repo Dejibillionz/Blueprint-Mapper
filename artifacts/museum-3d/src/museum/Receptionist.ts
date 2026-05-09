@@ -21,8 +21,8 @@ export class Receptionist {
   private walkTimer     = 0;  // secs left in the walk animation
 
   private static readonly POS       = new THREE.Vector3(41, 0, 48);
-  private static readonly NEARBY_SQ = 9;    // 3 m²
-  private static readonly GREET_SQ  = 6.25; // 2.5 m²
+  private static readonly NEARBY_SQ = 9;  // 3 m²
+  private static readonly GREET_SQ  = 4;  // 2 m²
 
   constructor(scene: THREE.Scene, modelBasePath: string) {
     this.scene = scene;
@@ -116,7 +116,7 @@ export class Receptionist {
    * Call every frame from the animate loop.
    * Returns proximity data so React can decide whether to show the hint.
    */
-  update(delta: number, playerPos: THREE.Vector3): { nearbyPrompt: boolean } {
+  update(delta: number, playerPos: THREE.Vector3): { nearbyPrompt: boolean; state: string } {
     if (this.mixer) this.mixer.update(delta);
 
     const distSq    = playerPos.distanceToSquared(Receptionist.POS);
@@ -143,7 +143,7 @@ export class Receptionist {
       this.greetTimer    = 2.5;
     }
 
-    return { nearbyPrompt: nearby };
+    return { nearbyPrompt: nearby, state: this.currentState };
   }
 
   dispose() {
