@@ -888,15 +888,8 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
     metalness: 0.05,
   });
 
-  // Stone fill blocks covering the narrowed x=37–39 and x=43–45 slots
-  for (const [bx, bw] of [[38, 2], [44, 2]] as [number, number][]) {
-    const fill = new THREE.Mesh(new THREE.BoxGeometry(bw, 4, 0.5), archMat);
-    fill.position.set(bx, 2, 52);
-    fill.castShadow = true;
-    scene.add(fill);
-  }
-
   // Pilasters flanking the 4 m entrance gap (x=39 and x=43)
+  // The x=37–39 and x=43–45 wall slots are already rendered by the outerWalls loop in MuseumScene.
   // Plinth 0.3 + shaft 3.42 + cap 0.28 = exactly WALL_HEIGHT=4
   const pilasterDefs: Array<[number]> = [[39], [43]];
   for (const [px] of pilasterDefs) {
