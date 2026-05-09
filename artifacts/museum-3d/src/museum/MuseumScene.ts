@@ -162,14 +162,17 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   scene.add(buildWallMesh(38, 22, 42, 22, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
   scene.add(buildWallMesh(62, 22, 66, 22, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
   scene.add(buildWallMesh(37, 30, 45, 30, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
-  scene.add(buildWallMesh(37, 52, 45, 52, WALL_HEIGHT - DOOR_HEIGHT, OUTER_THICKNESS, DOOR_HEIGHT, lintelMat));
+  // Entrance gap narrowed to 4 m (x=39–43) — fill the vacated x=37–39 and x=43–45 slots
+  scene.add(buildWallMesh(37, 52, 39, 52, WALL_HEIGHT, OUTER_THICKNESS, 0, outerMat));
+  scene.add(buildWallMesh(43, 52, 45, 52, WALL_HEIGHT, OUTER_THICKNESS, 0, outerMat));
+  scene.add(buildWallMesh(39, 52, 43, 52, WALL_HEIGHT - DOOR_HEIGHT, OUTER_THICKNESS, DOOR_HEIGHT, lintelMat));
   scene.add(buildWallMesh(77, 24, 77, 26, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
 
   const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x8b7355, metalness: 0.2, roughness: 0.6 });
   const doorFrames: Array<[number, number, number, number]> = [
     [26, 13, 26, 15], [26, 20, 26, 22],
     [38, 22, 42, 22], [62, 22, 66, 22],
-    [37, 30, 45, 30], [37, 52, 45, 52],
+    [37, 30, 45, 30], [39, 52, 43, 52],
     [77, 24, 77, 26],
   ];
   for (const [x1, z1, x2, z2] of doorFrames) {

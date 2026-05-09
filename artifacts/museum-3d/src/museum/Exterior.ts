@@ -759,10 +759,10 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
   const corniceMat = new THREE.MeshStandardMaterial({
     color: 0xddd4be, roughness: 0.78, metalness: 0,
   });
-  // South wall segments: x=14–37 and x=45–62 (around entrance gap) and x=62–100
+  // South wall segments: x=14–39 and x=43–62 (around 4 m entrance gap) and x=62–100
   const corniceSegs: Array<[number, number, number, number]> = [
-    [14, 52, 37, 52],
-    [45, 52, 62, 52],
+    [14, 52, 39, 52],
+    [43, 52, 62, 52],
     [62, 52, 100, 52],
   ];
   const CORNICE_H = 0.35;
@@ -829,8 +829,8 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
   // Parapet walls around the outer perimeter
   addPar(50,    0,   100,  PAR_W); // north       z=0,  x=0-100
   addPar(100,  26,   PAR_W, 52);   // east        x=100, z=0-52
-  addPar(72.5, 52,    55,  PAR_W); // south-east  z=52, x=45-100
-  addPar(25.5, 52,    23,  PAR_W); // south-west  z=52, x=14-37 (entrance gap skipped)
+  addPar(71.5, 52,    57,  PAR_W); // south-east  z=52, x=43-100
+  addPar(26.5, 52,    25,  PAR_W); // south-west  z=52, x=14-39 (entrance gap skipped)
   addPar(14,  43.5,  PAR_W, 17);   // notch-east  x=14, z=35-52
   addPar(7,    35,    14,  PAR_W); // notch-south z=35, x=0-14
   addPar(0,   17.5,  PAR_W, 35);   // west        x=0,  z=0-35
@@ -888,9 +888,17 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
     metalness: 0.05,
   });
 
-  // Pilasters flanking the entrance gap (taller decorative posts inside the gap edge)
+  // Stone fill blocks covering the narrowed x=37–39 and x=43–45 slots
+  for (const [bx, bw] of [[38, 2], [44, 2]] as [number, number][]) {
+    const fill = new THREE.Mesh(new THREE.BoxGeometry(bw, 4, 0.5), archMat);
+    fill.position.set(bx, 2, 52);
+    fill.castShadow = true;
+    scene.add(fill);
+  }
+
+  // Pilasters flanking the 4 m entrance gap (x=39 and x=43)
   // Plinth 0.3 + shaft 3.42 + cap 0.28 = exactly WALL_HEIGHT=4
-  const pilasterDefs: Array<[number]> = [[37], [45]];
+  const pilasterDefs: Array<[number]> = [[39], [43]];
   for (const [px] of pilasterDefs) {
     const plinth = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.3, 0.55), archMat);
     plinth.position.set(px, 0.15, 52);
@@ -908,13 +916,15 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
     scene.add(cap);
   }
 
-  // Semi-circular arch spanning the doorway (half-torus, radius=4 = half the 8 m gap)
-  // Center at y=0 (floor level) so crown lands exactly at y=4 = WALL_HEIGHT.
-  // Arc=PI sweeps the top half: left foot (37,0) → crown (41,4) → right foot (45,0).
+  // Elliptical arch spanning the 4 m doorway.
+  // Torus radius=2 (half the 4 m gap), scaled y×2 so crown reaches y=4 = WALL_HEIGHT.
+  // Result: 4 m wide × 4 m tall (1:1, matching the door GLB aspect ratio).
+  // Arc=PI sweeps the top half: left foot (39,0) → crown (41,4) → right foot (43,0).
   // The tube bottom (y=-0.24) is hidden by the floor mesh.
-  const archGeo = new THREE.TorusGeometry(4, 0.24, 10, 40, Math.PI);
+  const archGeo = new THREE.TorusGeometry(2, 0.24, 10, 40, Math.PI);
   const archMesh = new THREE.Mesh(archGeo, archMat);
   archMesh.position.set(41, 0, 52);
+  archMesh.scale.y = 2;
   archMesh.castShadow = true;
   scene.add(archMesh);
 
@@ -930,11 +940,11 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
     `${import.meta.env.BASE_URL}models/entrance_door.glb`,
     (gltf) => {
       const door = gltf.scene;
-      // Auto-scale to fit arch opening (8 m wide, 4 m tall)
+      // Auto-scale to fit arch opening (4 m wide, 4 m tall — matches door 1:1 ratio)
       const box = new THREE.Box3().setFromObject(door);
       const size = new THREE.Vector3();
       box.getSize(size);
-      const scale = Math.min(8 / Math.max(size.x, 0.01), 4 / Math.max(size.y, 0.01));
+      const scale = Math.min(4 / Math.max(size.x, 0.01), 4 / Math.max(size.y, 0.01));
       door.scale.setScalar(scale);
       // Lift so base sits on floor
       const box2 = new THREE.Box3().setFromObject(door);

@@ -35,9 +35,9 @@ export const outerWalls: Wall[] = [
   { from: [0, 0],    to: [100, 0],  isOuter: true },
   { from: [100, 0],  to: [100, 52], isOuter: true }, // east wall — extended south to legendary room
   { from: [100, 52], to: [62, 52],  isOuter: true }, // new south wall of east extension
-  // South outer wall split at grand entrance (x=37-45)
-  { from: [62, 52], to: [45, 52], isOuter: true },
-  { from: [37, 52], to: [14, 52], isOuter: true },
+  // South outer wall split at grand entrance (x=39-43, 4 m wide to match door)
+  { from: [62, 52], to: [43, 52], isOuter: true },
+  { from: [39, 52], to: [14, 52], isOuter: true },
   { from: [14, 52], to: [14, 35], isOuter: true },
   { from: [14, 35], to: [0, 35],  isOuter: true },
   { from: [0, 35],  to: [0, 0],   isOuter: true },
