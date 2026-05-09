@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { WallBox } from "./collision";
 
 export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t: number) => void } {
@@ -923,21 +924,32 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
   keystone.castShadow = true;
   scene.add(keystone);
 
-  // Entrance sign panel — squadmania banner image fills the arch opening.
-  // Image aspect ratio ≈ 3.3 : 1  →  8 m wide × 2.4 m tall fits neatly.
-  // Center y=1.9 (bottom y=0.7, top y=3.1), strictly inside the 4 m arch.
-  const signTex = new THREE.TextureLoader().load("/squadmania.jpg");
-  signTex.colorSpace = THREE.SRGBColorSpace;
-  const signMat = new THREE.MeshStandardMaterial({
-    map: signTex,
-    roughness: 0.45,
-    metalness: 0.05,
-  });
-  const signGeo = new THREE.BoxGeometry(8, 2.4, 0.16);
-  const signMesh = new THREE.Mesh(signGeo, signMat);
-  signMesh.position.set(41, 1.9, 52.09);
-  signMesh.castShadow = true;
-  scene.add(signMesh);
+  // Entrance door — 3D GLB model placed in the arch opening.
+  const doorLoader = new GLTFLoader();
+  doorLoader.load(
+    `${import.meta.env.BASE_URL}models/entrance_door.glb`,
+    (gltf) => {
+      const door = gltf.scene;
+      // Auto-scale to fit arch opening (8 m wide, 4 m tall)
+      const box = new THREE.Box3().setFromObject(door);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const scale = Math.min(8 / Math.max(size.x, 0.01), 4 / Math.max(size.y, 0.01));
+      door.scale.setScalar(scale);
+      // Lift so base sits on floor
+      const box2 = new THREE.Box3().setFromObject(door);
+      door.position.set(41, -box2.min.y, 52);
+      door.traverse((c) => {
+        if ((c as THREE.Mesh).isMesh) {
+          c.castShadow = true;
+          c.receiveShadow = true;
+        }
+      });
+      scene.add(door);
+    },
+    undefined,
+    (err) => console.error("[Exterior] entrance_door.glb failed to load:", err),
+  );
 
   // Dedicated spotlight aimed at the sign from outside (south, above)
   const signSpot = new THREE.SpotLight(0xfffaf0, 14, 30, Math.PI / 8, 0.3, 1.0);
@@ -1028,10 +1040,10 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
 
   // Main title
   mc.fillStyle = "#e8c060";
-  mc.font = "bold 96px Georgia, serif";
+  mc.font = "bold 82px Georgia, serif";
   mc.textAlign = "center";
   mc.textBaseline = "middle";
-  mc.fillText("10KSQUAD MUSEUM", 512, 215);
+  mc.fillText("10KSQUAD MUSEUM", 512, 215, 960);
 
   // Subtitle
   mc.fillStyle = "#a07838";
