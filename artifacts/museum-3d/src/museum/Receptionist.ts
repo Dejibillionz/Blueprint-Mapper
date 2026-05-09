@@ -124,7 +124,6 @@ export class Receptionist {
 
   private flameSprite: THREE.Mesh | null = null;
   private flameLight:  THREE.PointLight | null = null;
-  private badgeMesh:   THREE.Mesh | null = null;
   private elapsed = 0;
 
   private greetCooldown = 0;
@@ -211,8 +210,7 @@ export class Receptionist {
     // Local position = (-12, 128, +10) in cm
     badge.position.set(-12, 128, 10);
 
-    this.badgeMesh = badge;
-    fbx.add(badge); // parented — stays attached during animation
+    fbx.add(badge); // parented — stays attached during animation and disposed with FBX root
   }
 
   private _loadClip(
