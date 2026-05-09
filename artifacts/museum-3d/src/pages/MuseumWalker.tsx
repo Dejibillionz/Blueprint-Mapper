@@ -8,6 +8,7 @@ import { rooms } from "../data/floorplan";
 import { drawMinimap, MAP_W, MAP_H } from "../museum/minimap";
 import { AmbientAudio } from "../museum/AmbientAudio";
 import { ProximityTextureManager } from "../museum/ProximityTextureManager";
+import { Receptionist } from "../museum/Receptionist";
 
 const OPENSEA_CONTRACT = "0x818030837e8350ba63e64d7dc01a547fa73c8279";
 
@@ -126,6 +127,9 @@ export default function MuseumWalker() {
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const welcomeTriggeredRef = useRef(false);
   const welcomeHideTimerRef = useRef<number | null>(null);
+  const [receptionistHint,  setReceptionistHint]  = useState(false);
+  const [receptionistOpen,  setReceptionistOpen]  = useState(false);
+  const [receptionistQuery, setReceptionistQuery] = useState("");
 
   // Refs for the Three.js state that needs to persist between renders
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -148,6 +152,9 @@ export default function MuseumWalker() {
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<AmbientAudio>(new AmbientAudio());
   const lastHoverTitleRef = useRef<string | null>(null);
+  const receptionistRef      = useRef<Receptionist | null>(null);
+  const receptionistNearbyRef = useRef(false);
+  const lastRecHintRef        = useRef(false);
   const zoomStateRef = useRef<{
     active: boolean;
     savedPos: THREE.Vector3;
@@ -270,6 +277,27 @@ export default function MuseumWalker() {
     setTimeout(() => setTeleportBanner(null), 3500);
   }, []);
 
+  const closeReceptionist = useCallback(() => {
+    setReceptionistOpen(false);
+    setReceptionistQuery("");
+    receptionistRef.current?.setState("idle");
+  }, []);
+
+  const teleportToRoom = useCallback((name: string, pos: [number, number, number], yaw: number) => {
+    const cam  = cameraRef.current;
+    const ctrl = controlsRef.current;
+    if (!cam || !ctrl) return;
+    cam.position.set(pos[0], pos[1], pos[2]);
+    ctrl.setYaw(yaw);
+    ctrl.setPitch(0);
+    cam.quaternion.setFromEuler(new THREE.Euler(0, yaw, 0, "YXZ"));
+    setReceptionistOpen(false);
+    setReceptionistQuery("");
+    receptionistRef.current?.playWalk(1.2);
+    setTeleportBanner(`📍 ${name}`);
+    setTimeout(() => setTeleportBanner(null), 3500);
+  }, []);
+
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -279,6 +307,24 @@ export default function MuseumWalker() {
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, [searchOpen]);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.code === "KeyE") {
+        if (!receptionistOpen && receptionistNearbyRef.current) {
+          document.exitPointerLock();
+          setReceptionistOpen(true);
+          receptionistRef.current?.setState("talk");
+        } else if (receptionistOpen) {
+          closeReceptionist();
+        }
+      }
+      if (e.code === "Escape" && receptionistOpen) closeReceptionist();
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [receptionistOpen, closeReceptionist]);
 
   useEffect(() => {
     if (!webglSupported) return;
@@ -384,6 +430,13 @@ export default function MuseumWalker() {
 
     const controls = new FirstPersonControls(camera, renderer.domElement, collisionBoxes);
     controlsRef.current = controls;
+
+    // ── Receptionist NPC ───────────────────────────────────────────────────
+    const receptionist = new Receptionist(
+      scene,
+      `${import.meta.env.BASE_URL}models/receptionist/`,
+    );
+    receptionistRef.current = receptionist;
 
     const onLockChange = () => {
       const isLocked = document.pointerLockElement === renderer.domElement;
@@ -527,6 +580,15 @@ export default function MuseumWalker() {
         exterior.tick(elapsed);
         exterior.updateDoor(camera.position, delta);
 
+        // ── Receptionist NPC ──────────────────────────────────
+        const recResult = receptionistRef.current?.update(delta, camera.position);
+        const isNearby  = !!recResult?.nearbyPrompt;
+        receptionistNearbyRef.current = isNearby;
+        if (isNearby !== lastRecHintRef.current) {
+          lastRecHintRef.current = isNearby;
+          setReceptionistHint(isNearby);
+        }
+
         // Proximity frame detection — raycast from crosshair, max 4 m
         raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera);
 
@@ -622,6 +684,8 @@ export default function MuseumWalker() {
       audioRef.current.dispose();
       proximityMgrRef.current?.dispose();
       proximityMgrRef.current = null;
+      receptionistRef.current?.dispose();
+      receptionistRef.current = null;
       renderer.domElement.removeEventListener("click", onClick);
       document.removeEventListener("pointerlockchange", onLockChange);
       window.removeEventListener("resize", onResize);
@@ -665,6 +729,7 @@ export default function MuseumWalker() {
             <p className="text-gray-300 font-mono text-sm">W A S D — Walk</p>
             <p className="text-gray-300 font-mono text-sm">Mouse — Look</p>
             <p className="text-gray-300 font-mono text-sm">Click a painting — Zoom in</p>
+            <p className="text-gray-300 font-mono text-sm">E — Talk to Receptionist</p>
             <p className="text-gray-300 font-mono text-sm">ESC — Exit / release cursor</p>
           </div>
         </div>
@@ -705,6 +770,7 @@ export default function MuseumWalker() {
             <p>Mouse — Look</p>
             <p>Click painting — Zoom</p>
             <p>/ — Search NFT</p>
+            <p>E — Talk to Receptionist</p>
             <p>ESC — Release cursor</p>
           </div>
           <button
@@ -1012,6 +1078,132 @@ export default function MuseumWalker() {
           </div>
         </div>
       )}
+
+      {/* ── Receptionist proximity hint ── */}
+      {locked && !zoomedFrame && receptionistHint && !receptionistOpen && (
+        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 pointer-events-none select-none z-30"
+             style={{ animation: "fadeSlideIn 0.3s ease-out" }}>
+          <div className="flex items-center gap-2 bg-black/75 border border-amber-400/50 rounded-xl px-5 py-2.5 backdrop-blur-sm"
+               style={{ boxShadow: "0 0 20px rgba(251,191,36,0.12)" }}>
+            <span className="text-amber-400 text-sm">👤</span>
+            <span className="text-white text-sm font-semibold">Receptionist</span>
+            <kbd className="ml-1 bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono rounded px-2 py-0.5">E</kbd>
+            <span className="text-gray-300 text-xs">to talk</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Receptionist interaction panel ── */}
+      {receptionistOpen && (() => {
+        const q = receptionistQuery.trim().toLowerCase();
+        const recResults = q.length === 0
+          ? []
+          : allMeta.filter(m => m.token_id.toLowerCase().includes(q)).slice(0, 8);
+
+        const ROOM_DESTINATIONS: Array<{ name: string; pos: [number, number, number]; yaw: number; room: number }> = [
+          { name: "Common Gallery",  pos: [27.5, EYE_HEIGHT, 14.0], yaw: -Math.PI / 2, room: 1 },
+          { name: "Uncommon Wing",   pos: [40.0, EYE_HEIGHT, 21.0], yaw:  0,           room: 2 },
+          { name: "Rare Collection", pos: [64.0, EYE_HEIGHT, 21.0], yaw:  0,           room: 3 },
+          { name: "Platinum Vault",  pos: [75.5, EYE_HEIGHT, 25.0], yaw:  Math.PI / 2, room: 4 },
+        ];
+
+        return (
+          <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-auto"
+               style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+               onClick={e => { if (e.target === e.currentTarget) closeReceptionist(); }}>
+            <div className="w-full max-w-md mx-4 rounded-2xl overflow-hidden border border-amber-400/30"
+                 style={{ background: "rgba(8,8,20,0.97)", backdropFilter: "blur(16px)", boxShadow: "0 0 60px rgba(251,191,36,0.08)" }}>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/8"
+                   style={{ background: "rgba(251,191,36,0.06)" }}>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">👤</span>
+                  <div>
+                    <p className="text-amber-300 font-bold text-base leading-none">Receptionist</p>
+                    <p className="text-gray-500 text-xs mt-0.5 font-mono">How can I help you?</p>
+                  </div>
+                </div>
+                <button onClick={closeReceptionist}
+                        className="text-gray-500 hover:text-white transition-colors text-xl leading-none px-1">✕</button>
+              </div>
+
+              <div className="px-5 py-4 space-y-5 max-h-[70vh] overflow-y-auto">
+
+                {/* ── Find an NFT ── */}
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-gray-500 font-mono mb-2">🔍 Find an NFT</p>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">🔍</span>
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="NFT number (e.g. 2490)"
+                      value={receptionistQuery}
+                      onChange={e => setReceptionistQuery(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.code === "Enter" && recResults.length === 1) { teleportToNFT(recResults[0]); closeReceptionist(); }
+                      }}
+                      className="w-full bg-white/5 border border-white/15 focus:border-amber-400/60 outline-none rounded-xl pl-9 pr-4 py-2.5 text-white text-sm font-mono placeholder-gray-600 transition-all"
+                    />
+                  </div>
+
+                  {recResults.length > 0 && (
+                    <div className="mt-2 rounded-xl overflow-hidden border border-white/10">
+                      {recResults.map((entry, i) => {
+                        const rr = ROOM_RARITY[entry.room] ?? ROOM_RARITY[1];
+                        return (
+                          <button key={entry.token_id + i}
+                                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 transition-colors text-left border-b border-white/5 last:border-0"
+                                  onClick={() => { teleportToNFT(entry); closeReceptionist(); }}>
+                            <span className="text-white font-bold font-mono text-sm flex-shrink-0">#{entry.token_id}</span>
+                            <span className="flex-1 text-gray-400 text-xs font-mono">{ROOM_NAMES[entry.room] ?? "Museum"}</span>
+                            {entry.rarity_rank != null && (
+                              <span className="text-[10px] font-mono text-gray-500 flex-shrink-0">Rank #{entry.rarity_rank}</span>
+                            )}
+                            <span className="flex-shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border"
+                                  style={{ color: rr.color, borderColor: rr.color + "55", background: rr.color + "18" }}>
+                              {rr.tier}
+                            </span>
+                            <span className="text-amber-400 text-xs flex-shrink-0">→</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {q.length > 0 && recResults.length === 0 && (
+                    <p className="mt-2 text-gray-600 text-xs font-mono text-center py-2">No NFT found with that number</p>
+                  )}
+                </div>
+
+                {/* ── Take me to… ── */}
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-gray-500 font-mono mb-2">🚶 Take me to…</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {ROOM_DESTINATIONS.map(dest => {
+                      const rr = ROOM_RARITY[dest.room] ?? ROOM_RARITY[1];
+                      return (
+                        <button key={dest.name}
+                                className="rounded-xl px-3 py-3 text-left transition-all hover:brightness-110 active:scale-95 border"
+                                style={{ background: rr.color + "14", borderColor: rr.color + "40", color: rr.color }}
+                                onClick={() => teleportToRoom(dest.name, dest.pos, dest.yaw)}>
+                          <p className="font-bold text-sm leading-tight">{dest.name}</p>
+                          <p className="text-[11px] opacity-60 mt-0.5 font-mono uppercase tracking-wide">{rr.tier}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <p className="text-center text-gray-600 text-[11px] font-mono pt-1">
+                  Press <kbd className="bg-white/10 rounded px-1">E</kbd> or <kbd className="bg-white/10 rounded px-1">ESC</kbd> to close
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── NFT Search overlay ── */}
       {searchOpen && (() => {
