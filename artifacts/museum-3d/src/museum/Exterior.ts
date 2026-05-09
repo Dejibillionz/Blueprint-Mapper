@@ -609,7 +609,7 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
     metalness: 0.0,
   });
 
-  // ── Entrance steps (south of grand entrance z=52, x=37–45) ───────────────
+  // ── Entrance steps (south of grand entrance z=52, x=39–43) ───────────────
   // Three stepped platforms rising toward the entrance.
   // Outer/lowest (widest) → inner/highest (narrowest).
   const stepDefs: Array<[number, number, number, number, number]> = [
@@ -879,7 +879,7 @@ export function buildExterior(scene: THREE.Scene): { boxes: WallBox[]; tick: (t:
   scene.add(rcR);
 
   // ── Grand entrance arch + "MUSEUM GENESIS" sign ──────────────────────────
-  // Entrance gap: z=52, x=37–45 (width=8, centred at x=41)
+  // Entrance gap: z=52, x=39–43 (width=4, centred at x=41, matches door 1:1 ratio)
   // Players approach from z > 52, so signage faces the +z direction.
 
   const archMat = new THREE.MeshStandardMaterial({
