@@ -95,9 +95,9 @@ export const innerWalls: Wall[] = [
 ];
 
 export const rooms: Room[] = [
-  { id: "room_1", name: "The Common Gallery\n1,111 NFTs", x: 0, y: 0, width: 27, height: 31, color: 0x1a1a2e },
-  { id: "room_2", name: "The Uncommon Wing\n1,000 NFTs", x: 29, y: 4, width: 22, height: 18, color: 0x16213e },
-  { id: "room_3", name: "The Rare Collection\n750 NFTs", x: 54, y: 4, width: 20, height: 18, color: 0x0f3460 },
+  { id: "room_1", name: "The Common Gallery\n2,967 NFTs", x: 0, y: 0, width: 27, height: 31, color: 0x1a1a2e },
+  { id: "room_2", name: "The Uncommon Wing\n300 NFTs", x: 29, y: 4, width: 22, height: 18, color: 0x16213e },
+  { id: "room_3", name: "The Rare Collection\n55 NFTs", x: 54, y: 4, width: 20, height: 18, color: 0x0f3460 },
   { id: "room_4", name: "The Legendary Vault", x: 77, y: 4, width: 23, height: 18, color: 0x533483 },
   { id: "corridor", name: "The Rarity Galleries", x: 28, y: 22, width: 48, height: 8, color: 0x222233 },
   { id: "entrance_hall", name: "Entrance Hall\nNav Hub", x: 33, y: 35, width: 15, height: 11, color: 0x1f4068 },

@@ -76,7 +76,7 @@ export function buildUncommonGallery(scene: THREE.Scene): {
   const nfts: UncommonNFT[] = positions.map((_, i) => ({
     id:     i + 1,
     title:  `Uncommon #${String(i + 1).padStart(4, "0")}`,
-    artist: "Origin Protocol",
+    artist: "10K Squad",
   }));
 
   const borderGeo = new THREE.BoxGeometry(FW, FH, FD);
