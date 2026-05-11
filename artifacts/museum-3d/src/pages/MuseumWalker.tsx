@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { SSAOPass } from "three/examples/jsm/postprocessing/SSAOPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { buildScene, CommonNFT, UncommonNFT, RareNFT, PlatinumNFT } from "../museum/MuseumScene";
 import { FirstPersonControls } from "../museum/FirstPersonControls";
 import { buildCollisionBoxes } from "../museum/collision";
@@ -409,6 +410,15 @@ export default function MuseumWalker() {
     ssaoPass.minDistance   = 0.001;  // ignore contacts closer than 1 mm
     ssaoPass.maxDistance   = 0.08;   // darken up to 8 cm away
     composer.addPass(ssaoPass);
+
+    // ── Bloom: makes spotlights, flame crown, and emissive surfaces glow ──
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(mount.clientWidth, mount.clientHeight),
+      0.45,   // strength  — subtle, not blown out
+      0.55,   // radius    — spread of the glow halo
+      0.72,   // threshold — only pixels brighter than this bloom
+    );
+    composer.addPass(bloomPass);
 
     const collisionBoxes = buildCollisionBoxes();
 
