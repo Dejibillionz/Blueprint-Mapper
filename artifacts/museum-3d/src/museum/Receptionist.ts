@@ -4,44 +4,54 @@ import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 export type ReceptionistAnimState = "idle" | "greet" | "talk" | "walk";
 
 const TEX_BASE    = "/models/receptionist/";
-const WALK_SPEED  = 3.2;        // m/s
-const WP_THRESH   = 0.25;       // metres — waypoint considered reached
+const WALK_SPEED  = 3.0;        // m/s
+const WP_THRESH   = 0.3;        // metres — waypoint considered reached
 const HOME        = new THREE.Vector3(41, 0, 48);
 
-// Waypoint paths for each room (y=0, floor level).
-// Each path leads from the home position through the corridor to the room entrance.
+// ── Wall-aware waypoint paths ───────────────────────────────────────────────
+// Museum layout key facts:
+//   Entrance hall: x=33-48, z=35-46. Receptionist desk at z=48 (open lobby south of hall).
+//   Corridor: x=28-76, z=22-30.
+//   South-wall passage gap (entrance → corridor): x=37-45 at z=30  →  x=41 clears it.
+//   North-wall entrance gaps:
+//     D2 (→ Uncommon Wing):   x=38-42, z=22
+//     D3 (→ Rare Collection): x=62-66, z=22
+//   Room-1 east-wall door (→ Common Gallery): x=26, z=20-22 (lower door)
+//     Approach: west to x=27.5 in corridor, then north past z=22 (wall only applies x≥28),
+//     then west through the x=26 door gap at z≈21.
+//   Vault west-wall gap (→ Legendary): x=77, z=24-26
+//     Approach: east to x=76 at z=25, step through to x=79.
 const ROOM_PATHS: Record<string, THREE.Vector3[]> = {
-  common:   [
-    new THREE.Vector3(41, 0, 42),
-    new THREE.Vector3(41, 0, 29),
-    new THREE.Vector3(26, 0, 22),
-    new THREE.Vector3(14, 0, 15),
+  common: [
+    new THREE.Vector3(41,   0, 26),   // straight north — passes through all gaps cleanly
+    new THREE.Vector3(27.5, 0, 26),   // west along corridor, clear of x=26 wall
+    new THREE.Vector3(27.5, 0, 21),   // north past corridor wall (only solid x≥28)
+    new THREE.Vector3(14,   0, 15),   // Common Gallery interior
   ],
   uncommon: [
-    new THREE.Vector3(41, 0, 42),
-    new THREE.Vector3(41, 0, 29),
-    new THREE.Vector3(40, 0, 22),
-    new THREE.Vector3(40, 0, 13),
+    new THREE.Vector3(41,   0, 26),
+    new THREE.Vector3(40,   0, 26),   // approach D2 (x=38-42)
+    new THREE.Vector3(40,   0, 21),   // through D2 door gap
+    new THREE.Vector3(40,   0, 13),   // Uncommon Wing interior
   ],
   rare: [
-    new THREE.Vector3(41, 0, 42),
-    new THREE.Vector3(41, 0, 29),
-    new THREE.Vector3(64, 0, 22),
-    new THREE.Vector3(64, 0, 13),
+    new THREE.Vector3(41,   0, 26),
+    new THREE.Vector3(64,   0, 26),   // east along corridor, approach D3 (x=62-66)
+    new THREE.Vector3(64,   0, 21),   // through D3 door gap
+    new THREE.Vector3(64,   0, 13),   // Rare Collection interior
   ],
   platinum: [
-    new THREE.Vector3(41, 0, 42),
-    new THREE.Vector3(41, 0, 29),
-    new THREE.Vector3(76, 0, 25),
-    new THREE.Vector3(88, 0, 13),
+    new THREE.Vector3(41,   0, 26),
+    new THREE.Vector3(76,   0, 25),   // corridor east end, approach vault gap (z=24-26)
+    new THREE.Vector3(79,   0, 25),   // through vault gap at x=77
+    new THREE.Vector3(88,   0, 13),   // Legendary Vault interior
   ],
 };
 
-// Return path is the reverse, ending at HOME.
 function buildReturnPath(roomKey: string): THREE.Vector3[] {
-  const forward = ROOM_PATHS[roomKey];
-  if (!forward) return [HOME.clone()];
-  return [...forward].reverse().concat([HOME.clone()]);
+  const fwd = ROOM_PATHS[roomKey];
+  if (!fwd) return [HOME.clone()];
+  return [...fwd].reverse().concat([HOME.clone()]);
 }
 
 function loadPBRMaterial(texLoader: THREE.TextureLoader): THREE.MeshStandardMaterial {
@@ -134,10 +144,13 @@ export class Receptionist {
   private isNavigating  = false;
   private isReturning   = false;
 
-  private static readonly HOME_POS    = HOME;
-  private static readonly FLAME_Y     = 1.80;
-  private static readonly NEARBY_SQ   = 9;
-  private static readonly GREET_SQ    = 4;
+  // Current walk direction (unit XZ vector), updated every frame
+  private walkDir = new THREE.Vector3(0, 0, -1);
+
+  private static readonly HOME_POS  = HOME;
+  private static readonly FLAME_Y   = 1.80;
+  private static readonly NEARBY_SQ = 9;
+  private static readonly GREET_SQ  = 4;
 
   constructor(scene: THREE.Scene, modelBasePath: string) {
     this.scene = scene;
@@ -146,7 +159,6 @@ export class Receptionist {
 
   // ── Public API ──────────────────────────────────────────────────
 
-  /** Walk the receptionist to a named room, then back home once arrived. */
   walkToRoom(roomKey: string, onArrived?: () => void) {
     const path = ROOM_PATHS[roomKey];
     if (!path || !this.root) return;
@@ -156,6 +168,21 @@ export class Receptionist {
     this.isNavigating  = true;
     this.isReturning   = false;
     this._startWalkAnim();
+  }
+
+  /** Returns current world position (floor level). */
+  getPosition(): THREE.Vector3 {
+    return this.root ? this.root.position.clone() : HOME.clone();
+  }
+
+  /** Returns the unit XZ direction the receptionist is currently facing/moving. */
+  getWalkDirection(): THREE.Vector3 {
+    return this.walkDir.clone();
+  }
+
+  /** True while actively guiding (walking to destination, not yet returned home). */
+  isGuiding(): boolean {
+    return this.isNavigating && !this.isReturning;
   }
 
   setState(state: ReceptionistAnimState) {
@@ -168,7 +195,6 @@ export class Receptionist {
     next.reset().setEffectiveWeight(1).fadeIn(0.3).play();
   }
 
-  /** Legacy one-shot walk used by old code — kept for compat. */
   playWalk(duration = 1.2) {
     this._startWalkAnim();
     setTimeout(() => {
@@ -193,8 +219,6 @@ export class Receptionist {
     if (this.flameLight)
       this.flameLight.position.set(pos.x, Receptionist.FLAME_Y + 0.5, pos.z);
   }
-
-  // ── Loader ──────────────────────────────────────────────────────
 
   private _load(base: string) {
     const loader    = new FBXLoader();
@@ -232,7 +256,7 @@ export class Receptionist {
   }
 
   private _addFlameCrown(): void {
-    const tex = makeFlameTexture();
+    const tex  = makeFlameTexture();
     tex.premultiplyAlpha = false;
     const geo  = new THREE.PlaneGeometry(0.55, 0.75);
     const mat  = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
@@ -269,8 +293,7 @@ export class Receptionist {
       (fbx) => {
         applyPBRMaterial(fbx, pbrMat);
         if (!this.mixer || fbx.animations.length === 0) return;
-        const clip   = fbx.animations[0];
-        const action = this.mixer.clipAction(clip);
+        const action = this.mixer.clipAction(fbx.animations[0]);
         action.setLoop(loopMode, Infinity);
         action.clampWhenFinished = loopMode === THREE.LoopOnce;
         action.weight = 0;
@@ -292,8 +315,7 @@ export class Receptionist {
     this.elapsed += delta;
     if (this.mixer) this.mixer.update(delta);
 
-    // Animate flame (uses current root position so it follows correctly)
-    if (this.root) this._updateFlamePosition(this.root.position);
+    // Flame flicker (position updated below after nav)
     if (this.flameSprite) {
       const f = 1 + 0.12 * Math.sin(this.elapsed * 7.3) + 0.06 * Math.sin(this.elapsed * 13.1);
       this.flameSprite.scale.set(f, 0.9 + 0.15 * Math.sin(this.elapsed * 5.7), 1);
@@ -311,57 +333,55 @@ export class Receptionist {
       const dist   = Math.sqrt(dx * dx + dz * dz);
 
       if (dist < WP_THRESH) {
-        // Reached this waypoint — advance
         this.navPath.shift();
 
         if (this.navPath.length === 0) {
-          // All waypoints done
           this.isNavigating = false;
 
           if (!this.isReturning) {
-            // Arrived at destination room — greet, then walk home
+            // Arrived at destination — greet, then walk home after delay
             this.setState("greet");
-            this.greetCooldown = 99; // prevent auto-re-greet
+            this.greetCooldown = 99;
             this.greetTimer    = 2.5;
-
             const returnKey = this.navReturnKey;
             this.navOnArrived?.();
             this.navOnArrived = null;
-
             setTimeout(() => {
               if (!returnKey) return;
-              const returnPath = buildReturnPath(returnKey);
-              this.navPath      = returnPath;
+              this.navPath      = buildReturnPath(returnKey);
               this.isNavigating = true;
               this.isReturning  = true;
               this._startWalkAnim();
-            }, 3000);
+            }, 3500);
           } else {
-            // Arrived back home — snap to exact home pos + rotation, idle
+            // Back home — snap to exact position and idle
             this.root.position.copy(Receptionist.HOME_POS);
             this.root.rotation.y = Math.PI;
-            this.isReturning     = false;
-            this.navReturnKey    = null;
-            this.greetCooldown   = 3; // brief cooldown before greeting again
+            this.walkDir.set(0, 0, -1);
+            this.isReturning  = false;
+            this.navReturnKey = null;
+            this.greetCooldown = 3;
             this.setState("idle");
           }
         }
       } else {
-        // Step toward next waypoint
+        const nx = dx / dist;
+        const nz = dz / dist;
         const step = Math.min(dist, WALK_SPEED * delta);
-        curr.x += (dx / dist) * step;
-        curr.z += (dz / dist) * step;
-
-        // Face direction of travel
-        this.root.rotation.y = Math.atan2(dx, dz);
+        curr.x += nx * step;
+        curr.z += nz * step;
+        this.root.rotation.y = Math.atan2(nx, nz);
+        this.walkDir.set(nx, 0, nz);
       }
     }
 
-    // ── Proximity checks (use live root position while navigating) ──
+    // Sync flame crown with current position
+    if (this.root) this._updateFlamePosition(this.root.position);
+
+    // ── Proximity checks (use live position) ──────────────────────
     const refPos  = this.root ? this.root.position : Receptionist.HOME_POS;
     const distSq  = playerPos.distanceToSquared(refPos);
     const nearby  = distSq < Receptionist.NEARBY_SQ && !this.isNavigating;
-    const vClose  = distSq < Receptionist.GREET_SQ;
 
     if (this.greetCooldown > 0) this.greetCooldown -= delta;
     if (this.greetTimer    > 0) {
@@ -369,7 +389,7 @@ export class Receptionist {
       if (this.greetTimer <= 0 && this.currentState === "greet") this.setState("idle");
     }
 
-    if (vClose && this.currentState === "idle" && this.greetCooldown <= 0 && !this.isNavigating) {
+    if (distSq < Receptionist.GREET_SQ && this.currentState === "idle" && this.greetCooldown <= 0 && !this.isNavigating) {
       this.setState("greet");
       this.greetCooldown = 8;
       this.greetTimer    = 2.5;

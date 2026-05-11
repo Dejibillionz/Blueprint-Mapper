@@ -160,6 +160,7 @@ export default function MuseumWalker() {
   const receptionistNearbyRef = useRef(false);
   const lastRecHintRef        = useRef(false);
   const receptionistOpenRef   = useRef(false);
+  const followingGuideRef     = useRef(false);
   const zoomStateRef = useRef<{
     active: boolean;
     savedPos: THREE.Vector3;
@@ -290,6 +291,13 @@ export default function MuseumWalker() {
     if (controlsRef.current) controlsRef.current.suspended = false;
   }, []);
 
+  // Release pointer lock when the receptionist panel opens so the cursor is visible
+  useEffect(() => {
+    if (receptionistOpen) {
+      document.exitPointerLock();
+    }
+  }, [receptionistOpen]);
+
   const ROOM_KEYS: Record<string, string> = {
     "Common Gallery":  "common",
     "Uncommon Wing":   "uncommon",
@@ -297,36 +305,25 @@ export default function MuseumWalker() {
     "Platinum Vault":  "platinum",
   };
 
-  const teleportToRoom = useCallback((name: string, pos: [number, number, number], yaw: number) => {
-    const cam  = cameraRef.current;
+  const teleportToRoom = useCallback((name: string, _pos: [number, number, number], _yaw: number) => {
     const ctrl = controlsRef.current;
-    if (!cam || !ctrl) return;
+    if (!ctrl) return;
 
-    // Close the panel right away
+    // Close the panel right away — release pointer lock so cursor returns
     receptionistOpenRef.current = false;
     setReceptionistOpen(false);
     setReceptionistQuery("");
     ctrl.suspended = false;
 
-    // Send the receptionist walking to the room
+    // Send the receptionist walking and switch the camera to follow mode
     const roomKey = ROOM_KEYS[name];
-    if (roomKey) receptionistRef.current?.walkToRoom(roomKey);
+    if (roomKey) {
+      receptionistRef.current?.walkToRoom(roomKey);
+      followingGuideRef.current = true;
+      ctrl.suspended = true; // freeze free movement while following
+    }
 
-    // Tell the visitor their guide is on the way
-    setTeleportBanner(`🚶 Your guide is heading to ${name}…`);
-
-    // After 1.5 s (receptionist has left the desk), teleport the player in
-    setTimeout(() => {
-      const c = cameraRef.current;
-      const ct = controlsRef.current;
-      if (!c || !ct) return;
-      c.position.set(pos[0], pos[1], pos[2]);
-      ct.setYaw(yaw);
-      ct.setPitch(0);
-      c.quaternion.setFromEuler(new THREE.Euler(0, yaw, 0, "YXZ"));
-      setTeleportBanner(`📍 Arrived at ${name}`);
-      setTimeout(() => setTeleportBanner(null), 2500);
-    }, 1500);
+    setTeleportBanner(`🚶 Follow your guide to ${name}…`);
   }, []);
 
   useEffect(() => {
@@ -670,12 +667,39 @@ export default function MuseumWalker() {
         exterior.updateDoor(camera.position, delta);
 
         // ── Receptionist NPC ──────────────────────────────────
-        const recResult = receptionistRef.current?.update(delta, camera.position);
+        const rec       = receptionistRef.current;
+        const recResult = rec?.update(delta, camera.position);
         const isNearby  = !!recResult?.nearbyPrompt;
         receptionistNearbyRef.current = isNearby;
         if (isNearby !== lastRecHintRef.current) {
           lastRecHintRef.current = isNearby;
           setReceptionistHint(isNearby);
+        }
+
+        // ── Guide follow-cam ───────────────────────────────────
+        if (followingGuideRef.current && rec) {
+          if (rec.isGuiding()) {
+            const recPos = rec.getPosition();
+            const dir    = rec.getWalkDirection();
+            // Position the camera 2.5 m behind and slightly right of the guide
+            const behind = recPos.clone().addScaledVector(dir, -2.8);
+            behind.y = EYE_HEIGHT;
+            camera.position.lerp(behind, 0.07);
+            // Look toward the guide (slightly ahead)
+            const lookAt = recPos.clone().addScaledVector(dir, 1.5);
+            lookAt.y = EYE_HEIGHT - 0.1;
+            const toGuide = new THREE.Vector3().subVectors(lookAt, camera.position).normalize();
+            const yaw   = Math.atan2(toGuide.x, toGuide.z);
+            const pitch = Math.asin(Math.max(-1, Math.min(1, toGuide.y)));
+            controls.setYaw(yaw);
+            controls.setPitch(pitch);
+            camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, "YXZ"));
+          } else {
+            // Guide has arrived — hand control back to the player
+            followingGuideRef.current = false;
+            controls.suspended = false;
+            setTeleportBanner(null);
+          }
         }
 
         // Proximity frame detection — raycast from crosshair, max 4 m
