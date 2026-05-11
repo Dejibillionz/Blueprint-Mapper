@@ -3,55 +3,35 @@ import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
 
 export type ReceptionistAnimState = "idle" | "greet" | "talk" | "walk";
 
-// Palette extracted from the reference NFT illustration
-const PALETTE = {
-  skin:  new THREE.Color(0xC87080), // dusty rose-pink  (body, face, arms, legs)
-  hair:  new THREE.Color(0x7A5020), // warm brown       (hair only)
-  suit:  new THREE.Color(0x1E2E50), // dark navy        (blazer, skirt, shirt)
-  shoes: new THREE.Color(0x111520), // near-black       (heels, soles)
-  beak:  new THREE.Color(0x8040A0), // purple           (beak, lips)
-};
+const TEX_BASE = "/models/receptionist/";
 
-// Keyword lists for material/mesh-name → colour (all lower-case, checked combined)
-const BEAK_KW  = ["beak","lip","mouth","teeth","tongue","bill"];
-const HAIR_KW  = ["hair"];   // "head" intentionally excluded — often maps to skin geometry
-const SHOES_KW = ["shoe","boot","heel","sandal","sole","pump"];
-const SUIT_KW  = ["suit","jacket","cloth","outfit","shirt","skirt","pant","top",
-                  "bottom","tie","collar","sleeve","blazer","vest","button","lapel"];
-const SKIN_KW  = ["skin","body","surface","face","hand","arm","leg","character",
-                  "alpha","beta","ch0","mesh","default","material"];
+function loadPBRMaterial(texLoader: THREE.TextureLoader): THREE.MeshStandardMaterial {
+  const diffuse   = texLoader.load(`${TEX_BASE}texture_diffuse.png`);
+  const normal    = texLoader.load(`${TEX_BASE}texture_normal.png`);
+  const metallic  = texLoader.load(`${TEX_BASE}texture_metallic.png`);
+  const roughness = texLoader.load(`${TEX_BASE}texture_roughness.png`);
 
-function pickColour(meshName: string, matName: string): THREE.Color {
-  const n = (meshName + " " + matName).toLowerCase();
-  if (BEAK_KW.some(k  => n.includes(k))) return PALETTE.beak;
-  if (HAIR_KW.some(k  => n.includes(k))) return PALETTE.hair;
-  if (SHOES_KW.some(k => n.includes(k))) return PALETTE.shoes;
-  if (SUIT_KW.some(k  => n.includes(k))) return PALETTE.suit;
-  if (SKIN_KW.some(k  => n.includes(k))) return PALETTE.skin;
-  return PALETTE.skin; // safe fallback
+  diffuse.colorSpace = THREE.SRGBColorSpace;
+
+  const mat = new THREE.MeshStandardMaterial({
+    map:          diffuse,
+    normalMap:    normal,
+    metalnessMap: metallic,
+    roughnessMap: roughness,
+    metalness:    1.0,
+    roughness:    1.0,
+  });
+
+  return mat;
 }
 
-function applyPalette(fbx: THREE.Group): void {
+function applyPBRMaterial(fbx: THREE.Group, mat: THREE.MeshStandardMaterial): void {
   fbx.traverse((child) => {
     const mesh = child as THREE.Mesh;
     if (!mesh.isMesh) return;
-
-    const recolour = (mat: THREE.Material): THREE.Material => {
-      const col = pickColour(mesh.name, mat.name ?? "");
-      // If the material already carries a texture map, just tint its colour
-      if ((mat as THREE.MeshStandardMaterial).map) {
-        (mat as THREE.MeshStandardMaterial).color.copy(col);
-        return mat;
-      }
-      const newMat = new THREE.MeshLambertMaterial({ color: col, name: mat.name });
-      return newMat;
-    };
-
-    if (Array.isArray(mesh.material)) {
-      mesh.material = mesh.material.map(recolour);
-    } else if (mesh.material) {
-      mesh.material = recolour(mesh.material);
-    }
+    mesh.material = mat;
+    mesh.castShadow    = true;
+    mesh.receiveShadow = true;
   });
 }
 
@@ -112,8 +92,9 @@ function makeBadgeTexture(): THREE.CanvasTexture {
 
 /**
  * Self-contained receptionist NPC.
- * Loads 4 Mixamo FBX clips, applies the 10KSQUAD colour palette,
- * and adds a procedural animated flame crown and "10k" heart badge.
+ * Loads 4 Mixamo FBX clips, applies a full PBR texture set
+ * (diffuse / normal / metallic / roughness), and adds a procedural
+ * animated flame crown and "10k" heart badge.
  */
 export class Receptionist {
   private mixer:        THREE.AnimationMixer | null = null;
@@ -131,9 +112,9 @@ export class Receptionist {
   private walkTimer     = 0;
 
   private static readonly POS       = new THREE.Vector3(41, 0, 48);
-  private static readonly NEARBY_SQ = 9;  // 3 m²
-  private static readonly GREET_SQ  = 4;  // 2 m²
-  private static readonly FLAME_Y   = 1.80; // world Y of flame crown centre
+  private static readonly NEARBY_SQ = 9;
+  private static readonly GREET_SQ  = 4;
+  private static readonly FLAME_Y   = 1.80;
 
   constructor(scene: THREE.Scene, modelBasePath: string) {
     this.scene = scene;
@@ -141,20 +122,18 @@ export class Receptionist {
   }
 
   private _load(base: string) {
-    const loader = new FBXLoader();
+    const loader    = new FBXLoader();
+    const texLoader = new THREE.TextureLoader();
+    const pbrMat    = loadPBRMaterial(texLoader);
+
     loader.load(
       `${base}standing_idle.fbx`,
       (fbx) => {
         fbx.scale.setScalar(0.01);
         fbx.position.copy(Receptionist.POS);
-        fbx.rotation.y = Math.PI; // face south toward arriving visitors
+        fbx.rotation.y = Math.PI;
 
-        fbx.traverse((c) => {
-          const m = c as THREE.Mesh;
-          if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; }
-        });
-
-        applyPalette(fbx);
+        applyPBRMaterial(fbx, pbrMat);
 
         this.scene.add(fbx);
         this.root  = fbx;
@@ -167,9 +146,9 @@ export class Receptionist {
           action.play();
         }
 
-        this._loadClip(loader, `${base}standing_greeting.fbx`, "greet", THREE.LoopOnce);
-        this._loadClip(loader, `${base}talking.fbx`,           "talk",  THREE.LoopRepeat);
-        this._loadClip(loader, `${base}start_walking.fbx`,     "walk",  THREE.LoopOnce);
+        this._loadClip(loader, pbrMat, `${base}standing_greeting.fbx`, "greet", THREE.LoopOnce);
+        this._loadClip(loader, pbrMat, `${base}talking.fbx`,           "talk",  THREE.LoopRepeat);
+        this._loadClip(loader, pbrMat, `${base}start_walking.fbx`,     "walk",  THREE.LoopOnce);
 
         this._addFlameCrown();
         this._addBadge(fbx);
@@ -200,21 +179,16 @@ export class Receptionist {
 
   private _addBadge(fbx: THREE.Group): void {
     const tex = makeBadgeTexture();
-    // PlaneGeometry in Mixamo local units (cm). After parent scale 0.01 → 0.08 m world.
     const geo = new THREE.PlaneGeometry(8, 8);
     const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
     const badge = new THREE.Mesh(geo, mat);
-
-    // Desired world offset from POS: (+0.12 m right, +1.28 m up, -0.10 m forward)
-    // FBX local space: divide by scale (0.01) then apply inverse rotation (R_y(π): x→-x, z→-z)
-    // Local position = (-12, 128, +10) in cm
     badge.position.set(-12, 128, 10);
-
-    fbx.add(badge); // parented — stays attached during animation and disposed with FBX root
+    fbx.add(badge);
   }
 
   private _loadClip(
     loader: FBXLoader,
+    pbrMat: THREE.MeshStandardMaterial,
     url: string,
     name: ReceptionistAnimState,
     loopMode: THREE.AnimationActionLoopStyles,
@@ -222,6 +196,8 @@ export class Receptionist {
     loader.load(
       url,
       (fbx) => {
+        applyPBRMaterial(fbx, pbrMat);
+
         if (!this.mixer || fbx.animations.length === 0) return;
         const clip   = fbx.animations[0];
         const action = this.mixer.clipAction(clip);
