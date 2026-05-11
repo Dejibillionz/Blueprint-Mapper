@@ -414,9 +414,9 @@ export default function MuseumWalker() {
     // ── Bloom: makes spotlights, flame crown, and emissive surfaces glow ──
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(mount.clientWidth, mount.clientHeight),
-      0.45,   // strength  — subtle, not blown out
-      0.55,   // radius    — spread of the glow halo
-      0.72,   // threshold — only pixels brighter than this bloom
+      0.30,   // strength  — toned down
+      0.50,   // radius    — spread of the glow halo
+      0.85,   // threshold — only very bright pixels bloom
     );
     composer.addPass(bloomPass);
 

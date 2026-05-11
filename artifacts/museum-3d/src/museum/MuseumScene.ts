@@ -96,7 +96,7 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
     frameMeshes.push(artMesh);
 
     const spotOffset = new THREE.Vector3(0, 0, 1.5).applyEuler(new THREE.Euler(0, f.rotationY, 0));
-    const spot = new THREE.SpotLight(0xfff5e0, 18, 9, Math.PI / 9, 0.35);
+    const spot = new THREE.SpotLight(0xfff5e0, 7, 9, Math.PI / 9, 0.35);
     spot.position.set(
       f.position[0] + spotOffset.x,
       WALL_HEIGHT - 0.05,
@@ -227,21 +227,21 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   scene.add(hemi);
 
   const lightPositions: Array<[number, number, number, number, number]> = [
-    [8,  10, 8,  26, 0xfff5e0],
-    [8,  24, 6,  22, 0xfff5e0],
-    [20, 10, 6,  22, 0xfff5e0],
-    [20, 24, 5,  20, 0xfff5e0],
-    [40, 13, 8,  24, 0xffeedd],
-    [40,  7, 5,  18, 0xffeedd],
-    [64, 13, 8,  24, 0xffeedd],
-    [64,  7, 5,  18, 0xffeedd],
-    [86, 13, 8,  24, 0xffeedd],
-    [86,  7, 5,  18, 0xffeedd],
-    [42, 26, 5,  20, 0xfff5e0],
-    [62, 26, 5,  20, 0xfff5e0],
-    [41, 41, 8,  20, 0xfff0e0],
-    [18, 43, 4,  14, 0xfff5e0],
-    [57, 43, 4,  14, 0xfff5e0],
+    [8,  10, 4,  26, 0xfff5e0],
+    [8,  24, 3,  22, 0xfff5e0],
+    [20, 10, 3,  22, 0xfff5e0],
+    [20, 24, 2.5,20, 0xfff5e0],
+    [40, 13, 4,  24, 0xffeedd],
+    [40,  7, 2.5,18, 0xffeedd],
+    [64, 13, 4,  24, 0xffeedd],
+    [64,  7, 2.5,18, 0xffeedd],
+    [86, 13, 4,  24, 0xffeedd],
+    [86,  7, 2.5,18, 0xffeedd],
+    [42, 26, 2.5,20, 0xfff5e0],
+    [62, 26, 2.5,20, 0xfff5e0],
+    [41, 41, 4,  20, 0xfff0e0],
+    [18, 43, 2,  14, 0xfff5e0],
+    [57, 43, 2,  14, 0xfff5e0],
   ];
 
   for (const [x, z, intensity, distance, color] of lightPositions) {
