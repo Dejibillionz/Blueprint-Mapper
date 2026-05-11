@@ -290,21 +290,43 @@ export default function MuseumWalker() {
     if (controlsRef.current) controlsRef.current.suspended = false;
   }, []);
 
+  const ROOM_KEYS: Record<string, string> = {
+    "Common Gallery":  "common",
+    "Uncommon Wing":   "uncommon",
+    "Rare Collection": "rare",
+    "Platinum Vault":  "platinum",
+  };
+
   const teleportToRoom = useCallback((name: string, pos: [number, number, number], yaw: number) => {
     const cam  = cameraRef.current;
     const ctrl = controlsRef.current;
     if (!cam || !ctrl) return;
-    cam.position.set(pos[0], pos[1], pos[2]);
-    ctrl.setYaw(yaw);
-    ctrl.setPitch(0);
-    ctrl.suspended = false;
+
+    // Close the panel right away
     receptionistOpenRef.current = false;
-    cam.quaternion.setFromEuler(new THREE.Euler(0, yaw, 0, "YXZ"));
     setReceptionistOpen(false);
     setReceptionistQuery("");
-    receptionistRef.current?.playWalk(1.2);
-    setTeleportBanner(`📍 ${name}`);
-    setTimeout(() => setTeleportBanner(null), 3500);
+    ctrl.suspended = false;
+
+    // Send the receptionist walking to the room
+    const roomKey = ROOM_KEYS[name];
+    if (roomKey) receptionistRef.current?.walkToRoom(roomKey);
+
+    // Tell the visitor their guide is on the way
+    setTeleportBanner(`🚶 Your guide is heading to ${name}…`);
+
+    // After 1.5 s (receptionist has left the desk), teleport the player in
+    setTimeout(() => {
+      const c = cameraRef.current;
+      const ct = controlsRef.current;
+      if (!c || !ct) return;
+      c.position.set(pos[0], pos[1], pos[2]);
+      ct.setYaw(yaw);
+      ct.setPitch(0);
+      c.quaternion.setFromEuler(new THREE.Euler(0, yaw, 0, "YXZ"));
+      setTeleportBanner(`📍 Arrived at ${name}`);
+      setTimeout(() => setTeleportBanner(null), 2500);
+    }, 1500);
   }, []);
 
   useEffect(() => {
