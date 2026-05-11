@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, useCallback, MutableRefObject } from "react";
 import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { SSAOPass } from "three/examples/jsm/postprocessing/SSAOPass.js";
 import { buildScene, CommonNFT, UncommonNFT, RareNFT, PlatinumNFT } from "../museum/MuseumScene";
 import { FirstPersonControls } from "../museum/FirstPersonControls";
 import { buildCollisionBoxes } from "../museum/collision";
@@ -397,6 +400,16 @@ export default function MuseumWalker() {
     renderer.toneMappingExposure = 1.1;
     mount.appendChild(renderer.domElement);
 
+    // ── Post-processing: SSAO ──────────────────────────────────────
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    const ssaoPass = new SSAOPass(scene, camera, mount.clientWidth, mount.clientHeight);
+    ssaoPass.kernelRadius  = 0.25;   // search radius in world units
+    ssaoPass.minDistance   = 0.001;  // ignore contacts closer than 1 mm
+    ssaoPass.maxDistance   = 0.08;   // darken up to 8 cm away
+    composer.addPass(ssaoPass);
+
     const collisionBoxes = buildCollisionBoxes();
 
     // Build exterior world (sky, ground, steps, columns, lampposts).
@@ -693,7 +706,7 @@ export default function MuseumWalker() {
         }
       }
 
-      renderer.render(scene, camera);
+      composer.render();
 
       // Update minimap
       if (minimapRef.current) {
@@ -717,6 +730,8 @@ export default function MuseumWalker() {
       camera.aspect = mount.clientWidth / mount.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(mount.clientWidth, mount.clientHeight);
+      composer.setSize(mount.clientWidth, mount.clientHeight);
+      ssaoPass.setSize(mount.clientWidth, mount.clientHeight);
     };
     window.addEventListener("resize", onResize);
 
@@ -734,6 +749,7 @@ export default function MuseumWalker() {
       document.removeEventListener("pointerlockchange", onLockChange);
       window.removeEventListener("resize", onResize);
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
+      composer.dispose();
       renderer.dispose();
       cameraRef.current = null;
       controlsRef.current = null;
