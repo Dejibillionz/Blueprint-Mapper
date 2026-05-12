@@ -139,6 +139,8 @@ export default function MuseumWalker() {
   const [teleportBanner, setTeleportBanner] = useState<string | null>(null);
   const [loadProgress, setLoadProgress] = useState(0);
   const [sceneReady, setSceneReady] = useState(false);
+  const [loadingVisible, setLoadingVisible] = useState(true);
+  const [loadingFading, setLoadingFading] = useState(false);
   const [zoomedPartner, setZoomedPartner] = useState<ZoomedPartner | null>(null);
   const [detailPage, setDetailPage] = useState(0);   // 0 = artwork, 1 = details
   const [welcomeVisible, setWelcomeVisible] = useState(false);
@@ -200,6 +202,13 @@ export default function MuseumWalker() {
       welcomeTriggeredRef.current = true;
     }
   }, []);
+
+  useEffect(() => {
+    if (!sceneReady) return;
+    setLoadingFading(true);
+    const t = setTimeout(() => setLoadingVisible(false), 700);
+    return () => clearTimeout(t);
+  }, [sceneReady]);
 
   useEffect(() => {
     audioRef.current.setMuted(muted);
@@ -1049,20 +1058,62 @@ export default function MuseumWalker() {
       />
 
       {/* ── Loading progress bar ── */}
-      {!sceneReady && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#08080e] pointer-events-none select-none">
-          <p className="text-indigo-300 font-bold text-2xl tracking-widest mb-1">10KSQUAD MUSEUM</p>
-          <p className="text-gray-500 text-xs tracking-widest mb-8">3333 NFT Collection — Loading experience…</p>
-          <div className="w-64 h-1.5 bg-white/10 rounded-full overflow-hidden">
+      {loadingVisible && (
+        <div
+          className="absolute inset-0 z-50 flex flex-col items-center justify-center select-none"
+          style={{
+            background: "radial-gradient(ellipse at 50% 60%, #0d1535 0%, #08080e 70%)",
+            opacity: loadingFading ? 0 : 1,
+            transition: "opacity 0.65s ease-out",
+            pointerEvents: loadingFading ? "none" : "all",
+          }}
+        >
+          <div className="flex flex-col items-center gap-0 mb-10">
             <div
-              className="h-full rounded-full transition-[width] duration-300 ease-out"
+              className="mb-4 rounded-full flex items-center justify-center"
               style={{
-                width: `${Math.round(loadProgress * 100)}%`,
-                background: "linear-gradient(90deg, #4f46e5, #c9a84c)",
+                width: 72,
+                height: 72,
+                background: "linear-gradient(135deg, #4f46e5 0%, #c9a84c 100%)",
+                boxShadow: "0 0 40px rgba(79,70,229,0.5), 0 0 80px rgba(201,168,76,0.2)",
               }}
-            />
+            >
+              <span style={{ fontSize: 36, lineHeight: 1 }}>🏛️</span>
+            </div>
+            <p
+              className="font-bold tracking-widest uppercase"
+              style={{
+                fontSize: "clamp(1.25rem, 4vw, 2rem)",
+                background: "linear-gradient(90deg, #818cf8, #c9a84c)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                letterSpacing: "0.25em",
+              }}
+            >
+              10KSQUAD MUSEUM
+            </p>
+            <p className="text-gray-500 text-xs tracking-[0.2em] uppercase mt-1">
+              3333 NFT Collection — 3D Experience
+            </p>
           </div>
-          <p className="text-gray-600 text-xs font-mono mt-3">{Math.round(loadProgress * 100)}%</p>
+
+          <div className="w-72 flex flex-col items-center gap-2">
+            <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${Math.round(loadProgress * 100)}%`,
+                  background: "linear-gradient(90deg, #4f46e5, #818cf8 50%, #c9a84c)",
+                  transition: "width 0.35s ease-out",
+                  boxShadow: "0 0 8px rgba(129,140,248,0.7)",
+                }}
+              />
+            </div>
+            <p className="text-gray-600 text-[11px] font-mono tabular-nums">
+              {loadProgress >= 1 ? "Entering museum…" : `Loading artwork data… ${Math.round(loadProgress * 100)}%`}
+            </p>
+          </div>
         </div>
       )}
 
