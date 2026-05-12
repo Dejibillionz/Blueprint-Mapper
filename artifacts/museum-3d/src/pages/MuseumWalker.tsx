@@ -14,7 +14,7 @@ import { drawMinimap, MAP_W, MAP_H } from "../museum/minimap";
 import { AmbientAudio } from "../museum/AmbientAudio";
 import { ProximityTextureManager } from "../museum/ProximityTextureManager";
 import { Receptionist } from "../museum/Receptionist";
-import { buildLegendaryPedestals, LEGENDARY_PEDESTAL_META } from "../museum/LegendaryPedestals";
+import { buildLegendaryPedestals, LEGENDARY_PEDESTAL_META, LEGENDARY_PEDESTAL_POSITIONS } from "../museum/LegendaryPedestals";
 
 // ── Legendary Vault pedestal model slots ─────────────────────────────────────
 // Drop your GLB/GLTF paths here (one per pedestal, index 0-3).
@@ -617,6 +617,17 @@ export default function MuseumWalker() {
 
     // ── Legendary Vault pedestals (alongside buildPlatinumVault inside buildScene)
     pedestalGroupsRef.current = buildLegendaryPedestals(scene, LEGENDARY_PEDESTAL_MODELS);
+
+    // ── Pedestal collision boxes (0.5 m × 0.5 m footprint each) ──────────────
+    const PEDESTAL_HALF = 0.25;
+    for (const { x, z } of LEGENDARY_PEDESTAL_POSITIONS) {
+      collisionBoxes.push({
+        minX: x - PEDESTAL_HALF,
+        maxX: x + PEDESTAL_HALF,
+        minZ: z - PEDESTAL_HALF,
+        maxZ: z + PEDESTAL_HALF,
+      });
+    }
 
     frameMeshesRef.current          = frameMeshes;
     commonGalleryMeshRef.current    = commonGalleryMesh;
