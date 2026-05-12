@@ -5,6 +5,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { SSAOPass } from "three/examples/jsm/postprocessing/SSAOPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { buildScene, CommonNFT, UncommonNFT, RareNFT, PlatinumNFT, AnimatedDoor } from "../museum/MuseumScene";
+import { partners } from "../data/partners";
 import { FirstPersonControls } from "../museum/FirstPersonControls";
 import { buildCollisionBoxes } from "../museum/collision";
 import { buildExterior } from "../museum/Exterior";
@@ -25,6 +26,14 @@ interface ZoomedFrame {
   rarityRank?: number | null;
   rarityScore?: number;
   rarity?: string;
+}
+
+interface ZoomedPartner {
+  index: number;
+  name: string;
+  description: string;
+  imageUrl: string;
+  linkUrl?: string;
 }
 
 interface HoverFrame {
@@ -130,6 +139,7 @@ export default function MuseumWalker() {
   const [teleportBanner, setTeleportBanner] = useState<string | null>(null);
   const [loadProgress, setLoadProgress] = useState(0);
   const [sceneReady, setSceneReady] = useState(false);
+  const [zoomedPartner, setZoomedPartner] = useState<ZoomedPartner | null>(null);
   const [detailPage, setDetailPage] = useState(0);   // 0 = artwork, 1 = details
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const welcomeTriggeredRef = useRef(false);
@@ -154,6 +164,7 @@ export default function MuseumWalker() {
   const uncommonArtMeshesRef = useRef<THREE.Mesh[]>([]);
   const rareArtMeshesRef     = useRef<THREE.Mesh[]>([]);
   const platinumArtMeshesRef = useRef<THREE.Mesh[]>([]);
+  const partnerFrameMeshesRef = useRef<THREE.Mesh[]>([]);
   const proximityMgrRef = useRef<ProximityTextureManager | null>(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
@@ -528,6 +539,7 @@ export default function MuseumWalker() {
       uncommonGalleryMesh, uncommonArtMeshes, uncommonNFTs,
       rareGalleryMesh,     rareArtMeshes,     rareNFTs,
       platinumGalleryMesh, platinumArtMeshes, platinumNFTs,
+      partnerFrameMeshes,
       animatedDoors,
     } = buildScene(scene);
     animatedDoorsRef.current = animatedDoors;
@@ -545,6 +557,7 @@ export default function MuseumWalker() {
     uncommonArtMeshesRef.current    = uncommonArtMeshes;
     rareArtMeshesRef.current        = rareArtMeshes;
     platinumArtMeshesRef.current    = platinumArtMeshes;
+    partnerFrameMeshesRef.current   = partnerFrameMeshes;
     setLoadProgress(0.50);
 
     // ── Readiness gate: scene is "ready" only when BOTH the first render
@@ -695,7 +708,25 @@ export default function MuseumWalker() {
         }
       }
 
-      // 2. Instanced border meshes — zoom on click via instanceId
+      // 2. Partner board frames
+      if (partnerFrameMeshesRef.current.length > 0) {
+        const pHits = raycasterRef.current.intersectObjects(partnerFrameMeshesRef.current, false);
+        const pNear = pHits.find(h => h.distance < 6);
+        if (pNear) {
+          const ud = pNear.object.userData as { isPartnerFrame?: boolean; partnerIndex?: number };
+          if (ud.isPartnerFrame && ud.partnerIndex !== undefined) {
+            const p = partners[ud.partnerIndex];
+            if (p) {
+              setZoomedPartner({ index: p.id, name: p.name, description: p.description, imageUrl: p.imageUrl, linkUrl: p.linkUrl });
+              document.exitPointerLock();
+              e.stopPropagation();
+              return;
+            }
+          }
+        }
+      }
+
+      // 3. Instanced border meshes — zoom on click via instanceId
       // Map: [instancedMesh, galleryIndex in PTM, nftRef]
       type NftLike = { title: string; artist: string };
       type GalleryEntry = [THREE.InstancedMesh | null, number, MutableRefObject<NftLike[]>, string];
@@ -892,6 +923,19 @@ export default function MuseumWalker() {
           if (pNear !== undefined && pNear.instanceId !== undefined) {
             const nft = platinumNFTsRef.current[pNear.instanceId];
             if (nft) hData = { title: nft.title, artist: nft.artist, rarity: "Legendary" };
+          }
+        }
+
+        // 6. Check Partner Board frames (entrance hall east wall)
+        if (!hData && partnerFrameMeshesRef.current.length > 0) {
+          const pfHits = raycasterRef.current.intersectObjects(partnerFrameMeshesRef.current, false);
+          const pfNear = pfHits.find(h => h.distance < 6);
+          if (pfNear) {
+            const ud = pfNear.object.userData as { isPartnerFrame?: boolean; partnerIndex?: number };
+            if (ud.isPartnerFrame && ud.partnerIndex !== undefined) {
+              const p = partners[ud.partnerIndex];
+              if (p) hData = { title: p.name, artist: "NFT Partner", rarity: "Partner" };
+            }
           }
         }
 
@@ -1352,6 +1396,87 @@ export default function MuseumWalker() {
 
       {zoomedFrame && (
         <EscListener onEsc={exitZoom} />
+      )}
+
+      {/* ── Partner frame overlay ── */}
+      {zoomedPartner && (
+        <div className="absolute inset-0 pointer-events-auto select-none z-40"
+             style={{ background: "rgba(0,0,0,0.70)", backdropFilter: "blur(6px)" }}>
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-80">
+            <div className="rounded-2xl overflow-hidden border border-indigo-500/40"
+                 style={{ background: "rgba(8,8,20,0.95)", backdropFilter: "blur(14px)", boxShadow: "0 0 40px rgba(99,102,241,0.12)" }}>
+
+              {/* Header */}
+              <div className="px-5 py-3 flex items-center gap-2 border-b border-indigo-500/20"
+                   style={{ background: "rgba(99,102,241,0.10)" }}>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-indigo-400">◆ NFT Partner</span>
+              </div>
+
+              {/* Image */}
+              {zoomedPartner.imageUrl ? (
+                <div className="relative w-full bg-black/40 border-b border-indigo-500/10">
+                  <img
+                    src={zoomedPartner.imageUrl}
+                    alt={zoomedPartner.name}
+                    className="w-full object-contain"
+                    style={{ maxHeight: 200 }}
+                    crossOrigin="anonymous"
+                  />
+                </div>
+              ) : (
+                <div className="w-full flex items-center justify-center border-b border-indigo-500/10"
+                     style={{ height: 120, background: "rgba(99,102,241,0.07)" }}>
+                  <div className="text-center">
+                    <div className="w-14 h-14 rounded-full border border-indigo-500/40 flex items-center justify-center mx-auto mb-2"
+                         style={{ background: "rgba(99,102,241,0.18)" }}>
+                      <span className="text-indigo-300 text-xl font-bold">{zoomedPartner.index + 1}</span>
+                    </div>
+                    <p className="text-indigo-400/60 text-xs font-mono uppercase tracking-widest">Photo coming soon</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Content */}
+              <div className="px-5 py-4">
+                <p className="text-white text-xl font-bold leading-snug">{zoomedPartner.name}</p>
+                <p className="text-gray-400 text-sm mt-2 leading-relaxed">{zoomedPartner.description}</p>
+
+                <div className="mt-4 flex gap-2">
+                  <button
+                    className="flex-1 min-h-[44px] py-2.5 rounded-lg font-bold text-sm tracking-wide transition-all hover:brightness-110 active:scale-95"
+                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#9ca3af" }}
+                    onClick={() => setZoomedPartner(null)}
+                  >
+                    ← Back
+                  </button>
+                  {zoomedPartner.linkUrl && (
+                    <button
+                      className="flex-1 min-h-[44px] py-2.5 rounded-lg font-bold text-sm text-white tracking-wide transition-all hover:brightness-110 active:scale-95"
+                      style={{ background: "linear-gradient(135deg, #4f46e5, #6366f1)", border: "1px solid rgba(99,102,241,0.4)" }}
+                      onClick={() => window.open(zoomedPartner.linkUrl, "_blank")}
+                    >
+                      Visit Collection ↗
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Back button top */}
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-auto">
+            <button
+              onClick={() => setZoomedPartner(null)}
+              className="bg-black/60 border border-white/20 hover:border-white/50 text-white text-sm font-mono px-5 py-2 rounded-lg transition-all hover:bg-black/80"
+            >
+              ← Back to Museum (ESC)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {zoomedPartner && (
+        <EscListener onEsc={() => setZoomedPartner(null)} />
       )}
 
       {/* ── Virtual joystick (touch only) ── */}
