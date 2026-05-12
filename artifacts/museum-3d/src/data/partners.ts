@@ -14,7 +14,7 @@ export const partners: Partner[] = [
   { id:  4, name: "MAGMA STAKING", description: "Monad's native liquid staking protocol — stake $MON for $gMON and stay liquid while earning yield. Holding the 10K Squad NFT gives you a 1.15x (15%) Magma Points multiplier, the biggest multiplier in the protocol, active from the moment you hold the NFT. (NFT multipliers do not stack)", imageUrl: "/partners/magma.jpg", linkUrl: "https://x.com/magmaStaking" },
   { id:  5, name: "BOB TOKEN",   description: "A presale exclusively for holders of the 10K Squad RARE NFT. Holders of a Rare NFT received a SBT bobx10K NFT which could be used to participate in the BOB Token presale. (Presale ended)", imageUrl: "/partners/bob.jpg" },
   { id:  6, name: "BEAN EXCHANGE", description: "The ultimate capital-efficient Perps & DLMM DEX on Monad. 10K Squad holders receive a +20% Bean points boost on every LP, swap, trade, vault, and referral activity on Bean Exchange.", imageUrl: "/partners/bean.jpg", linkUrl: "https://x.com/Bean_DEX" },
-  { id:  7, name: "Partner 8",  description: "NFT partner details coming soon.", imageUrl: "" },
+  { id:  7, name: "FLUFFLE",     description: "A hypergamified productivity platform that rewards you for staying off your phone. 10K Squad holders who purchase a pass to the highest rewards tier receive 15 free raffle tickets — equivalent to 15 hours of work.", imageUrl: "/partners/fluffle.jpg", linkUrl: "https://x.com/fluffleworld" },
   { id:  8, name: "Partner 9",  description: "NFT partner details coming soon.", imageUrl: "" },
   { id:  9, name: "Partner 10", description: "NFT partner details coming soon.", imageUrl: "" },
   { id: 10, name: "Partner 11", description: "NFT partner details coming soon.", imageUrl: "" },
