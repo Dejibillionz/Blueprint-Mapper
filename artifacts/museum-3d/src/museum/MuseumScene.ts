@@ -291,7 +291,8 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   const { borderMesh: ugMesh, artMeshes: ugArtMeshes, nfts: uncommonNFTs }   = buildUncommonGallery(scene);
   const { borderMesh: rgMesh, artMeshes: rgArtMeshes, nfts: rareNFTs }       = buildRareGallery(scene);
   const { borderMesh: pgMesh, artMeshes: pgArtMeshes, nfts: platinumNFTs }   = buildPlatinumVault(scene);
-  const { frameMeshes: partnerFrameMeshes }                                   = buildPartnerBoard(scene);
+  const { frameMeshes: partnerFrameMeshes, lights: partnerLights }             = buildPartnerBoard(scene);
+  for (const l of partnerLights) scene.add(l);
 
   return {
     frameMeshes,

@@ -82,6 +82,7 @@ function makePlaceholderTexture(index: number, name: string): THREE.CanvasTextur
 
 export interface PartnerBoardResult {
   frameMeshes: THREE.Mesh[];
+  lights: THREE.Object3D[];
 }
 
 export function buildPartnerBoard(scene: THREE.Scene): PartnerBoardResult {
@@ -195,24 +196,22 @@ export function buildPartnerBoard(scene: THREE.Scene): PartnerBoardResult {
     frameMeshes.push(art);
   });
 
-  // ── Spotlight aimed at the board ─────────────────────────────────────────
+  // ── Spotlights aimed at the board (returned so MuseumScene can add them) ──
   const spot = new THREE.SpotLight(0xfff5e0, 6, 18, Math.PI / 6, 0.40);
   spot.position.set(43.5, 3.85, PANEL_Z);
   spot.target.position.set(PANEL_X, PANEL_Y, PANEL_Z);
   spot.castShadow = false;
-  scene.add(spot);
-  scene.add(spot.target);
 
-  // Smaller accent lights for the two rows
   const accent1 = new THREE.SpotLight(0xffe8cc, 3.5, 10, Math.PI / 7, 0.50);
   accent1.position.set(44.5, 3.85, PANEL_Z - 2);
   accent1.target.position.set(PANEL_X, Y_TOP, PANEL_Z - 2);
-  scene.add(accent1); scene.add(accent1.target);
 
   const accent2 = new THREE.SpotLight(0xffe8cc, 3.5, 10, Math.PI / 7, 0.50);
   accent2.position.set(44.5, 3.85, PANEL_Z + 2);
   accent2.target.position.set(PANEL_X, Y_BOT, PANEL_Z + 2);
-  scene.add(accent2); scene.add(accent2.target);
 
-  return { frameMeshes };
+  return {
+    frameMeshes,
+    lights: [spot, spot.target, accent1, accent1.target, accent2, accent2.target],
+  };
 }
