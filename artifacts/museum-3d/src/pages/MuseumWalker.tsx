@@ -1401,6 +1401,9 @@ export default function MuseumWalker() {
       {/* ── Partner frame overlay ── */}
       {zoomedPartner && (
         <div className="absolute inset-0 pointer-events-auto select-none z-40"
+             ref={el => {
+               if (el && controlsRef.current) controlsRef.current.suspended = true;
+             }}
              style={{ background: "rgba(0,0,0,0.70)", backdropFilter: "blur(6px)" }}>
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-80">
             <div className="rounded-2xl overflow-hidden border border-indigo-500/40"
@@ -1453,7 +1456,7 @@ export default function MuseumWalker() {
                     <button
                       className="flex-1 min-h-[44px] py-2.5 rounded-lg font-bold text-sm text-white tracking-wide transition-all hover:brightness-110 active:scale-95"
                       style={{ background: "linear-gradient(135deg, #4f46e5, #6366f1)", border: "1px solid rgba(99,102,241,0.4)" }}
-                      onClick={() => window.open(zoomedPartner.linkUrl, "_blank")}
+                      onClick={() => window.open(zoomedPartner.linkUrl, "_blank", "noopener,noreferrer")}
                     >
                       Visit Collection ↗
                     </button>
@@ -1480,7 +1483,7 @@ export default function MuseumWalker() {
       )}
 
       {/* ── Virtual joystick (touch only) ── */}
-      {IS_TOUCH && locked && !zoomedFrame && !receptionistOpen && (
+      {IS_TOUCH && locked && !zoomedFrame && !zoomedPartner && !receptionistOpen && (
         <VirtualJoystick
           onMove={handleJoystickMove}
           onBreakGuide={handleJoystickBreakGuide}
