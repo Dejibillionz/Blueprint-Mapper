@@ -13,6 +13,26 @@ export const LEGENDARY_PEDESTAL_POSITIONS: readonly { x: number; z: number }[] =
   { x: 94, z: 17 },   // east row — south pedestal
 ] as const;
 
+// Metadata displayed in the inspect panel when a visitor clicks a pedestal
+export const LEGENDARY_PEDESTAL_META: readonly { name: string; description: string }[] = [
+  {
+    name: "Genesis Crown",
+    description: "The rarest artifact of the 10K Squad collection — a symbol of legendary status forged in the genesis block. Only holders of the highest rank may gaze upon it.",
+  },
+  {
+    name: "Vault Key",
+    description: "An ancient key that grants access to the inner sanctum of the Legendary Vault. One of a kind, it has never left these hallowed halls.",
+  },
+  {
+    name: "Squad Emblem",
+    description: "The original emblem of the 10K Squad, minted at the dawn of the collection. Its glow intensifies in the presence of true believers.",
+  },
+  {
+    name: "Origin Stone",
+    description: "A crystallised fragment of the first block, preserved as a testament to the collection's origins. Rumoured to pulse faintly in the hands of a genesis holder.",
+  },
+] as const;
+
 // Pedestal geometry constants
 const BASE_W   = 0.50;
 const BASE_H   = 1.00;
@@ -42,8 +62,10 @@ const bandMat = new THREE.MeshStandardMaterial({
   roughness: 0.20,
 });
 
-function buildPedestalGroup(): THREE.Group {
+function buildPedestalGroup(pedestalIndex: number): THREE.Group {
   const group = new THREE.Group();
+  group.userData.isPedestal    = true;
+  group.userData.pedestalIndex = pedestalIndex;
 
   // Base column
   const base = new THREE.Mesh(
@@ -53,6 +75,8 @@ function buildPedestalGroup(): THREE.Group {
   base.position.set(0, BASE_H / 2, 0);
   base.castShadow    = true;
   base.receiveShadow = true;
+  base.userData.isPedestal    = true;
+  base.userData.pedestalIndex = pedestalIndex;
   group.add(base);
 
   // Metallic trim band (sits on top of the base, just below the cap)
@@ -63,6 +87,8 @@ function buildPedestalGroup(): THREE.Group {
   band.position.set(0, BASE_H - BAND_H / 2, 0);
   band.castShadow    = true;
   band.receiveShadow = true;
+  band.userData.isPedestal    = true;
+  band.userData.pedestalIndex = pedestalIndex;
   group.add(band);
 
   // Narrower top cap
@@ -73,6 +99,8 @@ function buildPedestalGroup(): THREE.Group {
   cap.position.set(0, BASE_H + CAP_H / 2, 0);
   cap.castShadow    = true;
   cap.receiveShadow = true;
+  cap.userData.isPedestal    = true;
+  cap.userData.pedestalIndex = pedestalIndex;
   group.add(cap);
 
   return group;
@@ -81,6 +109,7 @@ function buildPedestalGroup(): THREE.Group {
 function loadModelOnPedestal(
   url: string,
   pedestalGroup: THREE.Group,
+  pedestalIndex: number,
 ): void {
   const loader = new GLTFLoader();
   loader.load(
@@ -109,11 +138,14 @@ function loadModelOnPedestal(
       model.position.y  = TOP_SURFACE_Y - scaledMin.y;
       model.position.z -= center.z * scale;
 
+      // Tag every mesh in the model so raycasting can identify which pedestal was hit
       model.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
           child.castShadow    = true;
           child.receiveShadow = true;
         }
+        child.userData.isPedestal    = true;
+        child.userData.pedestalIndex = pedestalIndex;
       });
 
       pedestalGroup.add(model);
@@ -132,6 +164,7 @@ function loadModelOnPedestal(
  * @param scene     - The Three.js scene to add pedestals to.
  * @param modelUrls - Tuple of 4 optional GLB/GLTF URL strings (one per pedestal).
  *                    Leave a slot as "" or undefined to keep the pedestal bare.
+ * @returns Array of the 4 pedestal THREE.Group objects (for raycasting).
  */
 export type PedestalModelSlots = readonly [
   string | undefined,
@@ -143,15 +176,18 @@ export type PedestalModelSlots = readonly [
 export function buildLegendaryPedestals(
   scene: THREE.Scene,
   modelUrls: PedestalModelSlots | readonly (string | undefined)[],
-): void {
+): THREE.Group[] {
+  const groups: THREE.Group[] = [];
   LEGENDARY_PEDESTAL_POSITIONS.forEach(({ x, z }, i) => {
-    const group = buildPedestalGroup();
+    const group = buildPedestalGroup(i);
     group.position.set(x, 0, z);
     scene.add(group);
+    groups.push(group);
 
     const url = modelUrls[i];
     if (url && url.trim() !== "") {
-      loadModelOnPedestal(url.trim(), group);
+      loadModelOnPedestal(url.trim(), group, i);
     }
   });
+  return groups;
 }

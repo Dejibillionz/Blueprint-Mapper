@@ -14,7 +14,7 @@ import { drawMinimap, MAP_W, MAP_H } from "../museum/minimap";
 import { AmbientAudio } from "../museum/AmbientAudio";
 import { ProximityTextureManager } from "../museum/ProximityTextureManager";
 import { Receptionist } from "../museum/Receptionist";
-import { buildLegendaryPedestals } from "../museum/LegendaryPedestals";
+import { buildLegendaryPedestals, LEGENDARY_PEDESTAL_META } from "../museum/LegendaryPedestals";
 
 // ── Legendary Vault pedestal model slots ─────────────────────────────────────
 // Drop your GLB/GLTF paths here (one per pedestal, index 0-3).
@@ -45,6 +45,12 @@ interface ZoomedPartner {
   description: string;
   imageUrl: string;
   linkUrl?: string;
+}
+
+interface ZoomedPedestal {
+  index: number;
+  name: string;
+  description: string;
 }
 
 interface HoverFrame {
@@ -153,6 +159,7 @@ export default function MuseumWalker() {
   const [loadingVisible, setLoadingVisible] = useState(true);
   const [loadingFading, setLoadingFading] = useState(false);
   const [zoomedPartner, setZoomedPartner] = useState<ZoomedPartner | null>(null);
+  const [zoomedPedestal, setZoomedPedestal] = useState<ZoomedPedestal | null>(null);
   const [detailPage, setDetailPage] = useState(0);   // 0 = artwork, 1 = details
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const welcomeTriggeredRef = useRef(false);
@@ -178,6 +185,7 @@ export default function MuseumWalker() {
   const rareArtMeshesRef     = useRef<THREE.Mesh[]>([]);
   const platinumArtMeshesRef = useRef<THREE.Mesh[]>([]);
   const partnerFrameMeshesRef = useRef<THREE.Mesh[]>([]);
+  const pedestalGroupsRef = useRef<THREE.Group[]>([]);
   const proximityMgrRef = useRef<ProximityTextureManager | null>(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const minimapRef = useRef<HTMLCanvasElement | null>(null);
@@ -280,6 +288,21 @@ export default function MuseumWalker() {
 
     zoomStateRef.current = null;
     setZoomedFrame(null);
+  }, []);
+
+  const exitPedestalZoom = useCallback(() => {
+    const st = zoomStateRef.current;
+    const cam = cameraRef.current;
+    const ctrl = controlsRef.current;
+    if (st && cam && ctrl) {
+      cam.position.copy(st.savedPos);
+      ctrl.setYaw(st.savedYaw);
+      ctrl.setPitch(st.savedPitch);
+      const euler = new THREE.Euler(st.savedPitch, st.savedYaw, 0, "YXZ");
+      cam.quaternion.setFromEuler(euler);
+      zoomStateRef.current = null;
+    }
+    setZoomedPedestal(null);
   }, []);
 
   const teleportToNFT = useCallback((entry: SearchMeta) => {
@@ -406,10 +429,23 @@ export default function MuseumWalker() {
       ctrl.suspended = true;
       document.exitPointerLock();
     } else {
-      const otherSuspend = receptionistOpenRef.current || followingGuideRef.current;
+      const otherSuspend = receptionistOpenRef.current || followingGuideRef.current || !!zoomedPedestal;
       if (!otherSuspend) ctrl.suspended = false;
     }
-  }, [zoomedPartner]);
+  }, [zoomedPartner, zoomedPedestal]);
+
+  // Suspend / resume controls when the pedestal inspect overlay opens or closes.
+  useEffect(() => {
+    const ctrl = controlsRef.current;
+    if (!ctrl) return;
+    if (zoomedPedestal) {
+      ctrl.suspended = true;
+      document.exitPointerLock();
+    } else {
+      const otherSuspend = receptionistOpenRef.current || followingGuideRef.current || !!zoomedPartner;
+      if (!otherSuspend) ctrl.suspended = false;
+    }
+  }, [zoomedPedestal, zoomedPartner]);
 
   const ROOM_KEYS: Record<string, string> = {
     "Common Gallery":  "common",
@@ -580,7 +616,7 @@ export default function MuseumWalker() {
     animatedDoorsRef.current = animatedDoors;
 
     // ── Legendary Vault pedestals (alongside buildPlatinumVault inside buildScene)
-    buildLegendaryPedestals(scene, LEGENDARY_PEDESTAL_MODELS);
+    pedestalGroupsRef.current = buildLegendaryPedestals(scene, LEGENDARY_PEDESTAL_MODELS);
 
     frameMeshesRef.current          = frameMeshes;
     commonGalleryMeshRef.current    = commonGalleryMesh;
@@ -764,7 +800,58 @@ export default function MuseumWalker() {
         }
       }
 
-      // 3. Instanced border meshes — zoom on click via instanceId
+      // 3. Legendary Vault pedestals — recursive raycast to hit GLTF children
+      if (pedestalGroupsRef.current.length > 0) {
+        const pedHits = raycasterRef.current.intersectObjects(pedestalGroupsRef.current, true);
+        const pedNear = pedHits.find(h => h.distance < 6);
+        if (pedNear) {
+          // Walk up the object's parent chain to find the node tagged isPedestal
+          let obj: THREE.Object3D | null = pedNear.object;
+          while (obj && !obj.userData.isPedestal) obj = obj.parent;
+          const pedestalIndex = obj?.userData.pedestalIndex as number | undefined;
+          if (pedestalIndex !== undefined) {
+            const meta = LEGENDARY_PEDESTAL_META[pedestalIndex];
+            const group = pedestalGroupsRef.current[pedestalIndex];
+            if (meta && group) {
+              // Zoom camera close to the pedestal (same mechanism as painting zoom)
+              const pedPos = new THREE.Vector3();
+              group.getWorldPosition(pedPos);
+
+              // Stand on the same horizontal side the player is already on
+              const towardPlayer = new THREE.Vector3()
+                .subVectors(camera.position, pedPos)
+                .setY(0);
+              if (towardPlayer.lengthSq() < 0.001) towardPlayer.set(0, 0, 1);
+              towardPlayer.normalize();
+
+              const targetPos = pedPos.clone().addScaledVector(towardPlayer, 1.1);
+              targetPos.y = EYE_HEIGHT;
+
+              // Look at model centre (top of pedestal + ~0.2 m model offset)
+              const lookAtPos = pedPos.clone();
+              lookAtPos.y = 1.5;
+
+              const yaw   = (controls as unknown as Record<string, number>)["yaw"];
+              const pitch = (controls as unknown as Record<string, number>)["pitch"];
+              zoomStateRef.current = {
+                active: true,
+                savedPos:    camera.position.clone(),
+                savedYaw:    yaw,
+                savedPitch:  pitch,
+                targetPos,
+                targetLookAt: lookAtPos,
+                progress: 0,
+              };
+              document.exitPointerLock();
+              setZoomedPedestal({ index: pedestalIndex, name: meta.name, description: meta.description });
+              e.stopPropagation();
+              return;
+            }
+          }
+        }
+      }
+
+      // 4. Instanced border meshes — zoom on click via instanceId
       // Map: [instancedMesh, galleryIndex in PTM, nftRef]
       type NftLike = { title: string; artist: string };
       type GalleryEntry = [THREE.InstancedMesh | null, number, MutableRefObject<NftLike[]>, string];
@@ -973,6 +1060,21 @@ export default function MuseumWalker() {
             if (ud.isPartnerFrame && ud.partnerIndex !== undefined) {
               const p = partners[ud.partnerIndex];
               if (p) hData = { title: p.name, artist: "NFT Partner", rarity: "Partner" };
+            }
+          }
+        }
+
+        // 7. Check Legendary Vault pedestals (recursive, room_4)
+        if (!hData && pedestalGroupsRef.current.length > 0 && getNearbyRoomId(camera.position) === "room_4") {
+          const pedHits = raycasterRef.current.intersectObjects(pedestalGroupsRef.current, true);
+          const pedNear = pedHits.find(h => h.distance < 5);
+          if (pedNear) {
+            let obj: THREE.Object3D | null = pedNear.object;
+            while (obj && !obj.userData.isPedestal) obj = obj.parent;
+            const pedestalIndex = obj?.userData.pedestalIndex as number | undefined;
+            if (pedestalIndex !== undefined) {
+              const meta = LEGENDARY_PEDESTAL_META[pedestalIndex];
+              if (meta) hData = { title: meta.name, artist: "Legendary Vault", rarity: "Legendary" };
             }
           }
         }
@@ -1559,8 +1661,114 @@ export default function MuseumWalker() {
         <EscListener onEsc={() => setZoomedPartner(null)} />
       )}
 
+      {/* ── Pedestal inspect overlay ── */}
+      {zoomedPedestal && (
+        <div
+          className="absolute inset-0 pointer-events-auto select-none z-40"
+          style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(1px)" }}
+          onClick={exitPedestalZoom}
+        >
+          <div
+            className="absolute bottom-8 left-1/2 -translate-x-1/2 w-80"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="rounded-2xl overflow-hidden border border-amber-500/40"
+                 style={{ background: "rgba(8,8,20,0.95)", backdropFilter: "blur(14px)", boxShadow: "0 0 40px rgba(247,127,0,0.18)" }}>
+
+              {/* Header */}
+              <div className="px-5 py-3 flex items-center gap-2 border-b border-amber-500/20"
+                   style={{ background: "rgba(247,127,0,0.10)" }}>
+                <span className="text-[11px] font-bold uppercase tracking-widest text-amber-400">◆ Legendary Vault Artifact</span>
+              </div>
+
+              {/* Artifact viewer — stylised 3-D pedestal preview */}
+              <div className="w-full flex items-center justify-center border-b border-amber-500/10 relative overflow-hidden"
+                   style={{ height: 160, background: "linear-gradient(160deg, #0d0a00 0%, #1a0e00 50%, #0d0800 100%)" }}>
+                {/* Ambient glow rings */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div style={{
+                    width: 200, height: 200, borderRadius: "50%",
+                    background: "radial-gradient(ellipse, rgba(247,127,0,0.12) 0%, transparent 70%)",
+                  }} />
+                </div>
+                {/* Pedestal + artifact icon */}
+                <div className="flex flex-col items-center gap-0 relative z-10">
+                  {/* Artifact itself */}
+                  <div className="rounded-full flex items-center justify-center mb-2"
+                       style={{
+                         width: 72, height: 72,
+                         background: "linear-gradient(135deg, rgba(247,127,0,0.35) 0%, rgba(201,168,76,0.20) 100%)",
+                         border: "1.5px solid rgba(247,127,0,0.55)",
+                         boxShadow: "0 0 32px rgba(247,127,0,0.30), 0 0 8px rgba(201,168,76,0.20)",
+                       }}>
+                    <span style={{ fontSize: 34, lineHeight: 1 }}>
+                      {["👑","🗝️","🛡️","💎"][zoomedPedestal.index] ?? "🏺"}
+                    </span>
+                  </div>
+                  {/* Pedestal column */}
+                  <div style={{
+                    width: 32, height: 20,
+                    background: "linear-gradient(to bottom, #2a2a3e, #1a1a2e)",
+                    border: "1px solid rgba(212,212,212,0.20)",
+                    borderRadius: "2px 2px 0 0",
+                  }} />
+                  <div style={{
+                    width: 40, height: 6,
+                    background: "linear-gradient(to right, #9ca3af, #d1d5db, #9ca3af)",
+                    borderRadius: 1,
+                  }} />
+                </div>
+                {/* Artifact number label */}
+                <p className="absolute bottom-2 right-3 text-amber-400/50 text-[10px] font-mono uppercase tracking-widest">
+                  Artifact {zoomedPedestal.index + 1} / {LEGENDARY_PEDESTAL_META.length}
+                </p>
+              </div>
+
+              {/* Content */}
+              <div className="px-5 py-4">
+                <p className="text-white text-xl font-bold leading-snug">{zoomedPedestal.name}</p>
+                <p className="text-gray-400 text-sm mt-2 leading-relaxed">{zoomedPedestal.description}</p>
+
+                {/* Rarity badge */}
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold font-mono border"
+                        style={{ color: "#f77f00", borderColor: "#f77f0055", background: "rgba(247,127,0,0.14)" }}>
+                    ◆ Legendary
+                  </span>
+                  <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">Legendary Vault</span>
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                  <button
+                    className="flex-1 min-h-[44px] py-2.5 rounded-lg font-bold text-sm tracking-wide transition-all hover:brightness-110 active:scale-95"
+                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#9ca3af" }}
+                    onClick={exitPedestalZoom}
+                  >
+                    ← Back
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Back button top — outside panel so backdrop click still works */}
+          <div className="absolute top-6 left-1/2 -translate-x-1/2" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={exitPedestalZoom}
+              className="bg-black/60 border border-white/20 hover:border-white/50 text-white text-sm font-mono px-5 py-2 rounded-lg transition-all hover:bg-black/80"
+            >
+              ← Back to Museum (ESC)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {zoomedPedestal && (
+        <EscListener onEsc={exitPedestalZoom} />
+      )}
+
       {/* ── Virtual joystick (touch only) ── */}
-      {IS_TOUCH && locked && !zoomedFrame && !zoomedPartner && !receptionistOpen && (
+      {IS_TOUCH && locked && !zoomedFrame && !zoomedPartner && !zoomedPedestal && !receptionistOpen && (
         <VirtualJoystick
           onMove={handleJoystickMove}
           onBreakGuide={handleJoystickBreakGuide}
