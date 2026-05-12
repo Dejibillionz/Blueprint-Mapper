@@ -39,10 +39,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/nft-images/")) {
-    event.respondWith(cacheFirst(event.request, NFT_CACHE));
-    return;
-  }
+  // Local /nft-images/* assets are fast (disk/edge) — pass through, no SW cache needed.
 
   if (CDN_HOSTS.some((h) => url.hostname.includes(h))) {
     event.respondWith(cacheFirst(event.request, NFT_CACHE));

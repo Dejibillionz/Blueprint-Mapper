@@ -547,6 +547,17 @@ export default function MuseumWalker() {
     platinumArtMeshesRef.current    = platinumArtMeshes;
     setLoadProgress(0.50);
 
+    // ── Readiness gate: scene is "ready" only when BOTH the first render
+    //    frame has fired AND metadata.json has finished loading.
+    let sceneFirstFrameFired = false;
+    let metaDataLoaded = false;
+    const tryMarkReady = () => {
+      if (sceneFirstFrameFired && metaDataLoaded) {
+        setLoadProgress(1);
+        setSceneReady(true);
+      }
+    };
+
     // ── Proximity texture manager ──────────────────────────────────
     // metaOffset maps gallery → metadata.json indices:
     //   Platinum 0-10, Rare 11-65, Uncommon 66-365, Common 366-3332
@@ -589,6 +600,8 @@ export default function MuseumWalker() {
         room:        m.room,
         room_index:  m.room_index,
       })));
+      metaDataLoaded = true;
+      tryMarkReady();
     };
 
     proximityMgrRef.current = ptm;
@@ -725,8 +738,8 @@ export default function MuseumWalker() {
 
       if (firstFrame) {
         firstFrame = false;
-        setLoadProgress(1);
-        setSceneReady(true);
+        sceneFirstFrameFired = true;
+        tryMarkReady();
       }
 
       const delta = Math.min(clock.getDelta(), 0.05);
