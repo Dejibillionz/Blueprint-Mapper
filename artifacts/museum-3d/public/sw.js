@@ -10,8 +10,14 @@ const CDN_HOSTS = [
   "cloudflare-ipfs.com",
 ];
 
-self.addEventListener("install", () => {
+self.addEventListener("install", (event) => {
   self.skipWaiting();
+  event.waitUntil(
+    caches
+      .open(META_CACHE)
+      .then((cache) => cache.add("/metadata.json"))
+      .catch(() => {}),
+  );
 });
 
 self.addEventListener("activate", (event) => {
