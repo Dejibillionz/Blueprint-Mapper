@@ -32,6 +32,25 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    {
+      name: "metadata-cache-control",
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url && /\/metadata\.json(\?|$)/.test(req.url)) {
+            res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=86400");
+          }
+          next();
+        });
+      },
+      configurePreviewServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url && /\/metadata\.json(\?|$)/.test(req.url)) {
+            res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=86400");
+          }
+          next();
+        });
+      },
+    },
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [

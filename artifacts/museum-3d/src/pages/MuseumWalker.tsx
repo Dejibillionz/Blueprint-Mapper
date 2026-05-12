@@ -128,6 +128,8 @@ export default function MuseumWalker() {
   const [searchQuery, setSearchQuery] = useState("");
   const [allMeta, setAllMeta] = useState<SearchMeta[]>([]);
   const [teleportBanner, setTeleportBanner] = useState<string | null>(null);
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [sceneReady, setSceneReady] = useState(false);
   const [detailPage, setDetailPage] = useState(0);   // 0 = artwork, 1 = details
   const [welcomeVisible, setWelcomeVisible] = useState(false);
   const welcomeTriggeredRef = useRef(false);
@@ -484,32 +486,41 @@ export default function MuseumWalker() {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
     mount.appendChild(renderer.domElement);
+    setLoadProgress(0.05);
 
-    // ── Post-processing: SSAO ──────────────────────────────────────
+    // ── Post-processing: SSAO + Bloom (skipped on mobile / low-end GPUs) ──
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
 
-    const ssaoPass = new SSAOPass(scene, camera, mount.clientWidth, mount.clientHeight);
-    ssaoPass.kernelRadius  = 0.25;   // search radius in world units
-    ssaoPass.minDistance   = 0.001;  // ignore contacts closer than 1 mm
-    ssaoPass.maxDistance   = 0.08;   // darken up to 8 cm away
-    composer.addPass(ssaoPass);
+    const isLowEnd = IS_TOUCH || renderer.capabilities.maxTextureSize < 4096;
+    let ssaoPass: SSAOPass | null = null;
 
-    // ── Bloom: makes spotlights, flame crown, and emissive surfaces glow ──
-    const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(mount.clientWidth, mount.clientHeight),
-      0.30,   // strength  — toned down
-      0.50,   // radius    — spread of the glow halo
-      0.85,   // threshold — only very bright pixels bloom
-    );
-    composer.addPass(bloomPass);
+    if (!isLowEnd) {
+      ssaoPass = new SSAOPass(scene, camera, mount.clientWidth, mount.clientHeight);
+      ssaoPass.kernelRadius  = 0.25;
+      ssaoPass.minDistance   = 0.001;
+      ssaoPass.maxDistance   = 0.08;
+      composer.addPass(ssaoPass);
+
+      const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(mount.clientWidth, mount.clientHeight),
+        0.30,
+        0.50,
+        0.85,
+      );
+      composer.addPass(bloomPass);
+    }
+    setLoadProgress(0.15);
 
     const collisionBoxes = buildCollisionBoxes();
 
-    // Build exterior world (sky, ground, steps, columns, lampposts).
-    // Returns collision boxes + a tick() to drive the twinkling star shader each frame.
-    const exterior = buildExterior(scene);
-    collisionBoxes.push(...exterior.boxes);
+    // Exterior build is deferred so the interior renders on the first frame.
+    // exterior becomes non-null after the first event-loop tick.
+    let exterior: ReturnType<typeof buildExterior> | null = null;
+    setTimeout(() => {
+      exterior = buildExterior(scene);
+      collisionBoxes.push(...exterior.boxes);
+    }, 0);
 
     const {
       frameMeshes,
@@ -534,6 +545,7 @@ export default function MuseumWalker() {
     uncommonArtMeshesRef.current    = uncommonArtMeshes;
     rareArtMeshesRef.current        = rareArtMeshes;
     platinumArtMeshesRef.current    = platinumArtMeshes;
+    setLoadProgress(0.50);
 
     // ── Proximity texture manager ──────────────────────────────────
     // metaOffset maps gallery → metadata.json indices:
@@ -580,6 +592,7 @@ export default function MuseumWalker() {
     };
 
     proximityMgrRef.current = ptm;
+    setLoadProgress(0.65);
 
     const controls = new FirstPersonControls(camera, renderer.domElement, collisionBoxes);
     controlsRef.current = controls;
@@ -590,6 +603,7 @@ export default function MuseumWalker() {
       `${import.meta.env.BASE_URL}models/receptionist/`,
     );
     receptionistRef.current = receptionist;
+    setLoadProgress(0.80);
 
     const onLockChange = () => {
       const isLocked = document.pointerLockElement === renderer.domElement;
@@ -704,9 +718,17 @@ export default function MuseumWalker() {
 
     const clock = new THREE.Clock();
     let animId: number;
+    let firstFrame = true;
 
     const animate = () => {
       animId = requestAnimationFrame(animate);
+
+      if (firstFrame) {
+        firstFrame = false;
+        setLoadProgress(1);
+        setSceneReady(true);
+      }
+
       const delta = Math.min(clock.getDelta(), 0.05);
       const elapsed = clock.getElapsedTime();
 
@@ -732,8 +754,10 @@ export default function MuseumWalker() {
 
         // ── Proximity texture loading ──────────────────────────
         proximityMgrRef.current?.update(camera.position, elapsed, currentRoomId);
-        exterior.tick(elapsed);
-        exterior.updateDoor(camera.position, delta);
+        if (exterior) {
+          exterior.tick(elapsed);
+          exterior.updateDoor(camera.position, delta);
+        }
 
         // ── Receptionist NPC ──────────────────────────────────
         const rec       = receptionistRef.current;
@@ -885,7 +909,7 @@ export default function MuseumWalker() {
       camera.updateProjectionMatrix();
       renderer.setSize(mount.clientWidth, mount.clientHeight);
       composer.setSize(mount.clientWidth, mount.clientHeight);
-      ssaoPass.setSize(mount.clientWidth, mount.clientHeight);
+      if (ssaoPass) ssaoPass.setSize(mount.clientWidth, mount.clientHeight);
     };
     window.addEventListener("resize", onResize);
 
@@ -937,6 +961,24 @@ export default function MuseumWalker() {
         onTouchMove={handleCanvasTouchMove}
         onTouchEnd={handleCanvasTouchEnd}
       />
+
+      {/* ── Loading progress bar ── */}
+      {!sceneReady && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#08080e] pointer-events-none select-none">
+          <p className="text-indigo-300 font-bold text-2xl tracking-widest mb-1">10KSQUAD MUSEUM</p>
+          <p className="text-gray-500 text-xs tracking-widest mb-8">3333 NFT Collection — Loading experience…</p>
+          <div className="w-64 h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-[width] duration-300 ease-out"
+              style={{
+                width: `${Math.round(loadProgress * 100)}%`,
+                background: "linear-gradient(90deg, #4f46e5, #c9a84c)",
+              }}
+            />
+          </div>
+          <p className="text-gray-600 text-xs font-mono mt-3">{Math.round(loadProgress * 100)}%</p>
+        </div>
+      )}
 
       {/* ── Splash (pointer not locked / mobile not started) ── */}
       {!locked && !zoomedFrame && (
