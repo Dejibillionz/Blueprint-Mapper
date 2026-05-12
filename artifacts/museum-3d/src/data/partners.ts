@@ -15,7 +15,7 @@ export const partners: Partner[] = [
   { id:  5, name: "BOB TOKEN",   description: "A presale exclusively for holders of the 10K Squad RARE NFT. Holders of a Rare NFT received a SBT bobx10K NFT which could be used to participate in the BOB Token presale. (Presale ended)", imageUrl: "/partners/bob.jpg" },
   { id:  6, name: "BEAN EXCHANGE", description: "The ultimate capital-efficient Perps & DLMM DEX on Monad. 10K Squad holders receive a +20% Bean points boost on every LP, swap, trade, vault, and referral activity on Bean Exchange.", imageUrl: "/partners/bean.jpg", linkUrl: "https://x.com/Bean_DEX" },
   { id:  7, name: "FLUFFLE",     description: "A hypergamified productivity platform that rewards you for staying off your phone. 10K Squad holders who purchase a pass to the highest rewards tier receive 15 free raffle tickets — equivalent to 15 hours of work.", imageUrl: "/partners/fluffle.jpg", linkUrl: "https://x.com/fluffleworld" },
-  { id:  8, name: "Partner 9",  description: "NFT partner details coming soon.", imageUrl: "" },
+  { id:  8, name: "SHERPA TRADE", description: "A suite of user-facing DeFi applications for strategic trading and yield automation — Monad-focused, multichain-enabled. Launching SherpaEarn vault on Monad mainnet with a built-in partner rewards program. Token holders from select partner protocols receive boosted points rewards on vault deposits during the launch campaign.", imageUrl: "/partners/sherpa.jpg", linkUrl: "https://x.com/sherpa_trade" },
   { id:  9, name: "Partner 10", description: "NFT partner details coming soon.", imageUrl: "" },
   { id: 10, name: "Partner 11", description: "NFT partner details coming soon.", imageUrl: "" },
 ];
