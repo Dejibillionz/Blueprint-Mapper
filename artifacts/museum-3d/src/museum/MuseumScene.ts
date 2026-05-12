@@ -155,7 +155,15 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
 
   // Outer walls use a stone / limestone facade material.
   const outerMat = new THREE.MeshStandardMaterial({ color: 0xD6CEBC, roughness: 0.82, metalness: 0.0 });
-  const innerMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.75 });
+
+  // Interior walls — hot-pink painted brick texture
+  const brickTex = new THREE.TextureLoader().load("/wall-brick.png");
+  brickTex.wrapS = THREE.RepeatWrapping;
+  brickTex.wrapT = THREE.RepeatWrapping;
+  brickTex.repeat.set(12, 3);
+  brickTex.anisotropy = 8;
+  brickTex.colorSpace = THREE.SRGBColorSpace;
+  const innerMat = new THREE.MeshStandardMaterial({ map: brickTex, roughness: 0.80, metalness: 0.0 });
 
   for (const w of outerWalls) {
     const mesh = buildWallMesh(w.from[0], w.from[1], w.to[0], w.to[1], WALL_HEIGHT, OUTER_THICKNESS, 0, outerMat);
@@ -166,7 +174,7 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     scene.add(buildWallMesh(w.from[0], w.from[1], w.to[0], w.to[1], WALL_HEIGHT, INNER_THICKNESS, 0, innerMat));
   }
 
-  const lintelMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.8 });
+  const lintelMat = new THREE.MeshStandardMaterial({ map: brickTex, roughness: 0.80, metalness: 0.0 });
   scene.add(buildWallMesh(26, 13, 26, 15, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
   scene.add(buildWallMesh(26, 20, 26, 22, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
   scene.add(buildWallMesh(38, 22, 42, 22, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
