@@ -31,6 +31,8 @@ function buildWallMesh(
 
 export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
   const frameMeshes: THREE.Mesh[] = [];
+  const loader = new THREE.TextureLoader();
+  const baseUrl = import.meta.env.BASE_URL ?? "/";
 
   for (const f of frames) {
     const frameGeo = new THREE.BoxGeometry(1.6, 1.1, 0.08);
@@ -43,6 +45,7 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
     scene.add(frameMesh);
     frameMeshes.push(frameMesh);
 
+    // Build placeholder canvas texture
     const canvasGeo = new THREE.BoxGeometry(1.3, 0.85, 0.06);
     const size = 256;
     const artCanvas = document.createElement("canvas");
@@ -80,8 +83,29 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
     ctx.fillStyle = "rgba(255,255,255,0.6)";
     ctx.fillText(f.artist, size / 2, size - 12);
 
-    const artTex = new THREE.CanvasTexture(artCanvas);
-    const artMat = new THREE.MeshStandardMaterial({ map: artTex, roughness: 0.9, metalness: 0 });
+    const placeholder = new THREE.CanvasTexture(artCanvas);
+    placeholder.colorSpace = THREE.SRGBColorSpace;
+    const artMat = new THREE.MeshStandardMaterial({ map: placeholder, roughness: 0.9, metalness: 0 });
+
+    // Swap in the real image if imageUrl is provided
+    if (f.imageUrl) {
+      const resolved = f.imageUrl.startsWith("/")
+        ? `${baseUrl.replace(/\/$/, "")}${f.imageUrl}`
+        : f.imageUrl;
+      loader.load(
+        resolved,
+        (tex) => {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = 8;
+          artMat.map = tex;
+          artMat.needsUpdate = true;
+          placeholder.dispose();
+        },
+        undefined,
+        () => { /* load failed — placeholder stays */ },
+      );
+    }
+
     const artMesh = new THREE.Mesh(canvasGeo, artMat);
 
     const fwd = new THREE.Vector3(0, 0, 0.025);

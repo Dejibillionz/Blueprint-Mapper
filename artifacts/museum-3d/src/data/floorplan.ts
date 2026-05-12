@@ -22,6 +22,7 @@ export interface FrameData {
   position: [number, number, number];
   rotationY: number;
   color: number;
+  imageUrl?: string;
 }
 
 export const WALL_HEIGHT = 4;
@@ -116,21 +117,25 @@ const PI = Math.PI;
 
 export const frames: FrameData[] = [
   // ── Rarity Corridor north wall  z=22 → facing south (rotY=0) ──────────────
-  // Segment x=28–38 (gap at D1 x=26, next is D2 x=38-42)
-  { id:  7, title: "Path of Rarity I",    artist: "Museum Genesis", position: [31, 2.0, 22.14], rotationY: 0,    color: 0x6655cc },
-  { id:  8, title: "Path of Rarity II",   artist: "Museum Genesis", position: [36, 2.0, 22.14], rotationY: 0,    color: 0x7766dd },
-  // Segment x=42–62 (between D2 and D3)
-  { id:  9, title: "Uncommon Visions I",  artist: "Museum Genesis", position: [48, 2.0, 22.14], rotationY: 0,    color: 0x4499bb },
-  { id: 10, title: "Uncommon Visions II", artist: "Museum Genesis", position: [56, 2.0, 22.14], rotationY: 0,    color: 0x33aacc },
-  // Segment x=66–77 (between D3 and vault entrance)
-  { id: 11, title: "Rare Passage",        artist: "Museum Genesis", position: [71, 2.0, 22.14], rotationY: 0,    color: 0x22bbaa },
+  // Segment x=28–38  (3 frames evenly spaced)
+  { id:  7, title: "Path of Rarity I",    artist: "Museum Genesis", position: [30.0, 2.0, 22.14], rotationY: 0,  color: 0x6655cc },
+  { id:  8, title: "Path of Rarity II",   artist: "Museum Genesis", position: [33.5, 2.0, 22.14], rotationY: 0,  color: 0x7766dd },
+  { id:  9, title: "Path of Rarity III",  artist: "Museum Genesis", position: [37.0, 2.0, 22.14], rotationY: 0,  color: 0x8877ee },
+  // Segment x=42–62  (3 frames evenly spaced)
+  { id: 10, title: "Uncommon Visions I",  artist: "Museum Genesis", position: [44.0, 2.0, 22.14], rotationY: 0,  color: 0x4499bb },
+  { id: 11, title: "Uncommon Visions II", artist: "Museum Genesis", position: [51.0, 2.0, 22.14], rotationY: 0,  color: 0x33aacc },
+  { id: 12, title: "Uncommon Visions III",artist: "Museum Genesis", position: [58.0, 2.0, 22.14], rotationY: 0,  color: 0x22bbdd },
+  // Segment x=66–77  (1 frame)
+  { id: 13, title: "Rare Passage",        artist: "Museum Genesis", position: [71.0, 2.0, 22.14], rotationY: 0,  color: 0x22bbaa },
 
   // ── Rarity Corridor south wall  z=30 → facing north (rotY=π) ─────────────
-  // Segment x=28–37 (before passage gap x=37-45)
-  { id: 12, title: "Genesis Hall I",      artist: "Museum Genesis", position: [31, 2.0, 29.86], rotationY: PI,   color: 0xaa4499 },
-  { id: 13, title: "Genesis Hall II",     artist: "Museum Genesis", position: [36, 2.0, 29.86], rotationY: PI,   color: 0xbb55aa },
-  // Segment x=45–62 (after passage gap, before corridor seal at x=62)
-  { id: 14, title: "Ascension I",         artist: "Museum Genesis", position: [49, 2.0, 29.86], rotationY: PI,   color: 0xcc6633 },
-  { id: 15, title: "Ascension II",        artist: "Museum Genesis", position: [54, 2.0, 29.86], rotationY: PI,   color: 0xdd7744 },
-  { id: 16, title: "Ascension III",       artist: "Museum Genesis", position: [59, 2.0, 29.86], rotationY: PI,   color: 0xee8855 },
+  // Segment x=28–37  (2 frames)
+  { id: 14, title: "Genesis Hall I",      artist: "Museum Genesis", position: [31.0, 2.0, 29.86], rotationY: PI, color: 0xaa4499 },
+  { id: 15, title: "Genesis Hall II",     artist: "Museum Genesis", position: [36.0, 2.0, 29.86], rotationY: PI, color: 0xbb55aa },
+  // Segment x=45–62  (5 frames evenly spaced)
+  { id: 16, title: "Ascension I",         artist: "Museum Genesis", position: [46.5, 2.0, 29.86], rotationY: PI, color: 0xcc6633 },
+  { id: 17, title: "Ascension II",        artist: "Museum Genesis", position: [50.0, 2.0, 29.86], rotationY: PI, color: 0xdd7744 },
+  { id: 18, title: "Ascension III",       artist: "Museum Genesis", position: [53.5, 2.0, 29.86], rotationY: PI, color: 0xee8855 },
+  { id: 19, title: "Ascension IV",        artist: "Museum Genesis", position: [57.0, 2.0, 29.86], rotationY: PI, color: 0xff9966 },
+  { id: 20, title: "Ascension V",         artist: "Museum Genesis", position: [60.5, 2.0, 29.86], rotationY: PI, color: 0xffaa77 },
 ];
