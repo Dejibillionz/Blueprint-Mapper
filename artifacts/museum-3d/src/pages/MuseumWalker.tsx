@@ -564,12 +564,18 @@ export default function MuseumWalker() {
     // Art plane meshes are pre-created by each gallery builder and
     // positioned 5 mm past the gold border front face so they are
     // never depth-culled.  PTM just swaps their material on load.
+    const maxAniso  = renderer.capabilities.getMaxAnisotropy();
+    const anisotropy = IS_TOUCH
+      ? Math.min(maxAniso, 4)
+      : Math.min(maxAniso, 8);
+    const dpr = Math.min(window.devicePixelRatio, 2);
+
     const ptm = new ProximityTextureManager(scene, [
       { artMeshes: platinumArtMeshes, metaOffset: 0,   loadDist: 30, roomId: "room_4" },
       { artMeshes: rareArtMeshes,     metaOffset: 11,  loadDist: 25, roomId: "room_3" },
       { artMeshes: uncommonArtMeshes, metaOffset: 66,  loadDist: 15, roomId: "room_2" },
       { artMeshes: commonArtMeshes,   metaOffset: 366, loadDist: 10, roomId: "room_1" },
-    ]);
+    ], anisotropy, dpr);
 
     // When metadata loads, update NFT titles/artists from real token data
     ptm.onMetaLoaded = (meta) => {

@@ -35,15 +35,19 @@ export class ProximityTextureManager {
   private meta:       MetaEntry[] = [];
   private metaReady   = false;
   private activeLoads = 0;
+  private anisotropy: number;
+  private dpr:        number;
 
   private textureCache = new Map<string, THREE.Texture>();
   private cacheOrder:   string[] = [];
 
   onMetaLoaded?: (meta: MetaEntry[]) => void;
 
-  constructor(scene: THREE.Scene, galleries: GalleryConfig[]) {
-    this.scene     = scene;
-    this.galleries = galleries;
+  constructor(scene: THREE.Scene, galleries: GalleryConfig[], anisotropy = 4, dpr = 1) {
+    this.scene      = scene;
+    this.galleries  = galleries;
+    this.anisotropy = anisotropy;
+    this.dpr        = Math.min(dpr, 2);
 
     // Build frame state from pre-created art meshes.
     // needsUFlip: east/west-facing walls (|sin(rotY)| ≈ 1) show the back face
@@ -118,6 +122,28 @@ export class ProximityTextureManager {
     }
   }
 
+  // ── DPR-aware URL builder ──────────────────────────────────────────────────
+  // Scales the `w=` query parameter on CDN URLs by the device pixel ratio so
+  // that high-DPI displays receive a proportionally larger source image.
+  // Local paths (starting with "/") are returned unchanged — they are already
+  // full-resolution AVIF assets served from disk.
+
+  private buildDprUrl(url: string): string {
+    if (this.dpr <= 1 || url.startsWith("/")) return url;
+    try {
+      const u = new URL(url);
+      const w = u.searchParams.get("w");
+      if (w) {
+        u.searchParams.set("w", String(Math.round(parseInt(w, 10) * this.dpr)));
+      } else {
+        u.searchParams.set("w", String(Math.round(1000 * this.dpr)));
+      }
+      return u.toString();
+    } catch {
+      return url;
+    }
+  }
+
   // ── Texture load — updates the pre-created mesh material in place ──────────
 
   private async loadFrame(gi: number, i: number) {
@@ -130,8 +156,9 @@ export class ProximityTextureManager {
       return;
     }
 
-    const localUrl = `/nft-images/${entry.token_id}.avif`;
-    const cdnUrl   = entry.image;
+    const localUrl  = `/nft-images/${entry.token_id}.avif`;
+    const cdnUrl    = entry.image;
+    const cdnDprUrl = this.buildDprUrl(cdnUrl);
 
     f.state = "loading";
     this.activeLoads++;
@@ -155,7 +182,7 @@ export class ProximityTextureManager {
       try {
         tex = await this.loadTexture(localUrl);
       } catch {
-        tex = await this.loadTexture(cdnUrl);
+        tex = await this.loadTexture(cdnDprUrl);
       }
 
       let map: THREE.Texture = tex;
@@ -219,6 +246,9 @@ export class ProximityTextureManager {
           );
         });
       }
+
+      tex.anisotropy = this.anisotropy;
+      tex.needsUpdate = true;
 
       if (this.cacheOrder.length >= MAX_CACHED) {
         const oldest = this.cacheOrder.shift()!;
