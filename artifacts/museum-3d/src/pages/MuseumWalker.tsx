@@ -740,6 +740,14 @@ export default function MuseumWalker() {
         firstFrame = false;
         sceneFirstFrameFired = true;
         tryMarkReady();
+        // Safety net: if metadata.json fails to load, dismiss the loader after 8 s
+        // so the user is never stuck on the loading screen.
+        setTimeout(() => {
+          if (!metaDataLoaded) {
+            setLoadProgress(1);
+            setSceneReady(true);
+          }
+        }, 8000);
       }
 
       const delta = Math.min(clock.getDelta(), 0.05);
