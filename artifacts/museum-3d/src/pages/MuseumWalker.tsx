@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, MutableRefObject } from "react";
+import { useEffect, useRef, useState, useCallback, MutableRefObject, TouchEvent } from "react";
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -15,6 +15,7 @@ import { ProximityTextureManager } from "../museum/ProximityTextureManager";
 import { Receptionist } from "../museum/Receptionist";
 
 const OPENSEA_CONTRACT = "0x818030837e8350ba63e64d7dc01a547fa73c8279";
+const IS_TOUCH = typeof window !== "undefined" && "ontouchstart" in window;
 
 interface ZoomedFrame {
   title: string;
@@ -162,6 +163,15 @@ export default function MuseumWalker() {
   const lastRecHintRef        = useRef(false);
   const receptionistOpenRef   = useRef(false);
   const followingGuideRef     = useRef(false);
+
+  // ── Touch controls ─────────────────────────────────────────────
+  const touchStartedRef   = useRef(false);
+  const lookTouchIdRef    = useRef(-1);
+  const lookTouchLastRef  = useRef({ x: 0, y: 0 });
+  const [joystickKnob, setJoystickKnob] = useState({ x: 0, y: 0 });
+  const joystickActiveRef  = useRef(false);
+  const joystickTouchIdRef = useRef(-1);
+
   const zoomStateRef = useRef<{
     active: boolean;
     savedPos: THREE.Vector3;
@@ -290,6 +300,60 @@ export default function MuseumWalker() {
     setReceptionistQuery("");
     receptionistRef.current?.setState("idle");
     if (controlsRef.current) controlsRef.current.suspended = false;
+  }, []);
+
+  const handleMobileStart = useCallback(() => {
+    if (!IS_TOUCH) return;
+    touchStartedRef.current = true;
+    setLocked(true);
+    audioRef.current.start();
+  }, []);
+
+  const handleJoystickMove = useCallback((dx: number, dz: number) => {
+    controlsRef.current?.setTouchMove(dx, dz);
+  }, []);
+
+  const handleJoystickBreakGuide = useCallback(() => {
+    if (followingGuideRef.current) {
+      followingGuideRef.current = false;
+      if (controlsRef.current) controlsRef.current.suspended = false;
+      setTeleportBanner(null);
+    }
+  }, []);
+
+  // Canvas look-drag handlers (touch only) — attached to the mountRef div via React props
+  const handleCanvasTouchStart = useCallback((e: TouchEvent<HTMLDivElement>) => {
+    if (!IS_TOUCH || receptionistOpenRef.current) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (lookTouchIdRef.current === -1) {
+        lookTouchIdRef.current = t.identifier;
+        lookTouchLastRef.current = { x: t.clientX, y: t.clientY };
+      }
+    }
+  }, []);
+
+  const handleCanvasTouchMove = useCallback((e: TouchEvent<HTMLDivElement>) => {
+    if (!IS_TOUCH) return;
+    const controls = controlsRef.current;
+    if (!controls) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === lookTouchIdRef.current) {
+        const dx = t.clientX - lookTouchLastRef.current.x;
+        const dy = t.clientY - lookTouchLastRef.current.y;
+        controls.setTouchLook(dx, dy);
+        lookTouchLastRef.current = { x: t.clientX, y: t.clientY };
+      }
+    }
+  }, []);
+
+  const handleCanvasTouchEnd = useCallback((e: TouchEvent<HTMLDivElement>) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === lookTouchIdRef.current) {
+        lookTouchIdRef.current = -1;
+      }
+    }
   }, []);
 
   // Release pointer lock when the receptionist panel opens so the cursor is visible
@@ -572,6 +636,8 @@ export default function MuseumWalker() {
 
     // ── Click handler: pointer lock OR frame zoom ──────────────
     const onClick = (e: MouseEvent) => {
+      // On touch devices, ignore taps while the entry splash is still showing
+      if (IS_TOUCH && !touchStartedRef.current) return;
       if (!controls.isLocked) {
         controls.requestLock();
         return;
@@ -864,23 +930,48 @@ export default function MuseumWalker() {
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      <div ref={mountRef} className="w-full h-full" />
+      <div
+        ref={mountRef}
+        className="w-full h-full"
+        onTouchStart={handleCanvasTouchStart}
+        onTouchMove={handleCanvasTouchMove}
+        onTouchEnd={handleCanvasTouchEnd}
+      />
 
-      {/* ── Splash (pointer not locked) ── */}
+      {/* ── Splash (pointer not locked / mobile not started) ── */}
       {!locked && !zoomedFrame && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 text-white pointer-events-none select-none">
-          <p className="text-5xl font-bold mb-1 tracking-widest text-indigo-300 drop-shadow-lg">10KSQUAD MUSEUM</p>
-          <p className="text-gray-400 mb-8 tracking-wider">3333 NFT Collection — 3D Experience</p>
-          <div className="border border-indigo-500/30 rounded-xl px-10 py-6 text-center bg-black/50 space-y-2">
-            <p className="text-sm text-indigo-300 uppercase tracking-widest mb-3 font-semibold">Controls</p>
-            <p className="text-white font-mono text-lg">Click to enter &amp; lock cursor</p>
-            <p className="text-gray-300 font-mono text-sm">W A S D — Walk</p>
-            <p className="text-gray-300 font-mono text-sm">Mouse — Look</p>
-            <p className="text-gray-300 font-mono text-sm">Click a painting — Zoom in</p>
-            <p className="text-gray-300 font-mono text-sm">E — Talk to Receptionist</p>
-            <p className="text-gray-300 font-mono text-sm">ESC — Exit / release cursor</p>
+        IS_TOUCH ? (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white select-none cursor-pointer"
+            onClick={handleMobileStart}
+          >
+            <p className="text-4xl font-bold mb-1 tracking-widest text-indigo-300 drop-shadow-lg">10KSQUAD MUSEUM</p>
+            <p className="text-gray-400 mb-8 tracking-wider text-sm">3333 NFT Collection — 3D Experience</p>
+            <div className="border border-indigo-500/30 rounded-xl px-8 py-6 text-center bg-black/50 space-y-2 max-w-[320px]">
+              <p className="text-sm text-indigo-300 uppercase tracking-widest mb-3 font-semibold">Controls</p>
+              <p className="text-white font-bold text-lg mb-2">Tap anywhere to explore</p>
+              <p className="text-gray-300 text-sm">Left thumb — Walk (joystick)</p>
+              <p className="text-gray-300 text-sm">Right thumb drag — Look around</p>
+              <p className="text-gray-300 text-sm">Tap a painting — Zoom in</p>
+              <p className="text-gray-300 text-sm">Tap Receptionist — Get a guide</p>
+            </div>
+            <p className="mt-6 text-indigo-400 text-sm animate-pulse">Tap to begin →</p>
           </div>
-        </div>
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 text-white pointer-events-none select-none">
+            <p className="text-5xl font-bold mb-1 tracking-widest text-indigo-300 drop-shadow-lg">10KSQUAD MUSEUM</p>
+            <p className="text-gray-400 mb-8 tracking-wider">3333 NFT Collection — 3D Experience</p>
+            <div className="border border-indigo-500/30 rounded-xl px-10 py-6 text-center bg-black/50 space-y-2">
+              <p className="text-sm text-indigo-300 uppercase tracking-widest mb-3 font-semibold">Controls</p>
+              <p className="text-white font-mono text-lg">Click to enter &amp; lock cursor</p>
+              <p className="text-gray-300 font-mono text-sm">W A S D — Walk</p>
+              <p className="text-gray-300 font-mono text-sm">Mouse — Look</p>
+              <p className="text-gray-300 font-mono text-sm">Click a painting — Zoom in</p>
+              <p className="text-gray-300 font-mono text-sm">E — Talk to Receptionist</p>
+              <p className="text-gray-300 font-mono text-sm">ESC — Exit / release cursor</p>
+            </div>
+          </div>
+        )
       )}
 
       {/* ── Crosshair ── */}
@@ -913,17 +1004,19 @@ export default function MuseumWalker() {
       {/* ── Controls hint + mute (top-right) ── */}
       {locked && !zoomedFrame && (
         <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
-          <div className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-400 font-mono pointer-events-none select-none space-y-0.5">
-            <p>W A S D — Walk</p>
-            <p>Mouse — Look</p>
-            <p>Click painting — Zoom</p>
-            <p>/ — Search NFT</p>
-            <p>E — Talk to Receptionist</p>
-            <p>ESC — Release cursor</p>
-          </div>
+          {!IS_TOUCH && (
+            <div className="bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-400 font-mono pointer-events-none select-none space-y-0.5">
+              <p>W A S D — Walk</p>
+              <p>Mouse — Look</p>
+              <p>Click painting — Zoom</p>
+              <p>/ — Search NFT</p>
+              <p>E — Talk to Receptionist</p>
+              <p>ESC — Release cursor</p>
+            </div>
+          )}
           <button
             onClick={() => setMuted(m => !m)}
-            className="bg-black/60 border border-white/20 hover:border-indigo-400/60 rounded-lg px-3 py-1.5 text-xs font-mono text-gray-300 hover:text-indigo-300 transition-all flex items-center gap-1.5 select-none"
+            className="bg-black/60 border border-white/20 hover:border-indigo-400/60 rounded-lg px-3 min-h-[44px] text-xs font-mono text-gray-300 hover:text-indigo-300 transition-all flex items-center gap-1.5 select-none"
             title={muted ? "Unmute ambient audio" : "Mute ambient audio"}
           >
             {muted ? "🔇 Muted" : "🔊 Sound On"}
@@ -966,9 +1059,9 @@ export default function MuseumWalker() {
         </div>
       )}
 
-      {/* ── Minimap (bottom-left) ── */}
+      {/* ── Minimap (bottom-left desktop / bottom-right mobile so joystick doesn't overlap) ── */}
       {locked && !zoomedFrame && (
-        <div className="absolute bottom-5 left-5 pointer-events-none select-none">
+        <div className={`absolute pointer-events-none select-none ${IS_TOUCH ? "bottom-5 right-5" : "bottom-5 left-5"}`}>
           <p className="text-gray-500 text-[10px] font-mono uppercase tracking-widest mb-1 text-center">Floor Plan</p>
           <canvas
             ref={minimapRef}
@@ -996,9 +1089,9 @@ export default function MuseumWalker() {
                 <p className="text-white font-bold text-base leading-tight">{hoverFrame.title}</p>
                 <p className="text-gray-400 text-xs mt-0.5">{hoverFrame.artist}</p>
                 <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between">
-                  <span className="text-gray-500 text-[10px] font-mono uppercase">Click to inspect</span>
+                  <span className="text-gray-500 text-[10px] font-mono uppercase">{IS_TOUCH ? "Tap to inspect" : "Click to inspect"}</span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded border"
-                        style={{ color: r.color, borderColor: r.color + "55" }}>CLICK</span>
+                        style={{ color: r.color, borderColor: r.color + "55" }}>{IS_TOUCH ? "TAP" : "CLICK"}</span>
                 </div>
               </div>
             </div>
@@ -1072,7 +1165,7 @@ export default function MuseumWalker() {
                       )}
                       {/* Tap for details CTA */}
                       <button
-                        className="mt-4 w-full py-2.5 rounded-lg font-bold text-sm tracking-wide transition-all hover:brightness-110 active:scale-95 flex items-center justify-center gap-1.5"
+                        className="mt-4 w-full min-h-[44px] py-2.5 rounded-lg font-bold text-sm tracking-wide transition-all hover:brightness-110 active:scale-95 flex items-center justify-center gap-1.5"
                         style={{ background: r.bg, border: `1px solid ${r.color}55`, color: r.color }}
                         onClick={() => setDetailPage(1)}
                       >
@@ -1151,14 +1244,14 @@ export default function MuseumWalker() {
                     {/* Actions row */}
                     <div className="mt-4 flex gap-2">
                       <button
-                        className="flex-1 py-2.5 rounded-lg font-bold text-sm tracking-wide transition-all hover:brightness-110 active:scale-95"
+                        className="flex-1 min-h-[44px] py-2.5 rounded-lg font-bold text-sm tracking-wide transition-all hover:brightness-110 active:scale-95"
                         style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#9ca3af" }}
                         onClick={() => setDetailPage(0)}
                       >
                         ‹ Artwork
                       </button>
                       <button
-                        className="flex-1 py-2.5 rounded-lg font-bold text-sm text-black tracking-wide transition-all hover:brightness-110 active:scale-95"
+                        className="flex-1 min-h-[44px] py-2.5 rounded-lg font-bold text-sm text-black tracking-wide transition-all hover:brightness-110 active:scale-95"
                         style={{ background: `linear-gradient(135deg, ${r.color}, ${r.color}cc)` }}
                         onClick={() => {
                           const url = zoomedFrame.token_id
@@ -1190,6 +1283,18 @@ export default function MuseumWalker() {
 
       {zoomedFrame && (
         <EscListener onEsc={exitZoom} />
+      )}
+
+      {/* ── Virtual joystick (touch only) ── */}
+      {IS_TOUCH && locked && !zoomedFrame && !receptionistOpen && (
+        <VirtualJoystick
+          onMove={handleJoystickMove}
+          onBreakGuide={handleJoystickBreakGuide}
+          joystickKnob={joystickKnob}
+          setJoystickKnob={setJoystickKnob}
+          joystickActiveRef={joystickActiveRef}
+          joystickTouchIdRef={joystickTouchIdRef}
+        />
       )}
 
       {/* ── Welcome message (first time crossing the entrance threshold) ── */}
@@ -1229,7 +1334,7 @@ export default function MuseumWalker() {
 
       {/* ── Receptionist proximity hint ── */}
       {!zoomedFrame && receptionistHint && !receptionistOpen && (
-        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 select-none z-30 cursor-pointer"
+        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 select-none z-30 cursor-pointer min-h-[44px]"
              style={{ animation: "fadeSlideIn 0.3s ease-out" }}
              onClick={() => {
                setReceptionistOpen(true);
@@ -1237,12 +1342,18 @@ export default function MuseumWalker() {
                controlsRef.current && (controlsRef.current.suspended = true);
                receptionistRef.current?.setState("talk");
              }}>
-          <div className="flex items-center gap-2 bg-black/75 border border-amber-400/50 rounded-xl px-5 py-2.5 backdrop-blur-sm"
+          <div className="flex items-center gap-2 bg-black/75 border border-amber-400/50 rounded-xl px-5 py-2.5 backdrop-blur-sm min-h-[44px]"
                style={{ boxShadow: "0 0 20px rgba(251,191,36,0.12)" }}>
             <span className="text-amber-400 text-sm">👤</span>
             <span className="text-white text-sm font-semibold">Receptionist</span>
-            <kbd className="ml-1 bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono rounded px-2 py-0.5">E</kbd>
-            <span className="text-gray-300 text-xs">to talk</span>
+            {IS_TOUCH ? (
+              <span className="ml-1 text-amber-300 text-xs font-mono">tap to talk</span>
+            ) : (
+              <>
+                <kbd className="ml-1 bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono rounded px-2 py-0.5">E</kbd>
+                <span className="text-gray-300 text-xs">to talk</span>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -1287,12 +1398,12 @@ export default function MuseumWalker() {
                 {/* ── Find an NFT ── */}
                 <div>
                   <p className="text-xs uppercase tracking-widest text-gray-500 font-mono mb-2">🔍 Find an NFT — type to search</p>
-                  <div className="flex items-center gap-2 bg-white/5 border border-amber-400/30 rounded-xl px-4 py-2.5 font-mono text-sm min-h-[42px] focus-within:border-amber-400/60 transition-colors">
+                  <div className="flex items-center gap-2 bg-white/5 border border-amber-400/30 rounded-xl px-4 py-2.5 font-mono text-sm min-h-[44px] focus-within:border-amber-400/60 transition-colors">
                     <span className="text-gray-500 text-sm flex-shrink-0">🔍</span>
                     <input
                       autoFocus
                       type="text"
-                      className="flex-1 bg-transparent outline-none text-white placeholder-gray-600 font-mono text-sm caret-amber-400 min-w-0"
+                      className="flex-1 bg-transparent outline-none text-white placeholder-gray-600 font-mono text-base caret-amber-400 min-w-0"
                       placeholder="Type NFT number…"
                       value={receptionistQuery}
                       onChange={e => setReceptionistQuery(e.target.value)}
@@ -1340,7 +1451,7 @@ export default function MuseumWalker() {
                       const rr = ROOM_RARITY[dest.room] ?? ROOM_RARITY[1];
                       return (
                         <button key={dest.name}
-                                className="rounded-xl px-3 py-3 text-left transition-all hover:brightness-110 active:scale-95 border"
+                                className="rounded-xl px-3 py-3 min-h-[44px] text-left transition-all hover:brightness-110 active:scale-95 border"
                                 style={{ background: rr.color + "14", borderColor: rr.color + "40", color: rr.color }}
                                 onClick={() => teleportToRoom(dest.name, dest.pos, dest.yaw)}>
                           <div className="flex items-center gap-1.5 mb-0.5">
@@ -1353,11 +1464,12 @@ export default function MuseumWalker() {
                   </div>
                 </div>
 
-                <p className="text-center text-gray-600 text-[11px] font-mono pt-1">
-                  <kbd className="bg-white/10 rounded px-1">1–4</kbd> rooms &nbsp;·&nbsp;
-                  <kbd className="bg-white/10 rounded px-1">Enter</kbd> first result &nbsp;·&nbsp;
-                  <kbd className="bg-white/10 rounded px-1">E</kbd>/<kbd className="bg-white/10 rounded px-1">ESC</kbd> close
-                </p>
+                {!IS_TOUCH && (
+                  <p className="text-center text-gray-600 text-[11px] font-mono pt-1">
+                    <kbd className="bg-white/10 rounded px-1">Enter</kbd> first result &nbsp;·&nbsp;
+                    <kbd className="bg-white/10 rounded px-1">E</kbd>/<kbd className="bg-white/10 rounded px-1">ESC</kbd> close
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -1383,6 +1495,7 @@ export default function MuseumWalker() {
                 <input
                   autoFocus
                   type="text"
+                  inputMode="numeric"
                   placeholder="Search by NFT number (e.g. 2490)"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
@@ -1460,4 +1573,110 @@ function EscListener({ onEsc }: { onEsc: () => void }) {
     return () => window.removeEventListener("keydown", h);
   }, [onEsc]);
   return null;
+}
+
+// ── Virtual Joystick (touch devices) ────────────────────────────────────────
+const JOYSTICK_OUTER = 100; // px diameter of the outer ring
+const JOYSTICK_RADIUS = 40; // max px the knob can travel from center
+
+interface VirtualJoystickProps {
+  onMove: (dx: number, dz: number) => void;
+  onBreakGuide: () => void;
+  joystickKnob: { x: number; y: number };
+  setJoystickKnob: (k: { x: number; y: number }) => void;
+  joystickActiveRef: MutableRefObject<boolean>;
+  joystickTouchIdRef: MutableRefObject<number>;
+}
+
+function VirtualJoystick({
+  onMove,
+  onBreakGuide,
+  joystickKnob,
+  setJoystickKnob,
+  joystickActiveRef,
+  joystickTouchIdRef,
+}: VirtualJoystickProps) {
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    if (joystickActiveRef.current) return;
+    const t = e.changedTouches[0];
+    joystickActiveRef.current = true;
+    joystickTouchIdRef.current = t.identifier;
+    onBreakGuide();
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const t = Array.from(e.changedTouches).find(
+      t => t.identifier === joystickTouchIdRef.current,
+    );
+    if (!t) return;
+
+    const el = e.currentTarget as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let dx = t.clientX - cx;
+    let dy = t.clientY - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > JOYSTICK_RADIUS) {
+      dx = (dx / dist) * JOYSTICK_RADIUS;
+      dy = (dy / dist) * JOYSTICK_RADIUS;
+    }
+    setJoystickKnob({ x: dx, y: dy });
+    // dx/RADIUS = strafe, dy/RADIUS = forward (positive screen-y = backward)
+    onMove(dx / JOYSTICK_RADIUS, dy / JOYSTICK_RADIUS);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    const t = Array.from(e.changedTouches).find(
+      t => t.identifier === joystickTouchIdRef.current,
+    );
+    if (!t) return;
+    joystickActiveRef.current = false;
+    joystickTouchIdRef.current = -1;
+    setJoystickKnob({ x: 0, y: 0 });
+    onMove(0, 0);
+  };
+
+  return (
+    <div
+      className="absolute bottom-6 left-6 z-20 select-none"
+      style={{
+        width: JOYSTICK_OUTER,
+        height: JOYSTICK_OUTER,
+        touchAction: "none",
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Outer ring */}
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          background: "rgba(255,255,255,0.06)",
+          border: "2px solid rgba(255,255,255,0.22)",
+          backdropFilter: "blur(4px)",
+        }}
+      />
+      {/* Inner knob */}
+      <div
+        className="absolute rounded-full"
+        style={{
+          width: 44,
+          height: 44,
+          left: "50%",
+          top: "50%",
+          background: "rgba(255,255,255,0.28)",
+          border: "1.5px solid rgba(255,255,255,0.55)",
+          transform: `translate(calc(-50% + ${joystickKnob.x}px), calc(-50% + ${joystickKnob.y}px))`,
+          transition: joystickActiveRef.current ? "none" : "transform 0.12s ease-out",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+        }}
+      />
+    </div>
+  );
 }
