@@ -167,19 +167,24 @@ export function buildPartnerBoard(scene: THREE.Scene): PartnerBoardResult {
     });
 
     if (partner.imageUrl) {
+      // Resolve against Vite's BASE_URL so public-folder images work at any
+      // base path (e.g. BASE_URL="/museum/" → "/museum/partners/neverland.jpg")
+      const baseUrl = import.meta.env.BASE_URL ?? "/";
+      const resolved = partner.imageUrl.startsWith("/")
+        ? `${baseUrl.replace(/\/$/, "")}${partner.imageUrl}`
+        : partner.imageUrl;
       loader.load(
-        partner.imageUrl,
+        resolved,
         (tex) => {
           tex.colorSpace = THREE.SRGBColorSpace;
           tex.anisotropy = 8;
           artMat.map = tex;
           artMat.needsUpdate = true;
-          // Release the placeholder texture once the real one is in use
           placeholder.dispose();
         },
         undefined,
-        () => {
-          // Load failed — placeholder remains; no action needed
+        (err) => {
+          console.warn(`[PartnerBoard] Failed to load image for "${partner.name}":`, resolved, err);
         },
       );
     }
