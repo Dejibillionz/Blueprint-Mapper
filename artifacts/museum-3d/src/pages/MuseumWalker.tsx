@@ -14,6 +14,17 @@ import { drawMinimap, MAP_W, MAP_H } from "../museum/minimap";
 import { AmbientAudio } from "../museum/AmbientAudio";
 import { ProximityTextureManager } from "../museum/ProximityTextureManager";
 import { Receptionist } from "../museum/Receptionist";
+import { buildLegendaryPedestals } from "../museum/LegendaryPedestals";
+
+// ── Legendary Vault pedestal model slots ─────────────────────────────────────
+// Drop your GLB/GLTF paths here (one per pedestal, index 0-3).
+// Leave a slot as "" to keep that pedestal bare.
+const LEGENDARY_PEDESTAL_MODELS: readonly string[] = [
+  "", // pedestal 1 — west row, north  (x≈83, z≈9)
+  "", // pedestal 2 — west row, south  (x≈83, z≈17)
+  "", // pedestal 3 — east row, north  (x≈94, z≈9)
+  "", // pedestal 4 — east row, south  (x≈94, z≈17)
+];
 
 const OPENSEA_CONTRACT = "0x818030837e8350ba63e64d7dc01a547fa73c8279";
 const IS_TOUCH = typeof window !== "undefined" && "ontouchstart" in window;
@@ -567,6 +578,9 @@ export default function MuseumWalker() {
       animatedDoors,
     } = buildScene(scene);
     animatedDoorsRef.current = animatedDoors;
+
+    // ── Legendary Vault pedestals (alongside buildPlatinumVault inside buildScene)
+    buildLegendaryPedestals(scene, LEGENDARY_PEDESTAL_MODELS);
 
     frameMeshesRef.current          = frameMeshes;
     commonGalleryMeshRef.current    = commonGalleryMesh;
