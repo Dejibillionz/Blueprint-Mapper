@@ -380,12 +380,7 @@ export default function MuseumWalker() {
       { name: "Legendary Vault",  pos: [75.5, EYE_HEIGHT, 25.0], yaw:  Math.PI / 2 },
     ];
     const h = (e: KeyboardEvent) => {
-      // Digit 1-4: teleport to room
-      if (e.code === "Digit1") { const d = ROOM_DEST_KEYS[0]; teleportToRoom(d.name, d.pos, d.yaw); return; }
-      if (e.code === "Digit2") { const d = ROOM_DEST_KEYS[1]; teleportToRoom(d.name, d.pos, d.yaw); return; }
-      if (e.code === "Digit3") { const d = ROOM_DEST_KEYS[2]; teleportToRoom(d.name, d.pos, d.yaw); return; }
-      if (e.code === "Digit4") { const d = ROOM_DEST_KEYS[3]; teleportToRoom(d.name, d.pos, d.yaw); return; }
-      // Enter: teleport to first search result
+      // Enter while search input is focused: teleport to first result
       if (e.code === "Enter") {
         const q = receptionistQuery.trim().toLowerCase();
         if (q) {
@@ -394,19 +389,10 @@ export default function MuseumWalker() {
         }
         return;
       }
-      // Backspace: delete last character from search
-      if (e.code === "Backspace") {
-        setReceptionistQuery(prev => prev.slice(0, -1));
-        return;
-      }
-      // Printable characters: append to search query
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        setReceptionistQuery(prev => prev + e.key);
-      }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [receptionistOpen, receptionistQuery, allMeta, teleportToRoom, teleportToNFT, closeReceptionist]);
+  }, [receptionistOpen, receptionistQuery, allMeta, teleportToNFT, closeReceptionist]);
 
   useEffect(() => {
     if (!webglSupported) return;
@@ -1301,13 +1287,19 @@ export default function MuseumWalker() {
                 {/* ── Find an NFT ── */}
                 <div>
                   <p className="text-xs uppercase tracking-widest text-gray-500 font-mono mb-2">🔍 Find an NFT — type to search</p>
-                  <div className="flex items-center gap-2 bg-white/5 border border-amber-400/30 rounded-xl px-4 py-2.5 font-mono text-sm min-h-[42px]">
+                  <div className="flex items-center gap-2 bg-white/5 border border-amber-400/30 rounded-xl px-4 py-2.5 font-mono text-sm min-h-[42px] focus-within:border-amber-400/60 transition-colors">
                     <span className="text-gray-500 text-sm flex-shrink-0">🔍</span>
-                    {receptionistQuery
-                      ? <span className="text-white">{receptionistQuery}<span className="animate-pulse">▍</span></span>
-                      : <span className="text-gray-600">Type NFT number…</span>}
+                    <input
+                      autoFocus
+                      type="text"
+                      className="flex-1 bg-transparent outline-none text-white placeholder-gray-600 font-mono text-sm caret-amber-400 min-w-0"
+                      placeholder="Type NFT number…"
+                      value={receptionistQuery}
+                      onChange={e => setReceptionistQuery(e.target.value)}
+                      onKeyDown={e => e.stopPropagation()}
+                    />
                     {receptionistQuery && (
-                      <button className="ml-auto text-gray-500 hover:text-white text-xs flex-shrink-0" onClick={() => setReceptionistQuery("")}>✕</button>
+                      <button className="ml-1 text-gray-500 hover:text-white text-xs flex-shrink-0" onClick={() => setReceptionistQuery("")}>✕</button>
                     )}
                   </div>
 
@@ -1352,7 +1344,6 @@ export default function MuseumWalker() {
                                 style={{ background: rr.color + "14", borderColor: rr.color + "40", color: rr.color }}
                                 onClick={() => teleportToRoom(dest.name, dest.pos, dest.yaw)}>
                           <div className="flex items-center gap-1.5 mb-0.5">
-                            <kbd className="bg-black/30 border border-current/30 rounded text-[10px] font-mono px-1 opacity-70 flex-shrink-0">{idx + 1}</kbd>
                             <p className="font-bold text-sm leading-tight">{dest.name}</p>
                           </div>
                           <p className="text-[11px] opacity-60 font-mono uppercase tracking-wide">{rr.tier}</p>
