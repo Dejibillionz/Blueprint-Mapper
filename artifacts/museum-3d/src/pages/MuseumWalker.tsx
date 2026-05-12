@@ -336,6 +336,20 @@ export default function MuseumWalker() {
     return () => window.removeEventListener("keydown", h);
   }, [searchOpen]);
 
+  // WASD / arrow-key break-away from guide follow mode
+  useEffect(() => {
+    const MOVE_KEYS = new Set(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"]);
+    const h = (e: KeyboardEvent) => {
+      if (!followingGuideRef.current) return;
+      if (!MOVE_KEYS.has(e.code)) return;
+      followingGuideRef.current = false;
+      if (controlsRef.current) controlsRef.current.suspended = false;
+      setTeleportBanner(null);
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, []);
+
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -681,15 +695,16 @@ export default function MuseumWalker() {
           if (rec.isGuiding()) {
             const recPos = rec.getPosition();
             const dir    = rec.getWalkDirection();
-            // Position the camera 2.5 m behind and slightly right of the guide
+            // Camera sits 2.8 m behind the guide (opposite to walk dir)
             const behind = recPos.clone().addScaledVector(dir, -2.8);
             behind.y = EYE_HEIGHT;
             camera.position.lerp(behind, 0.07);
-            // Look toward the guide (slightly ahead)
+            // Look toward a point just ahead of the guide
             const lookAt = recPos.clone().addScaledVector(dir, 1.5);
-            lookAt.y = EYE_HEIGHT - 0.1;
+            lookAt.y = EYE_HEIGHT - 0.05;
             const toGuide = new THREE.Vector3().subVectors(lookAt, camera.position).normalize();
-            const yaw   = Math.atan2(toGuide.x, toGuide.z);
+            // yaw = atan2(-d.x, -d.z) makes camera look in direction d
+            const yaw   = Math.atan2(-toGuide.x, -toGuide.z);
             const pitch = Math.asin(Math.max(-1, Math.min(1, toGuide.y)));
             controls.setYaw(yaw);
             controls.setPitch(pitch);
