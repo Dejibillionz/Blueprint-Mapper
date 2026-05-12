@@ -7,7 +7,7 @@ export interface Partner {
 }
 
 export const partners: Partner[] = [
-  { id:  0, name: "Partner 1",  description: "NFT partner details coming soon.", imageUrl: "" },
+  { id:  0, name: "Neverland",  description: "A lending protocol bringing DeFi Magic to Monad! Earn Pixie Dust for supplying and borrowing. 10K Squad holders receive a 20% bonus multiplier boost on earning pearls on the Neverland Leaderboard.", imageUrl: "/partners/neverland.jpg", linkUrl: "https://x.com/Neverland_Money" },
   { id:  1, name: "Partner 2",  description: "NFT partner details coming soon.", imageUrl: "" },
   { id:  2, name: "Partner 3",  description: "NFT partner details coming soon.", imageUrl: "" },
   { id:  3, name: "Partner 4",  description: "NFT partner details coming soon.", imageUrl: "" },
