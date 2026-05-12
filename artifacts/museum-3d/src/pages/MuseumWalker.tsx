@@ -376,6 +376,18 @@ export default function MuseumWalker() {
     }
   }, [receptionistOpen]);
 
+  // Suspend / resume movement controls when the partner overlay opens or closes
+  useEffect(() => {
+    const ctrl = controlsRef.current;
+    if (!ctrl) return;
+    if (zoomedPartner) {
+      ctrl.suspended = true;
+      document.exitPointerLock();
+    } else {
+      ctrl.suspended = false;
+    }
+  }, [zoomedPartner]);
+
   const ROOM_KEYS: Record<string, string> = {
     "Common Gallery":  "common",
     "Uncommon Wing":   "uncommon",
@@ -1401,9 +1413,6 @@ export default function MuseumWalker() {
       {/* ── Partner frame overlay ── */}
       {zoomedPartner && (
         <div className="absolute inset-0 pointer-events-auto select-none z-40"
-             ref={el => {
-               if (el && controlsRef.current) controlsRef.current.suspended = true;
-             }}
              style={{ background: "rgba(0,0,0,0.70)", backdropFilter: "blur(6px)" }}>
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-80">
             <div className="rounded-2xl overflow-hidden border border-indigo-500/40"
