@@ -117,25 +117,24 @@ const PI = Math.PI;
 
 export const frames: FrameData[] = [
   // ── Rarity Corridor north wall  z=22 → facing south (rotY=0) ──────────────
-  // Segment x=28–38  (3 frames evenly spaced)
-  { id:  7, title: "Path of Rarity I",    artist: "Museum Genesis", position: [30.0, 2.0, 22.14], rotationY: 0,  color: 0x6655cc },
-  { id:  8, title: "Path of Rarity II",   artist: "Museum Genesis", position: [33.5, 2.0, 22.14], rotationY: 0,  color: 0x7766dd },
-  { id:  9, title: "Path of Rarity III",  artist: "Museum Genesis", position: [37.0, 2.0, 22.14], rotationY: 0,  color: 0x8877ee },
-  // Segment x=42–62  (3 frames evenly spaced)
-  { id: 10, title: "Uncommon Visions I",  artist: "Museum Genesis", position: [44.0, 2.0, 22.14], rotationY: 0,  color: 0x4499bb },
-  { id: 11, title: "Uncommon Visions II", artist: "Museum Genesis", position: [51.0, 2.0, 22.14], rotationY: 0,  color: 0x33aacc },
-  { id: 12, title: "Uncommon Visions III",artist: "Museum Genesis", position: [58.0, 2.0, 22.14], rotationY: 0,  color: 0x22bbdd },
-  // Segment x=66–77  (1 frame)
-  { id: 13, title: "Rare Passage",        artist: "Museum Genesis", position: [71.0, 2.0, 22.14], rotationY: 0,  color: 0x22bbaa },
+  // Central cluster x=43–58  — 5 artwork frames (close together, ~3.5 m spacing)
+  { id:  7, title: "Magma Liquid Staking", artist: "10K Squad x Magma",         position: [43.5, 2.0, 22.14], rotationY: 0,  color: 0xff6622, imageUrl: "/corridor/magma.png"         },
+  { id:  8, title: "Haha Wallet",          artist: "10K Squad x Haha Wallet",   position: [47.0, 2.0, 22.14], rotationY: 0,  color: 0x9966ff, imageUrl: "/corridor/haha-wallet.png"   },
+  { id:  9, title: "Lucky Monkeys",        artist: "10K Squad x Lucky Monkeys", position: [50.5, 2.0, 22.14], rotationY: 0,  color: 0xffcc44, imageUrl: "/corridor/lucky-monkeys.webp" },
+  { id: 10, title: "Rarebet Sports",       artist: "10K Squad x Rarebet",       position: [54.0, 2.0, 22.14], rotationY: 0,  color: 0x88ee22, imageUrl: "/corridor/rarebet.webp"       },
+  { id: 11, title: "Alloca",               artist: "10K Squad x Alloca",        position: [57.5, 2.0, 22.14], rotationY: 0,  color: 0x44bb55, imageUrl: "/corridor/alloca.webp"        },
+  // Outer north segments — placeholder slots
+  { id: 17, title: "Coming Soon",          artist: "Museum Genesis",             position: [31.0, 2.0, 22.14], rotationY: 0,  color: 0x445566 },
+  { id: 19, title: "Coming Soon",          artist: "Museum Genesis",             position: [71.0, 2.0, 22.14], rotationY: 0,  color: 0x445566 },
 
   // ── Rarity Corridor south wall  z=30 → facing north (rotY=π) ─────────────
-  // Segment x=28–37  (2 frames)
-  { id: 14, title: "Genesis Hall I",      artist: "Museum Genesis", position: [31.0, 2.0, 29.86], rotationY: PI, color: 0xaa4499 },
-  { id: 15, title: "Genesis Hall II",     artist: "Museum Genesis", position: [36.0, 2.0, 29.86], rotationY: PI, color: 0xbb55aa },
-  // Segment x=45–62  (5 frames evenly spaced)
-  { id: 16, title: "Ascension I",         artist: "Museum Genesis", position: [46.5, 2.0, 29.86], rotationY: PI, color: 0xcc6633 },
-  { id: 17, title: "Ascension II",        artist: "Museum Genesis", position: [50.0, 2.0, 29.86], rotationY: PI, color: 0xdd7744 },
-  { id: 18, title: "Ascension III",       artist: "Museum Genesis", position: [53.5, 2.0, 29.86], rotationY: PI, color: 0xee8855 },
-  { id: 19, title: "Ascension IV",        artist: "Museum Genesis", position: [57.0, 2.0, 29.86], rotationY: PI, color: 0xff9966 },
-  { id: 20, title: "Ascension V",         artist: "Museum Genesis", position: [60.5, 2.0, 29.86], rotationY: PI, color: 0xffaa77 },
+  // Central cluster x=43–58  — 5 artwork frames (mirrors north wall cluster)
+  { id: 12, title: "Blocknads",            artist: "10K Squad x Blocknads",     position: [43.5, 2.0, 29.86], rotationY: PI, color: 0xcc44cc, imageUrl: "/corridor/blocknads.webp"     },
+  { id: 13, title: "Monadverse",           artist: "10K Squad x Monadverse",    position: [47.0, 2.0, 29.86], rotationY: PI, color: 0xff66aa, imageUrl: "/corridor/monadverse.webp"   },
+  { id: 14, title: "No More Lonely Life",  artist: "10K Squad x NMLL",          position: [50.5, 2.0, 29.86], rotationY: PI, color: 0x55cc88, imageUrl: "/corridor/no-more-lonely.webp"},
+  { id: 15, title: "Nomads",               artist: "10K Squad x Nomads",        position: [54.0, 2.0, 29.86], rotationY: PI, color: 0xee5599, imageUrl: "/corridor/nomads.webp"        },
+  { id: 16, title: "Drake Exchange",       artist: "10K Squad x Drake",         position: [57.5, 2.0, 29.86], rotationY: PI, color: 0x44aaee, imageUrl: "/corridor/drake-exchange.png" },
+  // Outer south segments — placeholder slots
+  { id: 18, title: "Coming Soon",          artist: "Museum Genesis",             position: [31.5, 2.0, 29.86], rotationY: PI, color: 0x445566 },
+  { id: 20, title: "Coming Soon",          artist: "Museum Genesis",             position: [52.5, 2.0, 29.86], rotationY: PI, color: 0x445566 },
 ];
