@@ -1,14 +1,24 @@
 import { outerWalls, innerWalls, rooms } from "../data/floorplan";
 
-const SCALE = 1.9;     // px per meter
-const PAD   = 6;       // canvas padding px
-const MAP_W = Math.ceil(100 * SCALE + PAD * 2);  // ~196px
-const MAP_H = Math.ceil(52  * SCALE + PAD * 2);  // ~105px
+const SCALE = 1.9;
+const PAD   = 6;
+const MAP_W = Math.ceil(100 * SCALE + PAD * 2);
+const MAP_H = Math.ceil(52  * SCALE + PAD * 2);
 
 const cx = (x: number) => PAD + x * SCALE;
 const cz = (z: number) => PAD + z * SCALE;
 
 export { MAP_W, MAP_H };
+
+// Short labels drawn at each room's visual centre (world coords)
+const ROOM_LABELS: Array<{ label: string; wx: number; wz: number; size: number }> = [
+  { label: "Common",    wx: 13.5, wz: 15.5, size: 5.5 },
+  { label: "Uncommon",  wx: 40.0, wz: 13.0, size: 5.0 },
+  { label: "Rare",      wx: 64.0, wz: 13.0, size: 5.5 },
+  { label: "Legendary", wx: 88.5, wz: 13.0, size: 5.0 },
+  { label: "Corridor",  wx: 52.0, wz: 26.0, size: 4.5 },
+  { label: "Entrance",  wx: 40.5, wz: 40.5, size: 4.5 },
+];
 
 export function drawMinimap(
   canvas: HTMLCanvasElement,
@@ -34,6 +44,15 @@ export function drawMinimap(
   for (const room of rooms) {
     ctx.fillStyle = `#${room.color.toString(16).padStart(6, "0")}88`;
     ctx.fillRect(cx(room.x), cz(room.y), room.width * SCALE, room.height * SCALE);
+  }
+
+  // Room name labels
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (const { label, wx, wz, size } of ROOM_LABELS) {
+    ctx.font = `bold ${size}px sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.40)";
+    ctx.fillText(label, cx(wx), cz(wz));
   }
 
   // Outer walls
@@ -62,7 +81,7 @@ export function drawMinimap(
     const gx = cx(guideX);
     const gz = cz(guideZ);
     const t  = Date.now() / 600;
-    const pulse = 0.45 + 0.3 * Math.sin(t);   // 0.15 → 0.75
+    const pulse = 0.45 + 0.3 * Math.sin(t);
 
     // Outer glow ring (pulsing)
     ctx.beginPath();
@@ -70,7 +89,7 @@ export function drawMinimap(
     ctx.fillStyle = `rgba(255, 96, 16, ${0.18 + 0.12 * pulse})`;
     ctx.fill();
 
-    // Direction arrow (if moving)
+    // Direction arrow
     if (guideYaw !== undefined) {
       ctx.save();
       ctx.translate(gx, gz);
@@ -94,10 +113,11 @@ export function drawMinimap(
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Tiny flame label
+    // Flame label
     ctx.font = "bold 7px sans-serif";
     ctx.fillStyle = "rgba(255,200,100,0.85)";
     ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.fillText("▲", gx, gz - 8);
   }
 
@@ -105,7 +125,6 @@ export function drawMinimap(
   const px = cx(playerX);
   const pz = cz(playerZ);
 
-  // Direction cone
   ctx.save();
   ctx.translate(px, pz);
   ctx.rotate(playerYaw + Math.PI);
@@ -118,7 +137,6 @@ export function drawMinimap(
   ctx.fill();
   ctx.restore();
 
-  // Dot
   ctx.beginPath();
   ctx.arc(px, pz, 3, 0, Math.PI * 2);
   ctx.fillStyle = "#63b3ed";

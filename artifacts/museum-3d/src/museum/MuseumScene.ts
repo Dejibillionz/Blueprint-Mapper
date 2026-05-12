@@ -111,6 +111,16 @@ export function buildFrameMeshes(scene: THREE.Scene): THREE.Mesh[] {
   return frameMeshes;
 }
 
+export interface AnimatedDoor {
+  pivot:       THREE.Object3D;
+  closedY:     number;
+  openY:       number;
+  triggerX:    number;
+  triggerZ:    number;
+  triggerDist: number;
+  openness:    number;
+}
+
 export function buildScene(scene: THREE.Scene): BuildSceneResult {
   const woodTex = new THREE.TextureLoader().load("/floor-wood.jpg");
   woodTex.wrapS = THREE.RepeatWrapping;
@@ -177,26 +187,29 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     scene.add(buildWallMesh(x1, z1, x2, z2, 0.1, INNER_THICKNESS + 0.05, DOOR_HEIGHT - 0.05, doorFrameMat));
   }
 
-  // ── Open door panels ────────────────────────────────────────────
-  // Each door is a panel pivoting around its hinge edge.
-  // pivot.rotation.y = closedY + delta, where:
-  //   closedY aligns the panel with the wall gap
-  //   delta (~85°) swings it open into the adjacent space
-  // Panel world-direction = (cos θ, 0, -sin θ) for θ = pivot.rotation.y
+  // ── Animated door panels ────────────────────────────────────────
+  // Doors start CLOSED and open when the player (or guide) approaches.
+  // Each panel pivots around its hinge edge.  closedY aligns the panel
+  // flush with the wall; openY swings it ≈85° into the adjacent space.
   const doorPanelMat = new THREE.MeshStandardMaterial({
     color: 0x3d2310, roughness: 0.62, metalness: 0.15,
   });
   const OPEN_ANG = Math.PI * 0.47; // ≈ 84.6°
 
+  const animatedDoors: AnimatedDoor[] = [];
+
   function addDoorPanel(
     pivX: number, pivZ: number,
     dW: number,
     closedY: number,
-    delta: number,
+    openDelta: number,
+    triggerX: number,
+    triggerZ: number,
+    triggerDist = 3.5,
   ) {
     const pivot = new THREE.Object3D();
     pivot.position.set(pivX, 0, pivZ);
-    pivot.rotation.y = closedY + delta;
+    pivot.rotation.y = closedY; // start CLOSED
     const panel = new THREE.Mesh(
       new THREE.BoxGeometry(dW, DOOR_HEIGHT, 0.05),
       doorPanelMat,
@@ -206,20 +219,32 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     panel.receiveShadow = true;
     pivot.add(panel);
     scene.add(pivot);
+    animatedDoors.push({
+      pivot,
+      closedY,
+      openY: closedY + openDelta,
+      triggerX,
+      triggerZ,
+      triggerDist,
+      openness: 0,
+    });
   }
 
-  // D1 upper — x=26, z=13-15: opens west into Common Gallery
-  addDoorPanel(26, 13, 2, -Math.PI / 2, -OPEN_ANG);
-  // D1 lower — x=26, z=20-22: opens west into Common Gallery
-  addDoorPanel(26, 22, 2,  Math.PI / 2,  OPEN_ANG);
-  // D2 — z=22, x=38-42: double door, opens into corridor
-  addDoorPanel(38, 22, 2,  0,          -OPEN_ANG);
-  addDoorPanel(42, 22, 2,  Math.PI,     OPEN_ANG);
-  // D3 — z=22, x=62-66: double door, opens into corridor
-  addDoorPanel(62, 22, 2,  0,          -OPEN_ANG);
-  addDoorPanel(66, 22, 2,  Math.PI,     OPEN_ANG);
-  // Vault entrance — x=77, z=24-26: opens west into corridor
-  addDoorPanel(77, 24, 2, -Math.PI / 2, -OPEN_ANG);
+  // D1 upper — x=26, z=13-15 — opens west into Common Gallery
+  addDoorPanel(26, 13, 2, -Math.PI / 2, -OPEN_ANG, 26, 14);
+  // D1 lower — x=26, z=20-22 — opens west into Common Gallery
+  addDoorPanel(26, 22, 2,  Math.PI / 2,  OPEN_ANG, 26, 21);
+  // D2 — z=22, x=38-42 — double door, opens south into corridor
+  addDoorPanel(38, 22, 2,  0,           -OPEN_ANG, 40, 22, 4.0);
+  addDoorPanel(42, 22, 2,  Math.PI,      OPEN_ANG, 40, 22, 4.0);
+  // D3 — z=22, x=62-66 — double door, opens south into corridor
+  addDoorPanel(62, 22, 2,  0,           -OPEN_ANG, 64, 22, 4.0);
+  addDoorPanel(66, 22, 2,  Math.PI,      OPEN_ANG, 64, 22, 4.0);
+  // Vault — x=77, z=24-26 — opens west into corridor
+  addDoorPanel(77, 24, 2, -Math.PI / 2, -OPEN_ANG, 77, 25);
+  // Grand entrance — z=52, x=39-43 — double door opens north into building
+  addDoorPanel(39, 52, 2,  0,            OPEN_ANG, 41, 52, 5.0);
+  addDoorPanel(43, 52, 2,  Math.PI,     -OPEN_ANG, 41, 52, 5.0);
 
   const ambient = new THREE.AmbientLight(0xfff5e8, 1.8);
   scene.add(ambient);
@@ -272,6 +297,7 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     platinumGalleryMesh:  pgMesh,
     platinumArtMeshes:    pgArtMeshes,
     platinumNFTs,
+    animatedDoors,
   };
 }
 
@@ -289,4 +315,5 @@ export interface BuildSceneResult {
   platinumGalleryMesh:  THREE.InstancedMesh;
   platinumArtMeshes:    THREE.Mesh[];
   platinumNFTs:         PlatinumNFT[];
+  animatedDoors:        AnimatedDoor[];
 }

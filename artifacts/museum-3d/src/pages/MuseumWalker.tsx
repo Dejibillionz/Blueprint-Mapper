@@ -4,7 +4,7 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { SSAOPass } from "three/examples/jsm/postprocessing/SSAOPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { buildScene, CommonNFT, UncommonNFT, RareNFT, PlatinumNFT } from "../museum/MuseumScene";
+import { buildScene, CommonNFT, UncommonNFT, RareNFT, PlatinumNFT, AnimatedDoor } from "../museum/MuseumScene";
 import { FirstPersonControls } from "../museum/FirstPersonControls";
 import { buildCollisionBoxes } from "../museum/collision";
 import { buildExterior } from "../museum/Exterior";
@@ -158,6 +158,7 @@ export default function MuseumWalker() {
   const lastHoverTitleRef = useRef<string | null>(null);
   const receptionistRef      = useRef<Receptionist | null>(null);
   const receptionistNearbyRef = useRef(false);
+  const animatedDoorsRef     = useRef<AnimatedDoor[]>([]);
   const lastRecHintRef        = useRef(false);
   const receptionistOpenRef   = useRef(false);
   const followingGuideRef     = useRef(false);
@@ -302,7 +303,7 @@ export default function MuseumWalker() {
     "Common Gallery":  "common",
     "Uncommon Wing":   "uncommon",
     "Rare Collection": "rare",
-    "Platinum Vault":  "platinum",
+    "Legendary Vault":  "platinum",
   };
 
   const teleportToRoom = useCallback((name: string, _pos: [number, number, number], _yaw: number) => {
@@ -376,7 +377,7 @@ export default function MuseumWalker() {
       { name: "Common Gallery",  pos: [27.5, EYE_HEIGHT, 14.0], yaw: -Math.PI / 2 },
       { name: "Uncommon Wing",   pos: [40.0, EYE_HEIGHT, 21.0], yaw:  0           },
       { name: "Rare Collection", pos: [64.0, EYE_HEIGHT, 21.0], yaw:  0           },
-      { name: "Platinum Vault",  pos: [75.5, EYE_HEIGHT, 25.0], yaw:  Math.PI / 2 },
+      { name: "Legendary Vault",  pos: [75.5, EYE_HEIGHT, 25.0], yaw:  Math.PI / 2 },
     ];
     const h = (e: KeyboardEvent) => {
       // Digit 1-4: teleport to room
@@ -466,7 +467,9 @@ export default function MuseumWalker() {
       uncommonGalleryMesh, uncommonArtMeshes, uncommonNFTs,
       rareGalleryMesh,     rareArtMeshes,     rareNFTs,
       platinumGalleryMesh, platinumArtMeshes, platinumNFTs,
+      animatedDoors,
     } = buildScene(scene);
+    animatedDoorsRef.current = animatedDoors;
 
     frameMeshesRef.current          = frameMeshes;
     commonGalleryMeshRef.current    = commonGalleryMesh;
@@ -690,6 +693,25 @@ export default function MuseumWalker() {
           setReceptionistHint(isNearby);
         }
 
+        // ── Animated doors ────────────────────────────────────
+        {
+          const recPos = receptionistRef.current?.getPosition();
+          for (const door of animatedDoorsRef.current) {
+            const px = camera.position.x - door.triggerX;
+            const pz = camera.position.z - door.triggerZ;
+            const playerNear = Math.sqrt(px * px + pz * pz) < door.triggerDist;
+            let guideNear = false;
+            if (recPos) {
+              const gx = recPos.x - door.triggerX;
+              const gz = recPos.z - door.triggerZ;
+              guideNear = Math.sqrt(gx * gx + gz * gz) < door.triggerDist;
+            }
+            const target = playerNear || guideNear ? 1 : 0;
+            door.openness = THREE.MathUtils.lerp(door.openness, target, delta * 3.5);
+            door.pivot.rotation.y = door.closedY + (door.openY - door.closedY) * door.openness;
+          }
+        }
+
         // ── Guide follow-cam ───────────────────────────────────
         if (followingGuideRef.current && rec) {
           if (rec.isGuiding()) {
@@ -760,7 +782,7 @@ export default function MuseumWalker() {
           }
         }
 
-        // 5. Check Platinum Vault InstancedMesh (only when inside room_4)
+        // 5. Check Legendary Vault InstancedMesh (only when inside room_4)
         if (!hData && platinumGalleryMeshRef.current && getNearbyRoomId(camera.position) === "room_4") {
           const pHits = raycasterRef.current.intersectObject(platinumGalleryMeshRef.current, false);
           const pNear = pHits.find(h => h.distance < 5);
@@ -1250,7 +1272,7 @@ export default function MuseumWalker() {
           { name: "Common Gallery",  pos: [27.5, EYE_HEIGHT, 14.0], yaw: -Math.PI / 2, room: 1 },
           { name: "Uncommon Wing",   pos: [40.0, EYE_HEIGHT, 21.0], yaw:  0,           room: 2 },
           { name: "Rare Collection", pos: [64.0, EYE_HEIGHT, 21.0], yaw:  0,           room: 3 },
-          { name: "Platinum Vault",  pos: [75.5, EYE_HEIGHT, 25.0], yaw:  Math.PI / 2, room: 4 },
+          { name: "Legendary Vault",  pos: [75.5, EYE_HEIGHT, 25.0], yaw:  Math.PI / 2, room: 4 },
         ];
 
         return (
