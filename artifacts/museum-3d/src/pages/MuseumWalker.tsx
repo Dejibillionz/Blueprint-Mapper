@@ -376,7 +376,9 @@ export default function MuseumWalker() {
     }
   }, [receptionistOpen]);
 
-  // Suspend / resume movement controls when the partner overlay opens or closes
+  // Suspend / resume movement controls when the partner overlay opens or closes.
+  // On close, only unsuspend if no other mode (guide-follow, receptionist) has
+  // suspended controls — avoids clobbering their suspension state.
   useEffect(() => {
     const ctrl = controlsRef.current;
     if (!ctrl) return;
@@ -384,7 +386,8 @@ export default function MuseumWalker() {
       ctrl.suspended = true;
       document.exitPointerLock();
     } else {
-      ctrl.suspended = false;
+      const otherSuspend = receptionistOpenRef.current || followingGuideRef.current;
+      if (!otherSuspend) ctrl.suspended = false;
     }
   }, [zoomedPartner]);
 
