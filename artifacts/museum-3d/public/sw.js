@@ -60,7 +60,11 @@ async function staleWhileRevalidate(request, cacheName) {
     })
     .catch(() => null);
 
-  return cached ?? (await networkPromise);
+  return (
+    cached ??
+    (await networkPromise) ??
+    new Response("Offline — resource unavailable", { status: 503 })
+  );
 }
 
 async function cacheFirst(request, cacheName) {
