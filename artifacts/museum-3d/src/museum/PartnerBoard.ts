@@ -14,14 +14,18 @@ const PANEL_Y      = PANEL_HEIGHT / 2 + 0.3;           // 2.0
 // Frame slots — 6 top row + 5 bottom row
 const FW  = 1.18;    // frame width  (along Z)
 const FH  = 0.94;    // frame height (along Y)
-const FD  = 0.07;    // frame depth
+const FD  = 0.07;    // frame depth (along X, into room)
 const AW  = FW - 0.16; // art plane width
 const AH  = FH - 0.14; // art plane height
 const HGAP = 0.20;   // horizontal gap between frames
 const ROT_Y = Math.PI / 2; // east wall → faces west (-X) into the hall
 
-// Art plane offset from the WALL face into the room
-const ART_FACE_X = WALL_FACE_X - FD - 0.003;
+// Panel front face (the face the player sees, toward lower X)
+const PANEL_FRONT_X  = PANEL_X - PANEL_DEPTH / 2;   // 47.775
+// Border boxes: centred so their BACK face is flush with the panel front
+const BORDER_X       = PANEL_FRONT_X - FD / 2;       // 47.740 — sticks out into room
+// Art plane: 5 mm in front of the border's front face so it's fully visible
+const ART_FACE_X     = PANEL_FRONT_X - FD - 0.005;   // 47.700
 
 // Row vertical centres
 const Y_TOP = 2.78;
@@ -151,9 +155,9 @@ export function buildPartnerBoard(scene: THREE.Scene): PartnerBoardResult {
   slots.forEach(({ z, y }, i) => {
     const partner: Partner = partners[i] ?? { id: i, name: `Partner ${i + 1}`, description: "", imageUrl: "" };
 
-    // Gold border frame
+    // Gold border frame — positioned proud of the panel, sticking into the room
     const border = new THREE.Mesh(borderGeo, borderMat);
-    border.position.set(WALL_FACE_X - FD / 2, y, z);
+    border.position.set(BORDER_X, y, z);
     border.castShadow = true;
     scene.add(border);
 
