@@ -123,9 +123,9 @@ export const frames: FrameData[] = [
   { id:  9, title: "Lucky Monkeys",        artist: "10K Squad x Lucky Monkeys", position: [52.5, 2.0, 22.14], rotationY: 0,  color: 0xffcc44, imageUrl: "/corridor/lucky-monkeys.webp" },
   { id: 10, title: "Rarebet Sports",       artist: "10K Squad x Rarebet",       position: [55.5, 2.0, 22.14], rotationY: 0,  color: 0x88ee22, imageUrl: "/corridor/rarebet.webp"       },
   { id: 11, title: "Alloca",               artist: "10K Squad x Alloca",        position: [58.5, 2.0, 22.14], rotationY: 0,  color: 0x44bb55, imageUrl: "/corridor/alloca.webp"        },
-  // Outer north segments — placeholder slots
-  { id: 17, title: "Coming Soon",          artist: "Museum Genesis",             position: [31.0, 2.0, 22.14], rotationY: 0,  color: 0x445566 },
-  { id: 19, title: "Coming Soon",          artist: "Museum Genesis",             position: [71.0, 2.0, 22.14], rotationY: 0,  color: 0x445566 },
+  // Outer north segments — artwork frames
+  { id: 17, title: "Happy Anniversary",    artist: "10K Squad",                  position: [31.0, 2.0, 22.14], rotationY: 0,  color: 0xffaacc, imageUrl: "/corridor/anniversary.jpg"  },
+  { id: 19, title: "Space Squad",          artist: "10K Squad",                  position: [71.0, 2.0, 22.14], rotationY: 0,  color: 0x4488ff, imageUrl: "/corridor/space-squad.webp" },
 
   // ── Rarity Corridor south wall  z=30 → facing north (rotY=π) ─────────────
   // Central cluster x=46.5–58.5 — 5 artwork frames, 3 m center-to-center
@@ -135,7 +135,7 @@ export const frames: FrameData[] = [
   { id: 14, title: "No More Lonely Life",  artist: "10K Squad x NMLL",          position: [52.5, 2.0, 29.86], rotationY: PI, color: 0x55cc88, imageUrl: "/corridor/no-more-lonely.webp"},
   { id: 15, title: "Nomads",               artist: "10K Squad x Nomads",        position: [55.5, 2.0, 29.86], rotationY: PI, color: 0xee5599, imageUrl: "/corridor/nomads.webp"        },
   { id: 16, title: "Drake Exchange",       artist: "10K Squad x Drake",         position: [58.5, 2.0, 29.86], rotationY: PI, color: 0x44aaee, imageUrl: "/corridor/drake-exchange.png" },
-  // Outer south segments — placeholder slots (segment D: x=28–37)
-  { id: 18, title: "Coming Soon",          artist: "Museum Genesis",             position: [31.5, 2.0, 29.86], rotationY: PI, color: 0x445566 },
-  { id: 20, title: "Coming Soon",          artist: "Museum Genesis",             position: [36.0, 2.0, 29.86], rotationY: PI, color: 0x445566 },
+  // Outer south segments — artwork frames (segment D: x=28–37)
+  { id: 18, title: "Community",            artist: "10K Squad",                  position: [31.5, 2.0, 29.86], rotationY: PI, color: 0x88ccff, imageUrl: "/corridor/community.webp"   },
+  { id: 20, title: "Genesis Egg",          artist: "10K Squad",                  position: [36.0, 2.0, 29.86], rotationY: PI, color: 0xffaadd, imageUrl: "/corridor/genesis-egg.jpg"  },
 ];
