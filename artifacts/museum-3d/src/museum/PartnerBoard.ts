@@ -145,6 +145,8 @@ export function buildPartnerBoard(scene: THREE.Scene): PartnerBoardResult {
     ...botZs.map(z => ({ z, y: Y_BOT })),
   ];
 
+  const loader = new THREE.TextureLoader();
+
   slots.forEach(({ z, y }, i) => {
     const partner: Partner = partners[i] ?? { id: i, name: `Partner ${i + 1}`, description: "", imageUrl: "" };
 
@@ -154,14 +156,33 @@ export function buildPartnerBoard(scene: THREE.Scene): PartnerBoardResult {
     border.castShadow = true;
     scene.add(border);
 
-    // Art plane with placeholder texture
-    const tex = makePlaceholderTexture(i, partner.name);
-    tex.colorSpace = THREE.SRGBColorSpace;
+    // Start with placeholder; swap in real image if imageUrl is provided
+    const placeholder = makePlaceholderTexture(i, partner.name);
+    placeholder.colorSpace = THREE.SRGBColorSpace;
     const artMat = new THREE.MeshStandardMaterial({
-      map: tex,
+      map: placeholder,
       roughness: 0.82,
       side: THREE.DoubleSide,
     });
+
+    if (partner.imageUrl) {
+      loader.load(
+        partner.imageUrl,
+        (tex) => {
+          tex.colorSpace = THREE.SRGBColorSpace;
+          tex.anisotropy = 8;
+          artMat.map = tex;
+          artMat.needsUpdate = true;
+          // Release the placeholder texture once the real one is in use
+          placeholder.dispose();
+        },
+        undefined,
+        () => {
+          // Load failed — placeholder remains; no action needed
+        },
+      );
+    }
+
     const art = new THREE.Mesh(artGeo, artMat);
     art.position.set(ART_FACE_X, y, z);
     art.rotation.y = ROT_Y;
