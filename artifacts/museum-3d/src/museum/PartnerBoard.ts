@@ -113,24 +113,25 @@ export function buildPartnerBoard(scene: THREE.Scene): PartnerBoardResult {
   trimTop.position.set(PANEL_X, 0.3 + PANEL_HEIGHT - 0.02, PANEL_Z);
   scene.add(trimTop);
 
-  // ── Heading sign ─────────────────────────────────────────────────────────
-  const signW = 3.2, signH = 0.38;
+  // ── Heading sign — sits inside the top of the panel, below the top trim ──
+  const signW = 5.0, signH = 0.36;
   const signGeo = new THREE.BoxGeometry(PANEL_DEPTH + 0.002, signH, signW);
   const signCanv = document.createElement("canvas");
-  signCanv.width = 512; signCanv.height = 64;
+  signCanv.width = 800; signCanv.height = 64;
   const sc = signCanv.getContext("2d")!;
   sc.fillStyle = "#0d1117";
-  sc.fillRect(0, 0, 512, 64);
+  sc.fillRect(0, 0, 800, 64);
   sc.fillStyle = "#c9a84c";
-  sc.font = "bold 28px Arial";
+  sc.font = "bold 26px Arial";
   sc.textAlign = "center";
   sc.textBaseline = "middle";
-  sc.fillText("NFT PARTNERS", 256, 32);
+  sc.fillText("NFT UTILITIES & PARTNERS", 400, 32);
   const signTex = new THREE.CanvasTexture(signCanv);
   signTex.colorSpace = THREE.SRGBColorSpace;
   const signMat = new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.6, metalness: 0.1 });
   const sign = new THREE.Mesh(signGeo, signMat);
-  sign.position.set(PANEL_X, 0.3 + PANEL_HEIGHT + signH / 2 + 0.06, PANEL_Z);
+  // Anchor the sign just inside the top edge of the panel (no ceiling intrusion)
+  sign.position.set(PANEL_X, 0.3 + PANEL_HEIGHT - signH / 2 - 0.04, PANEL_Z);
   scene.add(sign);
 
   // ── Frame slots ──────────────────────────────────────────────────────────
