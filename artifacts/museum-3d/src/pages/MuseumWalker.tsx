@@ -781,8 +781,17 @@ export default function MuseumWalker() {
 
       // Update minimap
       if (minimapRef.current) {
-        const yaw = controls.getYaw();
-        drawMinimap(minimapRef.current, camera.position.x, camera.position.z, yaw);
+        const yaw    = controls.getYaw();
+        const recRef = receptionistRef.current;
+        const recPos = recRef?.getPosition();
+        const recDir = recRef?.getWalkDirection();
+        // guideYaw convention matches model rotation: atan2(dx, dz)
+        const recYaw = recDir ? Math.atan2(recDir.x, recDir.z) : undefined;
+        drawMinimap(
+          minimapRef.current,
+          camera.position.x, camera.position.z, yaw,
+          recPos?.x, recPos?.z, recYaw,
+        );
       }
     };
     animate();

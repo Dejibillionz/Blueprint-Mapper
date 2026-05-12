@@ -5,7 +5,6 @@ const PAD   = 6;       // canvas padding px
 const MAP_W = Math.ceil(100 * SCALE + PAD * 2);  // ~196px
 const MAP_H = Math.ceil(52  * SCALE + PAD * 2);  // ~105px
 
-// pre-convert floor plan coords → canvas px
 const cx = (x: number) => PAD + x * SCALE;
 const cz = (z: number) => PAD + z * SCALE;
 
@@ -16,6 +15,9 @@ export function drawMinimap(
   playerX: number,
   playerZ: number,
   playerYaw: number,
+  guideX?: number,
+  guideZ?: number,
+  guideYaw?: number,
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -55,7 +57,51 @@ export function drawMinimap(
     ctx.stroke();
   }
 
-  // Player dot
+  // ── Guide marker ──────────────────────────────────────────────
+  if (guideX !== undefined && guideZ !== undefined) {
+    const gx = cx(guideX);
+    const gz = cz(guideZ);
+    const t  = Date.now() / 600;
+    const pulse = 0.45 + 0.3 * Math.sin(t);   // 0.15 → 0.75
+
+    // Outer glow ring (pulsing)
+    ctx.beginPath();
+    ctx.arc(gx, gz, 5 + 3 * pulse, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 96, 16, ${0.18 + 0.12 * pulse})`;
+    ctx.fill();
+
+    // Direction arrow (if moving)
+    if (guideYaw !== undefined) {
+      ctx.save();
+      ctx.translate(gx, gz);
+      ctx.rotate(guideYaw + Math.PI);
+      ctx.beginPath();
+      ctx.moveTo(0, -6);
+      ctx.lineTo(-3, 2);
+      ctx.lineTo(3, 2);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(255,140,50,0.9)";
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Core dot
+    ctx.beginPath();
+    ctx.arc(gx, gz, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = "#FF6010";
+    ctx.fill();
+    ctx.strokeStyle = "#FFD580";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Tiny flame label
+    ctx.font = "bold 7px sans-serif";
+    ctx.fillStyle = "rgba(255,200,100,0.85)";
+    ctx.textAlign = "center";
+    ctx.fillText("▲", gx, gz - 8);
+  }
+
+  // ── Player dot ────────────────────────────────────────────────
   const px = cx(playerX);
   const pz = cz(playerZ);
 
