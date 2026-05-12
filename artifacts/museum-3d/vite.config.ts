@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import fs from "fs/promises";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const rawPort = process.env.PORT;
@@ -51,6 +52,52 @@ export default defineConfig({
         });
       },
     },
+    {
+      name: "inject-sw-shell-assets",
+      apply: "build",
+      async writeBundle() {
+        const outDir = path.resolve(import.meta.dirname, "dist/public");
+        const manifestPath = path.join(outDir, ".vite", "manifest.json");
+        const swPath = path.join(outDir, "sw.js");
+
+        try {
+          const manifestRaw = await fs.readFile(manifestPath, "utf-8");
+          const manifest = JSON.parse(manifestRaw) as Record<
+            string,
+            { file?: string; css?: string[]; assets?: string[] }
+          >;
+
+          const assetUrls = new Set<string>();
+          for (const entry of Object.values(manifest)) {
+            if (entry.file) assetUrls.add(`${basePath}${entry.file}`);
+            for (const css of entry.css ?? []) {
+              assetUrls.add(`${basePath}${css}`);
+            }
+            for (const asset of entry.assets ?? []) {
+              assetUrls.add(`${basePath}${asset}`);
+            }
+          }
+
+          const TOKEN = "const SHELL_ASSETS = [];";
+          const swContent = await fs.readFile(swPath, "utf-8");
+          if (!swContent.includes(TOKEN)) {
+            console.warn(
+              "[inject-sw-shell-assets] Replacement token not found in sw.js — shell assets were NOT injected. Ensure sw.js contains: " +
+                TOKEN,
+            );
+            return;
+          }
+          const injected = JSON.stringify([...assetUrls]);
+          const updated = swContent.replace(TOKEN, `const SHELL_ASSETS = ${injected};`);
+          await fs.writeFile(swPath, updated, "utf-8");
+          console.log(
+            `[inject-sw-shell-assets] Injected ${assetUrls.size} asset(s) into sw.js`,
+          );
+        } catch (e) {
+          console.warn("[inject-sw-shell-assets] Failed to inject shell assets:", e);
+        }
+      },
+    },
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
@@ -76,6 +123,7 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    manifest: true,
   },
   server: {
     port,
