@@ -4,49 +4,59 @@ import * as THREE from "three";
 // West wall of Entrance Hall: x=33, inner face x=33.125 (wall thickness=0.25)
 const WALL_FACE_X  = 33.125;
 const PANEL_DEPTH  = 0.10;
-const PANEL_X      = WALL_FACE_X + PANEL_DEPTH / 2;  // 33.175 — sits against wall
-const PANEL_Z      = 40.5;                             // centre of z=35..46
-const PANEL_WIDTH  = 9.4;                              // along Z axis
-const PANEL_HEIGHT = 3.4;                              // along Y axis
-const PANEL_Y      = PANEL_HEIGHT / 2 + 0.3;          // 2.0 m centre height
+const PANEL_X      = WALL_FACE_X + PANEL_DEPTH / 2;   // 33.175
+const PANEL_Z      = 40.5;                              // centre of z=35..46
+const PANEL_WIDTH  = 9.4;                               // along Z
+const PANEL_HEIGHT = 3.4;                               // along Y
+const PANEL_Y      = PANEL_HEIGHT / 2 + 0.3;           // 2.0 m centre
 
-// The panel front face is at x = 33.125 + PANEL_DEPTH = 33.225 (into room, +X)
-const PANEL_FRONT_X = WALL_FACE_X + PANEL_DEPTH;     // 33.225
+// Panel front face protrudes into the room toward +X
+const PANEL_FRONT_X = WALL_FACE_X + PANEL_DEPTH;       // 33.225
 
-// West wall faces east (+X), so artwork planes face the player coming from the east
-const ROT_Y = -Math.PI / 2;  // face toward +X (east)
+// West wall faces EAST (+X) — player approaches from +X side.
+// rotation.y = -π/2 makes the plane normal point toward +X (correct).
+// scale.x = -1 is applied to each art plane to un-mirror the texture,
+// because a -π/2 Y-rotation flips the local X-axis relative to world Z.
+const ROT_Y = -Math.PI / 2;
 
 // ── Team member data ─────────────────────────────────────────────────────────
 interface TeamMember {
   name: string;
   role: string;
-  color: number;
+  // UV crop within the team photo (3 col × 2 row grid)
+  // u0/v0 = bottom-left corner, u1/v1 = top-right corner (Three.js UV convention)
+  u0: number; u1: number;
+  v0: number; v1: number;
 }
 
+// The screenshot is a 3×2 grid: top row = Puresoul/KarateKid/Uday, bottom = Sirenia/Oscar/Casper.
+// In Three.js UVs, V=1 is the top of the image, V=0 is the bottom.
+// The image has a ~12% header ("Meet the team" bar) at the top.
+// Approximate portrait crops — each column is 1/3 wide, each row is ~44% of image height.
 const TEAM: TeamMember[] = [
-  { name: "Puresoul",   role: "Founder",      color: 0x9b59b6 },
-  { name: "Karate Kid", role: "Dev",           color: 0x8e44ad },
-  { name: "Uday",       role: "Dev",           color: 0x7d3c98 },
-  { name: "Sirenia",    role: "Lead Artist",   color: 0x6c3483 },
-  { name: "Oscar",      role: "Lead Artist",   color: 0x5b2c6f },
-  { name: "Casper",     role: "Lead Artist",   color: 0x4a235a },
+  { name: "Puresoul",   role: "Founder",      u0: 0.00, u1: 0.333, v0: 0.44, v1: 0.88 },
+  { name: "Karate Kid", role: "Dev",           u0: 0.333, u1: 0.666, v0: 0.44, v1: 0.88 },
+  { name: "Uday",       role: "Dev",           u0: 0.666, u1: 1.00, v0: 0.44, v1: 0.88 },
+  { name: "Sirenia",    role: "Lead Artist",   u0: 0.00, u1: 0.333, v0: 0.00, v1: 0.44 },
+  { name: "Oscar",      role: "Lead Artist",   u0: 0.333, u1: 0.666, v0: 0.00, v1: 0.44 },
+  { name: "Casper",     role: "Lead Artist",   u0: 0.666, u1: 1.00, v0: 0.00, v1: 0.44 },
 ];
 
 // ── Frame layout — 3 top, 3 bottom ──────────────────────────────────────────
 const FW   = 1.30;   // frame width  (along Z)
-const FH   = 1.00;   // frame height (along Y)
-const FD   = 0.07;   // frame depth  (protrudes into room, along X)
-const AW   = FW - 0.16;
-const AH   = FH - 0.14;
+const FH   = 1.10;   // frame height (along Y)
+const FD   = 0.07;   // frame depth  (into room, along X)
+const AW   = FW - 0.12;
+const AH   = FH - 0.10;
 const HGAP = 0.22;
 
-const SIGN_H   = 0.36;
-const Y_TOP    = 2.68;
-const Y_BOT    = 1.28;
+const SIGN_H = 0.36;
+const Y_TOP  = 2.72;
+const Y_BOT  = 1.28;
 
-// Border frame sticks out proud of the panel front face
-const BORDER_X  = PANEL_FRONT_X + FD / 2;    // 33.260
-const ART_FACE_X = PANEL_FRONT_X + FD + 0.005; // 33.300
+// Borders and art planes protrude into the hall (toward +X)
+const BORDER_X   = PANEL_FRONT_X + FD / 2;       // 33.260
+const ART_FACE_X = PANEL_FRONT_X + FD + 0.005;   // 33.300
 
 function rowCentres(count: number): number[] {
   const total  = count * FW + (count - 1) * HGAP;
@@ -55,135 +65,99 @@ function rowCentres(count: number): number[] {
   return Array.from({ length: count }, (_, i) => start + i * (FW + HGAP));
 }
 
-// ── Canvas texture per team member ───────────────────────────────────────────
-function makeMemberTexture(member: TeamMember): THREE.CanvasTexture {
-  const size = 256;
-  const c    = document.createElement("canvas");
-  c.width = c.height = size;
-  const ctx  = c.getContext("2d")!;
-
-  // Deep purple background
-  const grad = ctx.createLinearGradient(0, 0, 0, size);
-  grad.addColorStop(0, "#1a0d2e");
-  grad.addColorStop(1, "#0d0718");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, size, size);
-
-  // Subtle dot grid
-  ctx.fillStyle = "rgba(180,130,255,0.07)";
-  for (let x = 8; x < size; x += 16) {
-    for (let y = 8; y < size; y += 16) {
-      ctx.beginPath();
-      ctx.arc(x, y, 1.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
+// Build a PlaneGeometry whose UV coords are clamped to a sub-region of a texture atlas.
+function croppedPlane(aw: number, ah: number, u0: number, u1: number, v0: number, v1: number): THREE.BufferGeometry {
+  const geo = new THREE.PlaneGeometry(aw, ah);
+  const uv  = geo.attributes.uv as THREE.BufferAttribute;
+  // PlaneGeometry UV order: TL, TR, BL, BR  (index 0,1,2,3)
+  // After cropping, remap [0..1] → [u0..u1] / [v0..v1]
+  for (let i = 0; i < uv.count; i++) {
+    const u = uv.getX(i);
+    const v = uv.getY(i);
+    uv.setXY(i, u0 + u * (u1 - u0), v0 + v * (v1 - v0));
   }
-
-  // Glowing circle badge
-  const bx = size / 2, by = size / 2 - 28;
-  const badge = ctx.createRadialGradient(bx, by, 0, bx, by, 38);
-  badge.addColorStop(0, "rgba(180,80,255,0.55)");
-  badge.addColorStop(1, "rgba(100,20,180,0.10)");
-  ctx.beginPath();
-  ctx.arc(bx, by, 38, 0, Math.PI * 2);
-  ctx.fillStyle = badge;
-  ctx.fill();
-  ctx.strokeStyle = "rgba(200,120,255,0.80)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // Parrot icon (simple emoji fallback)
-  ctx.font = "bold 36px Arial";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("🦜", bx, by);
-
-  // Name
-  ctx.fillStyle = "#f0d9ff";
-  ctx.font      = "bold 17px Arial";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillText(member.name, size / 2, size / 2 + 20);
-
-  // Role
-  ctx.fillStyle = "rgba(200,160,255,0.70)";
-  ctx.font      = "13px Arial";
-  ctx.fillText(member.role, size / 2, size / 2 + 40);
-
-  // Thin bottom accent line
-  ctx.strokeStyle = "rgba(180,80,255,0.45)";
-  ctx.lineWidth   = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(size * 0.2, size - 12);
-  ctx.lineTo(size * 0.8, size - 12);
-  ctx.stroke();
-
-  const tex          = new THREE.CanvasTexture(c);
-  tex.colorSpace     = THREE.SRGBColorSpace;
-  return tex;
+  uv.needsUpdate = true;
+  return geo;
 }
 
 // ── Build function ────────────────────────────────────────────────────────────
 export function buildTeamBoard(scene: THREE.Scene): void {
 
   // ── Background panel (dark purple-slate slab) ────────────────────────────
-  const panelGeo = new THREE.BoxGeometry(PANEL_DEPTH, PANEL_HEIGHT, PANEL_WIDTH);
-  const panelMat = new THREE.MeshStandardMaterial({
-    color:     0x120820,
-    roughness: 0.85,
-    metalness: 0.05,
-  });
-  const panel = new THREE.Mesh(panelGeo, panelMat);
+  const panelMat = new THREE.MeshStandardMaterial({ color: 0x120820, roughness: 0.85, metalness: 0.05 });
+  const panel    = new THREE.Mesh(new THREE.BoxGeometry(PANEL_DEPTH, PANEL_HEIGHT, PANEL_WIDTH), panelMat);
   panel.position.set(PANEL_X, PANEL_Y, PANEL_Z);
-  panel.castShadow    = true;
-  panel.receiveShadow = true;
+  panel.castShadow = panel.receiveShadow = true;
   scene.add(panel);
 
-  // ── Trim strips (purple-gold) ────────────────────────────────────────────
+  // ── Purple trim strips ───────────────────────────────────────────────────
   const trimGeo = new THREE.BoxGeometry(PANEL_DEPTH + 0.002, 0.04, PANEL_WIDTH + 0.01);
   const trimMat = new THREE.MeshStandardMaterial({ color: 0x9b59b6, metalness: 0.8, roughness: 0.25 });
-
   const trimBot = new THREE.Mesh(trimGeo, trimMat);
   trimBot.position.set(PANEL_X, 0.3 + 0.02, PANEL_Z);
   scene.add(trimBot);
-
   const trimTop = new THREE.Mesh(trimGeo, trimMat);
   trimTop.position.set(PANEL_X, 0.3 + PANEL_HEIGHT - 0.02, PANEL_Z);
   scene.add(trimTop);
 
   // ── Heading sign ─────────────────────────────────────────────────────────
   const signW    = 5.0;
-  const signGeo  = new THREE.BoxGeometry(PANEL_DEPTH + 0.002, SIGN_H, signW);
   const signCanv = document.createElement("canvas");
   signCanv.width = 800; signCanv.height = 64;
   const sc       = signCanv.getContext("2d")!;
-
   const signGrad = sc.createLinearGradient(0, 0, 800, 0);
   signGrad.addColorStop(0,   "#0d0718");
   signGrad.addColorStop(0.5, "#1a0d2e");
   signGrad.addColorStop(1,   "#0d0718");
   sc.fillStyle = signGrad;
   sc.fillRect(0, 0, 800, 64);
-
-  sc.fillStyle  = "#c9a8ff";
-  sc.font       = "bold 26px Arial";
-  sc.textAlign  = "center";
+  sc.fillStyle = "#c9a8ff";
+  sc.font      = "bold 26px Arial";
+  sc.textAlign = "center";
   sc.textBaseline = "middle";
   sc.fillText("🦜  MEET THE TEAM  🦜", 400, 32);
-
-  const signTex        = new THREE.CanvasTexture(signCanv);
-  signTex.colorSpace   = THREE.SRGBColorSpace;
-  const signMat        = new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.6, metalness: 0.1 });
-  const sign           = new THREE.Mesh(signGeo, signMat);
+  const signTex      = new THREE.CanvasTexture(signCanv);
+  signTex.colorSpace = THREE.SRGBColorSpace;
+  const sign = new THREE.Mesh(
+    new THREE.BoxGeometry(PANEL_DEPTH + 0.002, SIGN_H, signW),
+    new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.6, metalness: 0.1 }),
+  );
   sign.position.set(PANEL_X, 0.3 + PANEL_HEIGHT - SIGN_H / 2 - 0.04, PANEL_Z);
   scene.add(sign);
+
+  // ── Load the shared team photo ────────────────────────────────────────────
+  const loader  = new THREE.TextureLoader();
+  const baseUrl = (import.meta.env.BASE_URL as string ?? "/").replace(/\/$/, "");
+  const imgUrl  = `${baseUrl}/images/meet-the-team.png`;
+
+  // Shared material array — one entry per frame; we'll update maps once loaded.
+  const artMaterials: THREE.MeshStandardMaterial[] = [];
+
+  // Purple-glow placeholder shown until the image loads
+  function makePlaceholder(name: string): THREE.CanvasTexture {
+    const c   = document.createElement("canvas");
+    c.width = c.height = 128;
+    const cx  = c.getContext("2d")!;
+    cx.fillStyle = "#1a0d2e";
+    cx.fillRect(0, 0, 128, 128);
+    cx.fillStyle = "rgba(180,80,255,0.15)";
+    cx.fillRect(0, 0, 128, 128);
+    cx.fillStyle = "#c9a8ff";
+    cx.font = "bold 11px Arial";
+    cx.textAlign = "center";
+    cx.textBaseline = "middle";
+    cx.fillText(name, 64, 64);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
 
   // ── Frame slots (3 top, 3 bottom) ────────────────────────────────────────
   const borderMat = new THREE.MeshStandardMaterial({ color: 0x9b59b6, metalness: 0.75, roughness: 0.28 });
   const borderGeo = new THREE.BoxGeometry(FD, FH, FW);
-  const artGeo    = new THREE.PlaneGeometry(AW, AH);
 
-  const topZs  = rowCentres(3);
-  const botZs  = rowCentres(3);
+  const topZs = rowCentres(3);
+  const botZs = rowCentres(3);
   const slots: Array<{ z: number; y: number; idx: number }> = [
     ...topZs.map((z, i) => ({ z, y: Y_TOP, idx: i })),
     ...botZs.map((z, i) => ({ z, y: Y_BOT, idx: i + 3 })),
@@ -193,27 +167,50 @@ export function buildTeamBoard(scene: THREE.Scene): void {
     const member = TEAM[idx];
     if (!member) return;
 
-    // Border frame
+    // Gold border frame
     const border = new THREE.Mesh(borderGeo, borderMat);
     border.position.set(BORDER_X, y, z);
     border.castShadow = true;
     scene.add(border);
 
-    // Art plane with canvas texture
-    const tex    = makeMemberTexture(member);
+    // Art plane with cropped UV to show this member's portrait from the photo
+    const geo    = croppedPlane(AW, AH, member.u0, member.u1, member.v0, member.v1);
     const artMat = new THREE.MeshStandardMaterial({
-      map:       tex,
-      roughness: 0.82,
-      side:      THREE.DoubleSide,
+      map:       makePlaceholder(member.name),
+      roughness: 0.75,
+      side:      THREE.FrontSide,
     });
-    const art = new THREE.Mesh(artGeo, artMat);
+    artMaterials.push(artMat);
+
+    const art = new THREE.Mesh(geo, artMat);
     art.position.set(ART_FACE_X, y, z);
     art.rotation.y = ROT_Y;
+    art.scale.x    = -1;   // un-mirror: -π/2 Y-rotation flips local X; this restores it
     art.receiveShadow = true;
     scene.add(art);
   });
 
-  // ── Spotlights aimed at the board ────────────────────────────────────────
+  // Load image once; when ready swap all placeholder maps
+  loader.load(
+    imgUrl,
+    (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      // Each material already has its own UV-cropped geometry.
+      // All frames share the SAME texture object (one GPU upload), just different UVs.
+      for (const mat of artMaterials) {
+        mat.map!.dispose();   // drop placeholder
+        mat.map = tex;
+        mat.needsUpdate = true;
+      }
+    },
+    undefined,
+    (err) => {
+      console.warn("[TeamBoard] Could not load team photo:", imgUrl, err);
+    },
+  );
+
+  // ── Spotlights ────────────────────────────────────────────────────────────
   const spot = new THREE.SpotLight(0xd5aaff, 5, 18, Math.PI / 6, 0.40);
   spot.position.set(38, 3.85, PANEL_Z);
   spot.target.position.set(PANEL_FRONT_X, PANEL_Y, PANEL_Z);
