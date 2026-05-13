@@ -8,6 +8,7 @@ import { buildUncommonGallery, UncommonNFT } from "./UncommonGallery";
 import { buildRareGallery, RareNFT } from "./RareGallery";
 import { buildPlatinumVault, PlatinumNFT } from "./PlatinumVault";
 import { buildPartnerBoard } from "./PartnerBoard";
+import { buildTeamBoard } from "./TeamBoard";
 export type { CommonNFT, UncommonNFT, RareNFT, PlatinumNFT };
 
 function buildWallMesh(
@@ -317,6 +318,8 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   const { borderMesh: pgMesh, artMeshes: pgArtMeshes, nfts: platinumNFTs }   = buildPlatinumVault(scene);
   const { frameMeshes: partnerFrameMeshes, lights: partnerLights }             = buildPartnerBoard(scene);
   for (const l of partnerLights) scene.add(l);
+
+  buildTeamBoard(scene);
 
   return {
     frameMeshes,
