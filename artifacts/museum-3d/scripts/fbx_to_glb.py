@@ -67,7 +67,10 @@ bpy.ops.export_scene.gltf(
     export_materials="NONE",
     export_animations=True,
     export_skins=True,
-    export_apply=True,
+    export_apply=False,   # MUST be False for skinned characters — True causes
+                          # Blender to export without the mesh→skin binding, and
+                          # gltf-transform prune then deletes the orphaned Skin,
+                          # leaving an unanimated static mesh.
     export_cameras=False,
     export_lights=False,
 )
