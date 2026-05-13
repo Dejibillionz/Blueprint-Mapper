@@ -9,6 +9,7 @@
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
     "prebuild": "node scripts/generate-facts.mjs",
     "build": "vite build --config vite.config.ts",
+    "pretypecheck": "node scripts/generate-facts.mjs",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
