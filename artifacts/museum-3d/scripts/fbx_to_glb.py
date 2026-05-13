@@ -7,8 +7,10 @@ Usage:
 - Textures are NOT embedded (materials set to NONE) because the Three.js
   code loads and applies PBR textures separately via applyPBRMaterial().
 - Skeletal animations and skinning weights are fully preserved.
-- Blender handles the centimetre→metre unit conversion during FBX import,
-  so the output GLB is already in metres (no scale.setScalar(0.01) needed).
+- NO transform_apply: bone rest poses and animation keyframes must remain
+  in the same local coordinate system or animations will be corrupted.
+  The Armature node carries scale (0.01) and rotation from the FBX import;
+  Three.js handles both via the skinning pipeline without needing manual fixes.
 """
 
 import bpy
@@ -47,16 +49,17 @@ bpy.ops.import_scene.fbx(
 
 print(f"[fbx_to_glb] objects after import: {[o.name for o in bpy.data.objects]}")
 
-# --- Apply scale so glTF node has scale (1,1,1) in metres ---------------
-# Mixamo FBX imports with the Armature at scale (0.01, 0.01, 0.01).
-# Applying the scale bakes it into bone rest positions and mesh vertices,
-# so the exported glTF nodes have identity scale → Three.js sees the
-# character at the correct ~1.7 m height with no extra scaling needed.
-bpy.ops.object.select_all(action="SELECT")
-bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
-print(f"[fbx_to_glb] rotation + scale applied")
+# Diagnostic: show Armature object transform so we know what ends up in the GLB
+for obj in bpy.data.objects:
+    if obj.type == "ARMATURE":
+        print(f"[fbx_to_glb] Armature rotation_euler: {list(obj.rotation_euler)}")
+        print(f"[fbx_to_glb] Armature scale: {list(obj.scale)}")
 
 # --- Export GLB ---------------------------------------------------------
+# export_apply=True applies mesh-object transforms to vertex data at export
+# time without touching Blender scene data.  The Armature node (scale 0.01,
+# rotation from FBX import) is preserved as-is in the GLB — Three.js uses
+# it correctly through the skinning inverse-bind-matrix pipeline.
 bpy.ops.export_scene.gltf(
     filepath=glb_path,
     export_format="GLB",
@@ -64,7 +67,7 @@ bpy.ops.export_scene.gltf(
     export_materials="NONE",
     export_animations=True,
     export_skins=True,
-    export_apply=False,   # transforms already applied above
+    export_apply=True,
     export_cameras=False,
     export_lights=False,
 )
