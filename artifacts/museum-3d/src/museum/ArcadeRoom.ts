@@ -99,10 +99,13 @@ export class ArcadeRoom {
   }
 
   private buildRoomStructure(): void {
-    // Dark arcade floor — x=62..100, z=30..52 (38 × 22 m)
+    // Arcade floor — same wood texture as main museum
+    const woodTex = new THREE.TextureLoader().load("/floor-wood.jpg");
+    woodTex.wrapS = woodTex.wrapT = THREE.RepeatWrapping;
+    woodTex.repeat.set(6, 4);
     const floorGeo = new THREE.PlaneGeometry(38, 22);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x07000f, roughness: 0.9, metalness: 0.0,
+      map: woodTex, roughness: 0.7, metalness: 0.0,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
@@ -160,12 +163,14 @@ export class ArcadeRoom {
     const geo = new THREE.PlaneGeometry(4, 1.2);
     const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(61.9, WALL_HEIGHT - 0.55, 42);
-    mesh.rotation.y = Math.PI / 2;
+    // Place sign just inside the arcade (x=63.5), facing west so it greets
+    // visitors the moment they step through the door
+    mesh.position.set(63.5, WALL_HEIGHT - 0.7, 42);
+    mesh.rotation.y = -Math.PI / 2;
     this.scene.add(mesh);
 
-    const signLight = new THREE.PointLight(0xcc00ff, 1.2, 6);
-    signLight.position.set(61.5, WALL_HEIGHT - 0.55, 42);
+    const signLight = new THREE.PointLight(0xcc00ff, 1.4, 8);
+    signLight.position.set(64.5, WALL_HEIGHT - 0.7, 42);
     this.scene.add(signLight);
   }
 
