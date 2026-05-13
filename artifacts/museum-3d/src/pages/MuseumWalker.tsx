@@ -16,6 +16,7 @@ import { ProximityTextureManager, MetaEntry } from "../museum/ProximityTextureMa
 import { Receptionist } from "../museum/Receptionist";
 import { buildLegendaryPedestals, LEGENDARY_PEDESTAL_META, LEGENDARY_PEDESTAL_POSITIONS } from "../museum/LegendaryPedestals";
 import ArtifactInspectViewer from "../components/ArtifactInspectViewer";
+import { ArcadeRoom, ArcadeInteractable } from "../museum/ArcadeRoom";
 
 // ── Legendary Vault pedestal model slots ─────────────────────────────────────
 // Drop your GLB/GLTF paths here (one per pedestal, index 0-3).
@@ -173,6 +174,8 @@ export default function MuseumWalker() {
   const [receptionistHint,  setReceptionistHint]  = useState(false);
   const [receptionistOpen,  setReceptionistOpen]  = useState(false);
   const [receptionistQuery, setReceptionistQuery] = useState("");
+  const [arcadeHint,        setArcadeHint]        = useState<ArcadeInteractable | null>(null);
+  const [arcadeGameUrl,     setArcadeGameUrl]     = useState<string | null>(null);
 
   // Refs for the Three.js state that needs to persist between renders
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -203,6 +206,10 @@ export default function MuseumWalker() {
   const lastRecHintRef        = useRef(false);
   const receptionistOpenRef   = useRef(false);
   const followingGuideRef     = useRef(false);
+  const arcadeRoomRef         = useRef<ArcadeRoom | null>(null);
+  const arcadeNearRef         = useRef<ArcadeInteractable | null>(null);
+  const arcadeGameOpenRef     = useRef(false);
+  const lastArcadeHintRef     = useRef<number | null>(null);
 
   // ── Touch controls ─────────────────────────────────────────────
   const touchStartedRef   = useRef(false);
@@ -391,6 +398,14 @@ export default function MuseumWalker() {
     if (controlsRef.current) controlsRef.current.suspended = false;
   }, []);
 
+  const closeArcadeGame = useCallback(() => {
+    setArcadeGameUrl(null);
+    arcadeGameOpenRef.current = false;
+    if (controlsRef.current && !receptionistOpenRef.current && !followingGuideRef.current) {
+      controlsRef.current.suspended = false;
+    }
+  }, []);
+
   const handleMobileStart = useCallback(() => {
     if (!IS_TOUCH) return;
     touchStartedRef.current = true;
@@ -548,20 +563,30 @@ export default function MuseumWalker() {
     const h = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.code === "KeyE") {
-        if (!receptionistOpen && receptionistNearbyRef.current) {
+        if (arcadeGameOpenRef.current) {
+          closeArcadeGame();
+        } else if (!receptionistOpen && receptionistNearbyRef.current) {
           setReceptionistOpen(true);
           receptionistOpenRef.current = true;
           if (controlsRef.current) controlsRef.current.suspended = true;
           receptionistRef.current?.setState("talk");
         } else if (receptionistOpen) {
           closeReceptionist();
+        } else if (arcadeNearRef.current !== null) {
+          const idx = arcadeNearRef.current.machineIndex;
+          const url = arcadeRoomRef.current?.activateMachine(idx);
+          setArcadeGameUrl(url ?? "__coming_soon__");
+          arcadeGameOpenRef.current = true;
+          if (controlsRef.current) controlsRef.current.suspended = true;
+          document.exitPointerLock();
         }
       }
+      if (e.code === "Escape" && arcadeGameOpenRef.current) closeArcadeGame();
       if (e.code === "Escape" && receptionistOpen) closeReceptionist();
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [receptionistOpen, closeReceptionist]);
+  }, [receptionistOpen, closeReceptionist, closeArcadeGame]);
 
   // Keyboard-driven search and room navigation while panel is open (pointer-lock stays active)
   useEffect(() => {
@@ -780,6 +805,10 @@ export default function MuseumWalker() {
 
     const controls = new FirstPersonControls(camera, renderer.domElement, collisionBoxes);
     controlsRef.current = controls;
+
+    // ── Arcade Room ────────────────────────────────────────────────────────
+    const arcadeRoom = new ArcadeRoom(scene);
+    arcadeRoomRef.current = arcadeRoom;
 
     // ── Receptionist NPC ───────────────────────────────────────────────────
     const receptionist = new Receptionist(
@@ -1038,6 +1067,17 @@ export default function MuseumWalker() {
           setReceptionistHint(isNearby);
         }
 
+        // ── Arcade machine proximity ───────────────────────────
+        if (!arcadeGameOpenRef.current) {
+          const arcadeResult = arcadeRoomRef.current?.getInteractable(camera.position) ?? null;
+          arcadeNearRef.current = arcadeResult;
+          const arcadeIdx = arcadeResult?.machineIndex ?? null;
+          if (arcadeIdx !== lastArcadeHintRef.current) {
+            lastArcadeHintRef.current = arcadeIdx;
+            setArcadeHint(arcadeResult);
+          }
+        }
+
         // ── Animated doors ────────────────────────────────────
         {
           const recPos = receptionistRef.current?.getPosition();
@@ -1220,6 +1260,7 @@ export default function MuseumWalker() {
       proximityMgrRef.current = null;
       receptionistRef.current?.dispose();
       receptionistRef.current = null;
+      arcadeRoomRef.current = null;
       renderer.domElement.removeEventListener("click", onClick);
       document.removeEventListener("pointerlockchange", onLockChange);
       window.removeEventListener("resize", onResize);
@@ -2002,6 +2043,98 @@ export default function MuseumWalker() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Arcade machine proximity hint ── */}
+      {!zoomedFrame && !receptionistOpen && !arcadeGameUrl && arcadeHint && (
+        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 select-none z-30 cursor-pointer min-h-[44px]"
+             style={{ animation: "fadeSlideIn 0.3s ease-out" }}
+             onClick={() => {
+               const idx = arcadeNearRef.current?.machineIndex;
+               if (idx === undefined) return;
+               const url = arcadeRoomRef.current?.activateMachine(idx);
+               setArcadeGameUrl(url ?? "__coming_soon__");
+               arcadeGameOpenRef.current = true;
+               if (controlsRef.current) controlsRef.current.suspended = true;
+               document.exitPointerLock();
+             }}>
+          <div className="flex items-center gap-2 bg-black/75 border border-purple-400/60 rounded-xl px-5 py-2.5 backdrop-blur-sm min-h-[44px]"
+               style={{ boxShadow: "0 0 20px rgba(168,85,247,0.18)" }}>
+            <span className="text-purple-400 text-sm">🕹️</span>
+            <span className="text-white text-sm font-semibold">{arcadeHint.prompt.replace("E — ", "")}</span>
+            {IS_TOUCH ? (
+              <span className="ml-1 text-purple-300 text-xs font-mono">tap to play</span>
+            ) : (
+              <>
+                <kbd className="ml-1 bg-purple-400/20 border border-purple-400/40 text-purple-300 text-xs font-mono rounded px-2 py-0.5">E</kbd>
+                <span className="text-gray-300 text-xs">to play</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Arcade game overlay ── */}
+      {arcadeGameUrl && (
+        <div className="absolute inset-0 z-50 flex flex-col bg-black/95 pointer-events-auto select-none">
+          {/* Header bar */}
+          <div className="flex items-center justify-between px-5 py-3 border-b"
+               style={{ background: "rgba(10,0,20,0.98)", borderColor: "#9900cc44" }}>
+            <div className="flex items-center gap-3">
+              <span className="text-purple-400 text-lg">🕹️</span>
+              <span className="text-white font-bold tracking-wide">Arcade</span>
+              {arcadeGameUrl === "__coming_soon__" && (
+                <span className="text-purple-300 text-xs font-mono bg-purple-900/40 border border-purple-500/30 rounded px-2 py-0.5">
+                  Game coming soon
+                </span>
+              )}
+            </div>
+            <button
+              onClick={closeArcadeGame}
+              className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/15 hover:border-white/30 text-gray-300 hover:text-white text-sm font-mono px-4 py-2 rounded-lg transition-all"
+            >
+              ✕ Close <kbd className="text-[10px] text-gray-500">(ESC)</kbd>
+            </button>
+          </div>
+
+          {/* Game area */}
+          {arcadeGameUrl === "__coming_soon__" ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-6"
+                 style={{ background: "radial-gradient(ellipse at 50% 40%, #1a003a 0%, #050008 70%)" }}>
+              <div className="text-center">
+                <div className="text-6xl mb-4">🕹️</div>
+                <p className="text-purple-300 text-3xl font-bold tracking-widest mb-2"
+                   style={{ textShadow: "0 0 20px #cc00ff" }}>
+                  COMING SOON
+                </p>
+                <p className="text-gray-500 text-sm font-mono mt-3">
+                  Game link not yet configured for this machine.
+                </p>
+                <p className="text-gray-600 text-xs font-mono mt-1">
+                  Press ESC or click Close to return to the museum.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="w-2 h-2 rounded-full bg-purple-500/60 animate-pulse"
+                       style={{ animationDelay: `${i * 0.3}s` }} />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <iframe
+              src={arcadeGameUrl}
+              className="flex-1 w-full border-0"
+              title="Arcade Game"
+              allow="autoplay; fullscreen; gamepad"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+            />
+          )}
+        </div>
+      )}
+
+      {arcadeGameUrl && (
+        <EscListener onEsc={closeArcadeGame} />
       )}
 
       {/* ── Receptionist interaction panel ── */}

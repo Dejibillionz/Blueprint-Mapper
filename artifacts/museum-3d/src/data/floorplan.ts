@@ -91,8 +91,12 @@ export const innerWalls: Wall[] = [
   { from: [52, 35], to: [52, 46] },
   { from: [52, 40], to: [62, 40] },
 
-  // -- Corridor south wall east section (seals the empty zone x=62-100 south of corridor)
-  { from: [62, 30], to: [100, 30] },
+  // -- Arcade north wall (corridor south wall east section) — door gap at x=64–67
+  { from: [62, 30], to: [64, 30] },
+  { from: [67, 30], to: [100, 30] },
+
+  // -- Arcade west wall (seals the arcade room from the open entrance-hub zone)
+  { from: [62, 30], to: [62, 52] },
 ];
 
 export const rooms: Room[] = [
@@ -104,6 +108,7 @@ export const rooms: Room[] = [
   { id: "entrance_hall", name: "Entrance Hall\nNav Hub", x: 33, y: 35, width: 15, height: 11, color: 0x1f4068 },
   { id: "ticket_info", name: "Ticket / Info", x: 14, y: 40, width: 8, height: 6, color: 0x2d4a22 },
   { id: "gift_shop", name: "Gift Shop", x: 52, y: 40, width: 10, height: 6, color: 0x4a2d22 },
+  { id: "arcade",    name: "Arcade",    x: 62, y: 30, width: 38, height: 22, color: 0x0a0a1e },
 ];
 
 // rotationY convention for buildFrameMeshes:
