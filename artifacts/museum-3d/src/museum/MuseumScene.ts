@@ -209,8 +209,8 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   // Entrance gap narrowed to 4 m (x=39–43); outerWalls loop already covers x=37–39 and x=43–45
   scene.add(buildWallMesh(39, 52, 43, 52, WALL_HEIGHT - DOOR_HEIGHT, OUTER_THICKNESS, DOOR_HEIGHT, lintelMat));
   scene.add(buildWallMesh(77, 24, 77, 26, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
-  // Arcade door lintel — z=30, x=64-67 (3 m opening into arcade)
-  scene.add(buildWallMesh(64, 30, 67, 30, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
+  // Arcade door lintel — west wall x=62, z=41-43 (2 m opening into arcade)
+  scene.add(buildWallMesh(62, 41, 62, 43, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
 
   const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x8b7355, metalness: 0.2, roughness: 0.6 });
   const doorFrames: Array<[number, number, number, number]> = [
@@ -218,7 +218,7 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     [38, 22, 42, 22], [62, 22, 66, 22],
     [37, 30, 45, 30], [39, 52, 43, 52],
     [77, 24, 77, 26],
-    [64, 30, 67, 30], // arcade door
+    [62, 41, 62, 43], // arcade door (west wall, z=41-43)
   ];
   for (const [x1, z1, x2, z2] of doorFrames) {
     scene.add(buildWallMesh(x1, z1, x2, z2, 0.1, INNER_THICKNESS + 0.05, DOOR_HEIGHT - 0.05, doorFrameMat));
@@ -282,9 +282,8 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   // Grand entrance — z=52, x=39-43 — double door opens north into building
   addDoorPanel(39, 52, 2,  0,            OPEN_ANG, 41, 52, 5.0);
   addDoorPanel(43, 52, 2,  Math.PI,     -OPEN_ANG, 41, 52, 5.0);
-  // Arcade entrance — z=30, x=64-67 — double door swings south into arcade
-  addDoorPanel(64, 30, 1.5,  0,            OPEN_ANG, 65.5, 30, 4.0);
-  addDoorPanel(67, 30, 1.5,  Math.PI,     -OPEN_ANG, 65.5, 30, 4.0);
+  // Arcade entrance — west wall x=62, z=41-43 — single door swings east into arcade
+  addDoorPanel(62, 41, 2, -Math.PI / 2, OPEN_ANG, 62, 42, 3.0);
 
   const ambient = new THREE.AmbientLight(0xfff5e8, 1.8);
   scene.add(ambient);

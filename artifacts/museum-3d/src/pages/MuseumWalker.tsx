@@ -403,6 +403,7 @@ export default function MuseumWalker() {
     arcadeGameOpenRef.current = false;
     if (controlsRef.current && !receptionistOpenRef.current && !followingGuideRef.current) {
       controlsRef.current.suspended = false;
+      if (!IS_TOUCH) controlsRef.current.requestLock();
     }
   }, []);
 

@@ -91,12 +91,12 @@ export const innerWalls: Wall[] = [
   { from: [52, 35], to: [52, 46] },
   { from: [52, 40], to: [62, 40] },
 
-  // -- Arcade north wall (corridor south wall east section) — door gap at x=64–67
-  { from: [62, 30], to: [64, 30] },
-  { from: [67, 30], to: [100, 30] },
+  // -- Corridor south wall east section (seals arcade north side — solid, no gap)
+  { from: [62, 30], to: [100, 30] },
 
-  // -- Arcade west wall (seals the arcade room from the open entrance-hub zone)
-  { from: [62, 30], to: [62, 52] },
+  // -- Arcade west wall — door gap at z=41–43 (2 m opening from entrance-hub zone)
+  { from: [62, 30], to: [62, 41] },
+  { from: [62, 43], to: [62, 52] },
 ];
 
 export const rooms: Room[] = [

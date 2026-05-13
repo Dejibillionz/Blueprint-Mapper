@@ -23,7 +23,7 @@ const MACHINE_DEFS: MachineDef[] = [
   { x: 98.5, z: 50,   rotY: -Math.PI / 2 },
 ];
 
-const INTERACT_DIST = 2.5;
+const INTERACT_DIST = 2.0;
 
 export class ArcadeRoom {
   private gameUrls: string[] = new Array(MACHINE_DEFS.length).fill("");
@@ -51,7 +51,7 @@ export class ArcadeRoom {
       const dist = Math.sqrt(dx * dx + dz * dz);
       if (dist < INTERACT_DIST && dist < closestDist) {
         closestDist = dist;
-        closest = { prompt: `E — Play Game ${i + 1}`, machineIndex: i };
+        closest = { prompt: `E — Play [Game ${i + 1}]`, machineIndex: i };
       }
     }
     return closest;
@@ -100,13 +100,13 @@ export class ArcadeRoom {
     const geo = new THREE.PlaneGeometry(4, 1.2);
     const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
     const mesh = new THREE.Mesh(geo, mat);
-    // Above door gap at x=64–67 (centre x=65.5), z=30, facing north (toward corridor)
-    mesh.position.set(65.5, WALL_HEIGHT - 0.55, 30.05);
-    mesh.rotation.y = Math.PI; // face north so corridor visitors see it
+    // Above door gap at x=62, z=41-43 (centre z=42), facing west toward approaching players
+    mesh.position.set(61.9, WALL_HEIGHT - 0.55, 42);
+    mesh.rotation.y = Math.PI / 2; // face west (-x direction) with DoubleSide visible from both
     this.scene.add(mesh);
 
     const signLight = new THREE.PointLight(0xcc00ff, 1.2, 6);
-    signLight.position.set(65.5, WALL_HEIGHT - 0.55, 30.5);
+    signLight.position.set(61.5, WALL_HEIGHT - 0.55, 42);
     this.scene.add(signLight);
   }
 
