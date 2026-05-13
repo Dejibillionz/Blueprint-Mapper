@@ -18,9 +18,9 @@ const MACHINE_DEFS: MachineDef[] = [
   { x: 76,   z: 31.0, rotY: 0 },
   { x: 84,   z: 31.0, rotY: 0 },
   // East wall (x≈100), facing west — rotY=-π/2 turns local +z to world -x
-  { x: 98.5, z: 37,   rotY: -Math.PI / 2 },
-  { x: 98.5, z: 44,   rotY: -Math.PI / 2 },
-  { x: 98.5, z: 50,   rotY: -Math.PI / 2 },
+  { x: 99.6, z: 37,   rotY: -Math.PI / 2 },
+  { x: 99.6, z: 44,   rotY: -Math.PI / 2 },
+  { x: 99.6, z: 50,   rotY: -Math.PI / 2 },
 ];
 
 const INTERACT_DIST = 2.0;
@@ -30,14 +30,46 @@ export class ArcadeRoom {
   private machinePositions: THREE.Vector3[] = [];
 
   constructor(private scene: THREE.Scene) {
+    this.buildRoomStructure();
     this.buildSign();
     this.buildMachines();
     this.buildLighting();
   }
 
+  private buildRoomStructure(): void {
+    // Dark arcade floor — x=62..100, z=30..52 (38 × 22 m)
+    const floorGeo = new THREE.PlaneGeometry(38, 22);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x07000f, roughness: 0.9, metalness: 0.0,
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(81, 0.01, 41); // centre of 62-100 × 30-52
+    floor.receiveShadow = true;
+    this.scene.add(floor);
+
+    // Dark ceiling — same footprint
+    const ceilGeo = new THREE.PlaneGeometry(38, 22);
+    const ceilMat = new THREE.MeshStandardMaterial({
+      color: 0x060008, roughness: 1.0, metalness: 0.0,
+      emissive: 0x0a0014, emissiveIntensity: 0.15,
+    });
+    const ceil = new THREE.Mesh(ceilGeo, ceilMat);
+    ceil.rotation.x = Math.PI / 2;
+    ceil.position.set(81, WALL_HEIGHT, 41);
+    this.scene.add(ceil);
+  }
+
+  private machineMeshes: Array<{ body: THREE.Mesh; screen: THREE.Mesh }> = [];
+
   setGameUrl(index: number, url: string): void {
     if (index >= 0 && index < this.gameUrls.length) {
       this.gameUrls[index] = url;
+      const meshes = this.machineMeshes[index];
+      if (meshes) {
+        meshes.body.userData.gameUrl = url;
+        meshes.screen.userData.gameUrl = url;
+      }
     }
   }
 
@@ -129,7 +161,7 @@ export class ArcadeRoom {
       body.position.set(0, 1.0, 0);
       body.castShadow = true;
       body.receiveShadow = true;
-      body.userData = { isArcadeMachine: true, machineIndex: i };
+      body.userData = { isArcadeMachine: true, machineIndex: i, gameUrl: "" };
       group.add(body);
 
       // Trim stripe (neon edge)
@@ -150,7 +182,7 @@ export class ArcadeRoom {
       const screenMat = new THREE.MeshBasicMaterial({ map: screenTex });
       const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.66), screenMat);
       screen.position.set(0, 1.42, 0.31);
-      screen.userData = { isArcadeMachine: true, machineIndex: i };
+      screen.userData = { isArcadeMachine: true, machineIndex: i, gameUrl: "" };
       group.add(screen);
 
       // Controls shelf
@@ -171,6 +203,7 @@ export class ArcadeRoom {
 
       this.scene.add(group);
       this.machinePositions.push(new THREE.Vector3(def.x, 0, def.z));
+      this.machineMeshes.push({ body, screen });
     }
   }
 
@@ -242,12 +275,10 @@ export class ArcadeRoom {
 
   private buildLighting(): void {
     const defs: Array<[number, number, number]> = [
-      [70, 38, 0x9900cc],
-      [82, 38, 0x00ccff],
-      [92, 38, 0x9900cc],
-      [70, 47, 0x00ccff],
-      [82, 47, 0x9900cc],
-      [92, 47, 0x00ccff],
+      [72, 36, 0x9900cc],
+      [90, 36, 0x00ccff],
+      [72, 47, 0x00ccff],
+      [90, 47, 0x9900cc],
     ];
     for (const [x, z, color] of defs) {
       const light = new THREE.PointLight(color, 0.7, 16);
