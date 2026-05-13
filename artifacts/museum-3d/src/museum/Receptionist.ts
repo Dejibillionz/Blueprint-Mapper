@@ -6,7 +6,7 @@ export type ReceptionistAnimState = "idle" | "greet" | "talk" | "walk";
 const TEX_BASE    = "/models/receptionist/";
 const WALK_SPEED  = 3.0;        // m/s
 const WP_THRESH   = 0.3;        // metres — waypoint considered reached
-const HOME        = new THREE.Vector3(41, 0, 48);
+const HOME        = new THREE.Vector3(41, 0, 44);
 
 // ── Wall-aware waypoint paths ───────────────────────────────────────────────
 // Museum layout key facts:
@@ -208,9 +208,20 @@ export class Receptionist {
     const action = this.actions.get("walk");
     if (action) {
       action.setLoop(THREE.LoopRepeat, Infinity);
-      action.clampWhenFinished = false;
+      action.clampWhenFinished  = false;
+      action.setEffectiveTimeScale(1);
+      action.setEffectiveWeight(1);
+      // Only reset+play if not already running — avoids a pose-pop mid-stride
+      if (!action.isRunning()) {
+        action.reset().play();
+      }
     }
-    this.setState("walk");
+    // Bypass setState's early-return guard so weight/fade are always applied
+    const prev = this.actions.get(this.currentState);
+    if (this.currentState !== "walk") {
+      if (prev) prev.fadeOut(0.3);
+      this.currentState = "walk";
+    }
   }
 
   private _updateFlamePosition(pos: THREE.Vector3) {
@@ -230,7 +241,7 @@ export class Receptionist {
       (fbx) => {
         fbx.scale.setScalar(0.01);
         fbx.position.copy(Receptionist.HOME_POS);
-        fbx.rotation.y = Math.PI;
+        fbx.rotation.y = 0;
         applyPBRMaterial(fbx, pbrMat);
         this.scene.add(fbx);
         this.root  = fbx;
@@ -356,8 +367,8 @@ export class Receptionist {
           } else {
             // Back home — snap to exact position and idle
             this.root.position.copy(Receptionist.HOME_POS);
-            this.root.rotation.y = Math.PI;
-            this.walkDir.set(0, 0, -1);
+            this.root.rotation.y = 0;
+            this.walkDir.set(0, 0, 1);
             this.isReturning  = false;
             this.navReturnKey = null;
             this.greetCooldown = 3;
