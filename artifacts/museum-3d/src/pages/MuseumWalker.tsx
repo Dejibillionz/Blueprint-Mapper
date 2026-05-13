@@ -21,7 +21,7 @@ import { buildLegendaryPedestals, LEGENDARY_PEDESTAL_META, LEGENDARY_PEDESTAL_PO
 // Leave a slot as "" to keep that pedestal bare.
 const LEGENDARY_PEDESTAL_MODELS: readonly string[] = [
   "/models/artifact1.glb", // pedestal 1 — west row, north  (x≈83, z≈9)
-  "", // pedestal 2 — west row, south  (x≈83, z≈17)
+  "/models/artifact2.glb", // pedestal 2 — west row, south  (x≈83, z≈17)
   "", // pedestal 3 — east row, north  (x≈94, z≈9)
   "", // pedestal 4 — east row, south  (x≈94, z≈17)
 ];
