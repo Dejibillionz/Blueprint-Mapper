@@ -149,8 +149,8 @@ export class Receptionist {
 
   private static readonly HOME_POS  = HOME;
   private static readonly FLAME_Y   = 1.80;
-  private static readonly NEARBY_SQ = 9;
-  private static readonly GREET_SQ  = 4;
+  private static readonly NEARBY_SQ = 25;  // 5 m radius — show "E to talk" prompt
+  private static readonly GREET_SQ  = 16;  // 4 m radius — auto-greeting wave
 
   // ── Preload tracking ────────────────────────────────────────────
   private fbxLoaded = 0;
@@ -371,6 +371,16 @@ export class Receptionist {
           this.isNavigating = false;
 
           if (!this.isReturning) {
+            // Face the visitor before greeting
+            const pos = this.root.position;
+            const fdx = playerPos.x - pos.x;
+            const fdz = playerPos.z - pos.z;
+            const flen = Math.sqrt(fdx * fdx + fdz * fdz);
+            if (flen > 0.01) {
+              this.root.rotation.y = Math.atan2(fdx, fdz);
+              this.walkDir.set(fdx / flen, 0, fdz / flen);
+            }
+
             // Arrived at destination — greet, then walk home after delay
             this.setState("greet");
             this.greetCooldown = 99;
