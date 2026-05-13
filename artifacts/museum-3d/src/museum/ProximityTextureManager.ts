@@ -7,7 +7,7 @@ export interface GalleryConfig {
   roomId:     string;
 }
 
-interface MetaEntry {
+export interface MetaEntry {
   image:        string;
   token_id:     string;
   rarity_rank:  number | null;
@@ -33,10 +33,11 @@ export class ProximityTextureManager {
   private galleries:  GalleryConfig[];
   private frames:     Frame[][];
   private meta:       MetaEntry[] = [];
-  private metaReady   = false;
-  private activeLoads = 0;
-  private anisotropy: number;
-  private dpr:        number;
+  private metaReady    = false;
+  private metaInjected = false;
+  private activeLoads  = 0;
+  private anisotropy:  number;
+  private dpr:         number;
 
   private textureCache = new Map<string, THREE.Texture>();
   private cacheOrder:   string[] = [];
@@ -66,13 +67,28 @@ export class ProximityTextureManager {
 
   // ── Metadata loading ───────────────────────────────────────────────────────
 
+  /**
+   * Feed pre-loaded metadata from an external source (e.g. the loading phase).
+   * Skips the internal fetchMeta call and prevents it from firing onMetaLoaded again.
+   */
+  injectMeta(meta: MetaEntry[]): void {
+    if (this.metaInjected || this.metaReady) return;
+    this.metaInjected = true;
+    this.meta         = meta;
+    this.metaReady    = true;
+    console.log(`[ProximityTextureManager] Metadata injected: ${meta.length} entries`);
+    this.onMetaLoaded?.(this.meta);
+  }
+
   private async fetchMeta() {
+    if (this.metaInjected) return;
     try {
       const resp = await fetch("/metadata.json");
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (this.metaInjected) return; // injected while awaiting
       this.meta      = (await resp.json()) as MetaEntry[];
       this.metaReady = true;
-      console.log(`[ProximityTextureManager] Metadata loaded: ${this.meta.length} entries`);
+      console.log(`[ProximityTextureManager] Metadata fetched: ${this.meta.length} entries`);
       this.onMetaLoaded?.(this.meta);
     } catch (err) {
       console.error("[ProximityTextureManager] Failed to load metadata.json:", err);

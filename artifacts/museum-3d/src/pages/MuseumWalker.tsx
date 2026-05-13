@@ -12,7 +12,7 @@ import { buildExterior } from "../museum/Exterior";
 import { rooms } from "../data/floorplan";
 import { drawMinimap, MAP_W, MAP_H } from "../museum/minimap";
 import { AmbientAudio } from "../museum/AmbientAudio";
-import { ProximityTextureManager } from "../museum/ProximityTextureManager";
+import { ProximityTextureManager, MetaEntry } from "../museum/ProximityTextureManager";
 import { Receptionist } from "../museum/Receptionist";
 import { buildLegendaryPedestals, LEGENDARY_PEDESTAL_META, LEGENDARY_PEDESTAL_POSITIONS } from "../museum/LegendaryPedestals";
 import ArtifactInspectViewer from "../components/ArtifactInspectViewer";
@@ -712,19 +712,40 @@ export default function MuseumWalker() {
         const m = meta[366 + i];
         if (m) { nft.title = `10K Squad #${m.token_id}`; nft.artist = "10K Squad"; }
       });
-      // Populate search index
+      // Populate search index and mark metadata gate
       setAllMeta(meta.map(m => ({
         token_id:   m.token_id,
         rarity_rank: m.rarity_rank,
         room:        m.room,
         room_index:  m.room_index,
       })));
+      setLoadProgress(p => Math.max(p, 0.95));
       metaDataLoaded = true;
       tryMarkReady();
     };
 
     proximityMgrRef.current = ptm;
-    setLoadProgress(0.65);
+    setLoadProgress(p => Math.max(p, 0.65));
+
+    // ── Explicit metadata preload — advances progress to 0.95 ──────────────
+    // Fetches /metadata.json and injects into PTM before the user enters,
+    // so search and proximity texture loading are ready immediately on entry.
+    const metaBase = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+    fetch(`${metaBase}/metadata.json`)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<MetaEntry[]>;
+      })
+      .then(meta => {
+        // injectMeta fires ptm.onMetaLoaded → setAllMeta + NFT title updates
+        // + setLoadProgress(0.95) + metaDataLoaded + tryMarkReady
+        ptm.injectMeta(meta);
+      })
+      .catch(err => {
+        // PTM's own internal fetch serves as fallback;
+        // metaDataLoaded will be set via ptm.onMetaLoaded when PTM completes.
+        console.warn("[MuseumWalker] Metadata preload failed, falling back to PTM fetch:", err);
+      });
 
     const controls = new FirstPersonControls(camera, renderer.domElement, collisionBoxes);
     controlsRef.current = controls;
@@ -734,7 +755,10 @@ export default function MuseumWalker() {
       scene,
       `${import.meta.env.BASE_URL}models/receptionist/`,
       (loaded, total) => {
-        setLoadProgress(0.70 + 0.20 * (loaded / total));
+        // Receptionist FBX files advance progress from 0.70 to 0.85 (4 files).
+        // Use Math.max so a late callback never reduces progress if metadata
+        // already advanced it beyond 0.85.
+        setLoadProgress(p => Math.max(p, 0.70 + 0.15 * (loaded / total)));
         if (loaded === total) {
           receptionistLoaded = true;
           tryMarkReady();
@@ -742,7 +766,7 @@ export default function MuseumWalker() {
       },
     );
     receptionistRef.current = receptionist;
-    setLoadProgress(0.70);
+    setLoadProgress(p => Math.max(p, 0.70));
 
     const onLockChange = () => {
       const isLocked = document.pointerLockElement === renderer.domElement;
