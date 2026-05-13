@@ -53,8 +53,8 @@ print(f"[fbx_to_glb] objects after import: {[o.name for o in bpy.data.objects]}"
 # so the exported glTF nodes have identity scale → Three.js sees the
 # character at the correct ~1.7 m height with no extra scaling needed.
 bpy.ops.object.select_all(action="SELECT")
-bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-print(f"[fbx_to_glb] scale applied")
+bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+print(f"[fbx_to_glb] rotation + scale applied")
 
 # --- Export GLB ---------------------------------------------------------
 bpy.ops.export_scene.gltf(

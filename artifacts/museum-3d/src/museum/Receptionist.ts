@@ -148,6 +148,11 @@ export class Receptionist {
   // Current walk direction (unit XZ vector), updated every frame
   private walkDir = new THREE.Vector3(0, 0, 1);
 
+  // Y offset so the character's feet land on the floor (Y=0).
+  // GLB bind pose is centered at Y=0 (hips), so feet sit ~1 m below origin.
+  // Computed once after the first GLB loads; used for every root positioning.
+  private yFloor  = 0;
+
   private static readonly HOME_POS  = HOME;
   private static readonly FLAME_Y   = 1.80;
   private static readonly NEARBY_SQ = 25;  // 5 m radius — show "E to talk" prompt
@@ -251,9 +256,17 @@ export class Receptionist {
     loader.load(
       `${base}standing_idle.glb`,
       (gltf) => {
-        // Blender's GLB already carries the cm→m unit scale from the FBX import,
-        // so no additional scale.setScalar(0.01) is needed here.
-        gltf.scene.position.copy(Receptionist.HOME_POS);
+        // The GLB bind pose is centered at the hips (Y≈0), so the feet sit
+        // ~1 m below origin. Compute the floor offset from the bind-pose bbox
+        // so the character stands with feet exactly on the floor (Y=0).
+        const bbox = new THREE.Box3().setFromObject(gltf.scene);
+        this.yFloor = -bbox.min.y;
+
+        gltf.scene.position.set(
+          Receptionist.HOME_POS.x,
+          Receptionist.HOME_POS.y + this.yFloor,
+          Receptionist.HOME_POS.z,
+        );
         gltf.scene.rotation.y = 0;
         applyPBRMaterial(gltf.scene, pbrMat);
         this.scene.add(gltf.scene);
@@ -274,7 +287,7 @@ export class Receptionist {
         this._loadClip(loader, `${base}walking.glb`,           "walk",  THREE.LoopRepeat);
 
         this._addFlameCrown();
-        this._addBadge(gltf.scene);
+        this._addBadge(gltf.scene, this.yFloor);
       },
       undefined,
       (err) => {
@@ -301,15 +314,15 @@ export class Receptionist {
     this.scene.add(light);
   }
 
-  private _addBadge(root: THREE.Group): void {
+  private _addBadge(root: THREE.Group, yFloor: number): void {
     const tex  = makeBadgeTexture();
-    // Scale is now baked into the GLB — all units are metres.
-    // Old cm-space values: position(-12, 128, 10), size 8×8 cm.
-    // Converted: -0.12, 1.28, 0.10 m; 0.08×0.08 m.
+    // Badge should appear at chest height (~1.28 m above the floor).
+    // The scene root is at Y = yFloor above the world floor, so local Y
+    // must be: 1.28 - yFloor so that world Y = yFloor + (1.28 - yFloor) = 1.28 m.
     const geo  = new THREE.PlaneGeometry(0.08, 0.08);
     const mat  = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
     const badge = new THREE.Mesh(geo, mat);
-    badge.position.set(-0.12, 1.28, 0.10);
+    badge.position.set(-0.12, 1.28 - yFloor, 0.10);
     root.add(badge);
   }
 
@@ -405,7 +418,11 @@ export class Receptionist {
             }, 3500);
           } else {
             // Back home — snap to exact position and idle
-            this.root.position.copy(Receptionist.HOME_POS);
+            this.root.position.set(
+              Receptionist.HOME_POS.x,
+              Receptionist.HOME_POS.y + this.yFloor,
+              Receptionist.HOME_POS.z,
+            );
             this.root.rotation.y = 0;
             this.walkDir.set(0, 0, 1);
             this.isReturning  = false;
