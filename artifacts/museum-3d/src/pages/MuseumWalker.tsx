@@ -17,6 +17,7 @@ import { Receptionist } from "../museum/Receptionist";
 import { buildLegendaryPedestals, LEGENDARY_PEDESTAL_META, LEGENDARY_PEDESTAL_POSITIONS } from "../museum/LegendaryPedestals";
 import ArtifactInspectViewer from "../components/ArtifactInspectViewer";
 import { ArcadeRoom, ArcadeInteractable } from "../museum/ArcadeRoom";
+import { DERIVED_FACTS } from "../data/generatedFacts";
 
 // ── Legendary Vault pedestal model slots ─────────────────────────────────────
 // Drop your GLB/GLTF paths here (one per pedestal, index 0-3).
@@ -41,6 +42,7 @@ const RECEPTIONIST_FACTS = [
   "Monad is an EVM-compatible Layer 1 blockchain with 10,000 TPS, making it ultra-fast for NFT transactions.",
   "Holding a Rare 10K Squad NFT granted access to exclusive token presales — like the BOB Token launch.",
   "10K Squad NFTs unlock in-game skins, bonus multipliers, and partner perks across the entire Monad ecosystem.",
+  ...DERIVED_FACTS,
 ] as const;
 
 interface ZoomedFrame {
