@@ -1,11 +1,9 @@
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { WallBox } from "./collision";
 
 export function buildExterior(scene: THREE.Scene): {
   boxes: WallBox[];
   tick: (t: number) => void;
-  updateDoor: (playerPos: THREE.Vector3, delta: number) => void;
 } {
   const extraBoxes: WallBox[] = [];
   // Uniforms shared with the twinkling star shader — updated every frame by tick().
@@ -931,50 +929,6 @@ export function buildExterior(scene: THREE.Scene): {
   keystone.castShadow = true;
   scene.add(keystone);
 
-  // Entrance door — 3D GLB model placed in the arch opening.
-  // The door swings open on a pivot at its left edge (x=39, z=52) when the
-  // player walks within ~3 m of the doorway.
-  const DOOR_CENTER_X = 41;
-  const DOOR_CENTER_Z = 52;
-  const DOOR_HALF_W   = 2;   // half of 4 m total width
-  const DOOR_OPEN_ANGLE = -Math.PI / 2;  // swing fully inward along the wall
-
-  // Pivot group sits at the left edge of the door opening.
-  const doorPivot = new THREE.Group();
-  doorPivot.position.set(DOOR_CENTER_X - DOOR_HALF_W, 0, DOOR_CENTER_Z);
-  scene.add(doorPivot);
-
-  // Animation state: 0 = fully closed, 1 = fully open.
-  let doorOpenT  = 0;
-  let doorTarget = 0;
-
-  const doorLoader = new GLTFLoader();
-  doorLoader.load(
-    `${import.meta.env.BASE_URL}models/entrance_door.glb`,
-    (gltf) => {
-      const door = gltf.scene;
-      // Auto-scale to fit arch opening (4 m wide, 4 m tall).
-      const box = new THREE.Box3().setFromObject(door);
-      const size = new THREE.Vector3();
-      box.getSize(size);
-      const scale = Math.min(4 / Math.max(size.x, 0.01), 4 / Math.max(size.y, 0.01));
-      door.scale.setScalar(scale);
-      // Recompute bounding box after scaling to find the model's floor level.
-      const box2 = new THREE.Box3().setFromObject(door);
-      // Position relative to the pivot: DOOR_HALF_W right, lifted to sit on floor.
-      door.position.set(DOOR_HALF_W, -box2.min.y, 0);
-      door.traverse((c) => {
-        if ((c as THREE.Mesh).isMesh) {
-          c.castShadow = true;
-          c.receiveShadow = true;
-        }
-      });
-      doorPivot.add(door);
-    },
-    undefined,
-    (err) => console.error("[Exterior] entrance_door.glb failed to load:", err),
-  );
-
   // Dedicated spotlight aimed at the sign from outside (south, above)
   const signSpot = new THREE.SpotLight(0xfffaf0, 14, 30, Math.PI / 8, 0.3, 1.0);
   signSpot.position.set(41, 10, 62);
@@ -1214,22 +1168,5 @@ export function buildExterior(scene: THREE.Scene): {
     glowMat2.opacity = 0.038 + 0.018 * Math.sin(t * 0.47 + 1.2);
   };
 
-  // ── Door proximity animation ──────────────────────────────────────────────
-  // Called every frame from the animate loop with the player's current world
-  // position and the frame delta-time.  When the player is within 3 m of the
-  // door centre the door swings open; further away it eases back closed.
-  const updateDoor = (playerPos: THREE.Vector3, delta: number) => {
-    const dx = playerPos.x - DOOR_CENTER_X;
-    const dz = playerPos.z - DOOR_CENTER_Z;
-    const distSq = dx * dx + dz * dz;
-    doorTarget = distSq < 9 ? 1 : 0;   // 3 m radius (3² = 9)
-
-    // Exponential ease: open quickly (2.5×), close gently (1.2×).
-    const speed = doorTarget > doorOpenT ? 2.5 : 1.2;
-    doorOpenT += (doorTarget - doorOpenT) * Math.min(1, speed * delta);
-
-    doorPivot.rotation.y = doorOpenT * DOOR_OPEN_ANGLE;
-  };
-
-  return { boxes: extraBoxes, tick, updateDoor };
+  return { boxes: extraBoxes, tick };
 }

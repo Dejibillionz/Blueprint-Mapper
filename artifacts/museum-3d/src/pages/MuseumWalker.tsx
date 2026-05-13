@@ -950,7 +950,6 @@ export default function MuseumWalker() {
         proximityMgrRef.current?.update(camera.position, elapsed, currentRoomId);
         if (exterior) {
           exterior.tick(elapsed);
-          exterior.updateDoor(camera.position, delta);
         }
 
         // ── Receptionist NPC ──────────────────────────────────
