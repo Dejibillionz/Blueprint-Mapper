@@ -1,50 +1,38 @@
 import * as THREE from "three";
-import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 
 export type ReceptionistAnimState = "idle" | "greet" | "talk" | "walk";
 
-const TEX_BASE    = "/models/receptionist/";
-const WALK_SPEED  = 3.0;        // m/s
-const WP_THRESH   = 0.3;        // metres — waypoint considered reached
+const WALK_SPEED  = 3.0;
+const WP_THRESH   = 0.3;
 const HOME        = new THREE.Vector3(41, 0, 48);
 
 // ── Wall-aware waypoint paths ───────────────────────────────────────────────
-// Museum layout key facts:
-//   Entrance hall: x=33-48, z=35-46. Receptionist desk at z=48 (open lobby south of hall).
-//   Corridor: x=28-76, z=22-30.
-//   South-wall passage gap (entrance → corridor): x=37-45 at z=30  →  x=41 clears it.
-//   North-wall entrance gaps:
-//     D2 (→ Uncommon Wing):   x=38-42, z=22
-//     D3 (→ Rare Collection): x=62-66, z=22
-//   Room-1 east-wall door (→ Common Gallery): x=26, z=20-22 (lower door)
-//     Approach: west to x=27.5 in corridor, then north past z=22 (wall only applies x≥28),
-//     then west through the x=26 door gap at z≈21.
-//   Vault west-wall gap (→ Legendary): x=77, z=24-26
-//     Approach: east to x=76 at z=25, step through to x=79.
 const ROOM_PATHS: Record<string, THREE.Vector3[]> = {
   common: [
-    new THREE.Vector3(41,   0, 26),   // straight north — passes through all gaps cleanly
-    new THREE.Vector3(27.5, 0, 26),   // west along corridor, clear of x=26 wall
-    new THREE.Vector3(27.5, 0, 21),   // north past corridor wall (only solid x≥28)
-    new THREE.Vector3(14,   0, 15),   // Common Gallery interior
+    new THREE.Vector3(41,   0, 26),
+    new THREE.Vector3(27.5, 0, 26),
+    new THREE.Vector3(27.5, 0, 21),
+    new THREE.Vector3(14,   0, 15),
   ],
   uncommon: [
     new THREE.Vector3(41,   0, 26),
-    new THREE.Vector3(40,   0, 26),   // approach D2 (x=38-42)
-    new THREE.Vector3(40,   0, 21),   // through D2 door gap
-    new THREE.Vector3(40,   0, 13),   // Uncommon Wing interior
+    new THREE.Vector3(40,   0, 26),
+    new THREE.Vector3(40,   0, 21),
+    new THREE.Vector3(40,   0, 13),
   ],
   rare: [
     new THREE.Vector3(41,   0, 26),
-    new THREE.Vector3(64,   0, 26),   // east along corridor, approach D3 (x=62-66)
-    new THREE.Vector3(64,   0, 21),   // through D3 door gap
-    new THREE.Vector3(64,   0, 13),   // Rare Collection interior
+    new THREE.Vector3(64,   0, 26),
+    new THREE.Vector3(64,   0, 21),
+    new THREE.Vector3(64,   0, 13),
   ],
   platinum: [
     new THREE.Vector3(41,   0, 26),
-    new THREE.Vector3(76,   0, 25),   // corridor east end, approach vault gap (z=24-26)
-    new THREE.Vector3(79,   0, 25),   // through vault gap at x=77
-    new THREE.Vector3(88,   0, 13),   // Legendary Vault interior
+    new THREE.Vector3(76,   0, 25),
+    new THREE.Vector3(79,   0, 25),
+    new THREE.Vector3(88,   0, 13),
   ],
 };
 
@@ -54,29 +42,13 @@ function buildReturnPath(roomKey: string): THREE.Vector3[] {
   return [...fwd].reverse().concat([HOME.clone()]);
 }
 
-function loadPBRMaterial(texLoader: THREE.TextureLoader): THREE.MeshStandardMaterial {
-  const diffuse   = texLoader.load(`${TEX_BASE}texture_diffuse.png`);
-  const normal    = texLoader.load(`${TEX_BASE}texture_normal.png`);
-  const metallic  = texLoader.load(`${TEX_BASE}texture_metallic.png`);
-  const roughness = texLoader.load(`${TEX_BASE}texture_roughness.png`);
-  diffuse.colorSpace = THREE.SRGBColorSpace;
-  return new THREE.MeshStandardMaterial({
-    map: diffuse, normalMap: normal,
-    metalnessMap: metallic, roughnessMap: roughness,
-    metalness: 1.0, roughness: 1.0,
-  });
-}
+// ── Shared Draco + GLTF loader ───────────────────────────────────────────────
+const _draco = new DRACOLoader();
+_draco.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/");
+const _gltfLoader = new GLTFLoader();
+_gltfLoader.setDRACOLoader(_draco);
 
-function applyPBRMaterial(fbx: THREE.Group, mat: THREE.MeshStandardMaterial): void {
-  fbx.traverse((child) => {
-    const mesh = child as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    mesh.material = mat;
-    mesh.castShadow    = true;
-    mesh.receiveShadow = true;
-  });
-}
-
+// ── Flame texture helper ─────────────────────────────────────────────────────
 function makeFlameTexture(): THREE.CanvasTexture {
   const W = 128, H = 192;
   const canvas = document.createElement("canvas");
@@ -99,6 +71,7 @@ function makeFlameTexture(): THREE.CanvasTexture {
   return new THREE.CanvasTexture(canvas);
 }
 
+// ── Badge texture helper ─────────────────────────────────────────────────────
 function makeBadgeTexture(): THREE.CanvasTexture {
   const S = 64;
   const canvas = document.createElement("canvas");
@@ -113,7 +86,7 @@ function makeBadgeTexture(): THREE.CanvasTexture {
   ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 2.5;
   ctx.beginPath();
   ctx.moveTo(hx, hy + hr * 0.5);
-  ctx.bezierCurveTo(hx - hr * 1.5, hy - hr * 0.5, hx - hr * 1.5, hy + hr, hx, hy + hr * 1.5);
+  ctx.bezierCurveTo(hx - hr * 1.5, hy - hr * 0.5, hx - hr * 1.5, hy + hr, hx, hy + hr * 0.5);
   ctx.bezierCurveTo(hx + hr * 1.5, hy + hr, hx + hr * 1.5, hy - hr * 0.5, hx, hy + hr * 0.5);
   ctx.stroke();
   ctx.fillStyle = "#FFFFFF";
@@ -123,16 +96,74 @@ function makeBadgeTexture(): THREE.CanvasTexture {
   return new THREE.CanvasTexture(canvas);
 }
 
+// ── Procedural animation helpers ─────────────────────────────────────────────
+// All animations use absolute elapsed time so they are perfectly consistent
+// regardless of frame-rate or delta jitter.
+
+type AnimParams = {
+  // Y-axis bob (breathing / walk bounce)
+  bobAmp:   number;  // metres
+  bobFreq:  number;  // Hz
+  bobPhase: number;
+
+  // X-axis sway (left-right lean)
+  swayAmp:  number;  // radians
+  swayFreq: number;
+  swayPhase:number;
+
+  // Z-axis pitch (forward nod)
+  pitchAmp: number;  // radians
+  pitchFreq:number;
+  pitchPhase:number;
+
+  // Scale pulse
+  scaleAmp: number;
+  scaleFreq:number;
+};
+
+const ANIM_PARAMS: Record<ReceptionistAnimState, AnimParams> = {
+  idle: {
+    bobAmp:    0.012, bobFreq:  0.6,  bobPhase:  0,
+    swayAmp:   0.018, swayFreq: 0.4,  swayPhase: 0.8,
+    pitchAmp:  0.010, pitchFreq:0.35, pitchPhase:1.2,
+    scaleAmp:  0.004, scaleFreq:0.5,
+  },
+  greet: {
+    bobAmp:    0.025, bobFreq:  1.4,  bobPhase:  0,
+    swayAmp:   0.110, swayFreq: 1.2,  swayPhase: 0,
+    pitchAmp:  0.045, pitchFreq:0.8,  pitchPhase:0,
+    scaleAmp:  0.010, scaleFreq:1.2,
+  },
+  talk: {
+    bobAmp:    0.014, bobFreq:  1.1,  bobPhase:  0,
+    swayAmp:   0.030, swayFreq: 0.9,  swayPhase: 0.4,
+    pitchAmp:  0.028, pitchFreq:1.0,  pitchPhase:0.6,
+    scaleAmp:  0.006, scaleFreq:0.9,
+  },
+  walk: {
+    bobAmp:    0.045, bobFreq:  2.4,  bobPhase:  0,   // two bobs per stride
+    swayAmp:   0.065, swayFreq: 1.2,  swayPhase: 0,   // one lean per stride
+    pitchAmp:  0.030, pitchFreq:2.4,  pitchPhase:1.57,
+    scaleAmp:  0.000, scaleFreq:1.0,
+  },
+};
+
+// ── Main class ───────────────────────────────────────────────────────────────
+
 export class Receptionist {
-  private mixer:        THREE.AnimationMixer | null = null;
-  private actions:      Map<ReceptionistAnimState, THREE.AnimationAction> = new Map();
-  private currentState: ReceptionistAnimState = "idle";
   private root:         THREE.Group | null = null;
+  private modelGroup:   THREE.Group | null = null;  // child group animated by procedural system
   private readonly scene: THREE.Scene;
 
   private flameSprite:  THREE.Mesh | null = null;
   private flameLight:   THREE.PointLight | null = null;
-  private elapsed = 0;
+
+  private elapsed     = 0;
+  private stateStart  = 0;   // elapsed value when current state began
+  private currentState: ReceptionistAnimState = "idle";
+  private prevParams:  AnimParams = ANIM_PARAMS.idle;
+  private blendT      = 1;   // 0 → full prev, 1 → full current (lerps over BLEND_DUR)
+  private readonly BLEND_DUR = 0.35; // seconds
 
   private greetCooldown = 0;
   private greetTimer    = 0;
@@ -143,8 +174,6 @@ export class Receptionist {
   private navOnArrived: (() => void) | null = null;
   private isNavigating  = false;
   private isReturning   = false;
-
-  // Current walk direction (unit XZ vector), updated every frame
   private walkDir = new THREE.Vector3(0, 0, -1);
 
   private static readonly HOME_POS  = HOME;
@@ -152,9 +181,9 @@ export class Receptionist {
   private static readonly NEARBY_SQ = 9;
   private static readonly GREET_SQ  = 4;
 
-  constructor(scene: THREE.Scene, modelBasePath: string) {
+  constructor(scene: THREE.Scene, _modelBasePath: string) {
     this.scene = scene;
-    this._load(modelBasePath);
+    this._load();
   }
 
   // ── Public API ──────────────────────────────────────────────────
@@ -162,41 +191,36 @@ export class Receptionist {
   walkToRoom(roomKey: string, onArrived?: () => void) {
     const path = ROOM_PATHS[roomKey];
     if (!path || !this.root) return;
-    this.navPath       = path.map(p => p.clone());
-    this.navReturnKey  = roomKey;
-    this.navOnArrived  = onArrived ?? null;
-    this.isNavigating  = true;
-    this.isReturning   = false;
-    this._startWalkAnim();
+    this.navPath      = path.map(p => p.clone());
+    this.navReturnKey = roomKey;
+    this.navOnArrived = onArrived ?? null;
+    this.isNavigating = true;
+    this.isReturning  = false;
+    this.setState("walk");
   }
 
-  /** Returns current world position (floor level). */
   getPosition(): THREE.Vector3 {
     return this.root ? this.root.position.clone() : HOME.clone();
   }
 
-  /** Returns the unit XZ direction the receptionist is currently facing/moving. */
   getWalkDirection(): THREE.Vector3 {
     return this.walkDir.clone();
   }
 
-  /** True while actively guiding (walking to destination, not yet returned home). */
   isGuiding(): boolean {
     return this.isNavigating && !this.isReturning;
   }
 
   setState(state: ReceptionistAnimState) {
     if (state === this.currentState) return;
-    const prev = this.actions.get(this.currentState);
-    const next = this.actions.get(state);
+    this.prevParams   = ANIM_PARAMS[this.currentState];
     this.currentState = state;
-    if (!next) return;
-    if (prev) prev.fadeOut(0.3);
-    next.reset().setEffectiveWeight(1).fadeIn(0.3).play();
+    this.stateStart   = this.elapsed;
+    this.blendT       = 0;
   }
 
   playWalk(duration = 1.2) {
-    this._startWalkAnim();
+    this.setState("walk");
     setTimeout(() => {
       if (this.currentState === "walk" && !this.isNavigating) this.setState("idle");
     }, duration * 1000);
@@ -204,54 +228,57 @@ export class Receptionist {
 
   // ── Private helpers ─────────────────────────────────────────────
 
-  private _startWalkAnim() {
-    const action = this.actions.get("walk");
-    if (action) {
-      action.setLoop(THREE.LoopRepeat, Infinity);
-      action.clampWhenFinished = false;
-    }
-    this.setState("walk");
-  }
+  private _load() {
+    const base = (import.meta.env.BASE_URL as string ?? "/").replace(/\/$/, "");
 
-  private _updateFlamePosition(pos: THREE.Vector3) {
-    if (this.flameSprite)
-      this.flameSprite.position.set(pos.x, Receptionist.FLAME_Y + 0.375, pos.z);
-    if (this.flameLight)
-      this.flameLight.position.set(pos.x, Receptionist.FLAME_Y + 0.5, pos.z);
-  }
+    _gltfLoader.load(
+      `${base}/models/receptionist.glb`,
+      (gltf) => {
+        const model = gltf.scene;
 
-  private _load(base: string) {
-    const loader    = new FBXLoader();
-    const texLoader = new THREE.TextureLoader();
-    const pbrMat    = loadPBRMaterial(texLoader);
+        // Auto-scale so character stands ~1.72 m tall
+        model.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const targetH = 1.72;
+        const scale = size.y > 0 ? targetH / size.y : 1;
+        model.scale.setScalar(scale);
+        model.updateMatrixWorld(true);
 
-    loader.load(
-      `${base}standing_idle.fbx`,
-      (fbx) => {
-        fbx.scale.setScalar(0.01);
-        fbx.position.copy(Receptionist.HOME_POS);
-        fbx.rotation.y = Math.PI;
-        applyPBRMaterial(fbx, pbrMat);
-        this.scene.add(fbx);
-        this.root  = fbx;
-        this.mixer = new THREE.AnimationMixer(fbx);
+        // Re-measure to find floor offset
+        const box2 = new THREE.Box3().setFromObject(model);
+        model.position.y = -box2.min.y;
 
-        if (fbx.animations.length > 0) {
-          const action = this.mixer.clipAction(fbx.animations[0]);
-          action.setLoop(THREE.LoopRepeat, Infinity);
-          this.actions.set("idle", action);
-          action.play();
-        }
+        // Enable shadows on every mesh
+        model.traverse((child) => {
+          const m = child as THREE.Mesh;
+          if (m.isMesh) {
+            m.castShadow    = true;
+            m.receiveShadow = true;
+          }
+        });
 
-        this._loadClip(loader, pbrMat, `${base}standing_greeting.fbx`, "greet", THREE.LoopOnce);
-        this._loadClip(loader, pbrMat, `${base}talking.fbx`,           "talk",  THREE.LoopRepeat);
-        this._loadClip(loader, pbrMat, `${base}start_walking.fbx`,     "walk",  THREE.LoopRepeat);
+        // modelGroup is the animated pivot — sits at floor level
+        const modelGroup = new THREE.Group();
+        modelGroup.add(model);
+        this.modelGroup = modelGroup;
 
+        // root group controls world position
+        const root = new THREE.Group();
+        root.position.copy(Receptionist.HOME_POS);
+        root.rotation.y = Math.PI;
+        root.add(modelGroup);
+        this.root = root;
+        this.scene.add(root);
+
+        this._addBadge(model, box2, scale);
         this._addFlameCrown();
-        this._addBadge(fbx);
+
+        console.info("[Receptionist] GLB loaded OK");
       },
       undefined,
-      (err) => console.error("[Receptionist] standing_idle.fbx failed:", err),
+      (err) => console.error("[Receptionist] receptionist.glb failed:", err),
     );
   }
 
@@ -272,50 +299,63 @@ export class Receptionist {
     this.scene.add(light);
   }
 
-  private _addBadge(fbx: THREE.Group): void {
+  private _addBadge(model: THREE.Object3D, scaledBox: THREE.Box3, _scale: number): void {
     const tex  = makeBadgeTexture();
-    const geo  = new THREE.PlaneGeometry(8, 8);
+    const geo  = new THREE.PlaneGeometry(0.18, 0.18);
     const mat  = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
     const badge = new THREE.Mesh(geo, mat);
-    badge.position.set(-12, 128, 10);
-    fbx.add(badge);
+    // Position badge on left chest area — ~55 % up the character height
+    const charH = scaledBox.max.y - scaledBox.min.y;
+    badge.position.set(0.12, charH * 0.55 - scaledBox.min.y, 0.06);
+    model.add(badge);
   }
 
-  private _loadClip(
-    loader: FBXLoader,
-    pbrMat: THREE.MeshStandardMaterial,
-    url: string,
-    name: ReceptionistAnimState,
-    loopMode: THREE.AnimationActionLoopStyles,
-  ) {
-    loader.load(
-      url,
-      (fbx) => {
-        applyPBRMaterial(fbx, pbrMat);
-        if (!this.mixer || fbx.animations.length === 0) return;
-        const action = this.mixer.clipAction(fbx.animations[0]);
-        action.setLoop(loopMode, Infinity);
-        action.clampWhenFinished = loopMode === THREE.LoopOnce;
-        action.weight = 0;
-        this.actions.set(name, action);
-        if (this.currentState === name) {
-          const prev = this.actions.get("idle");
-          if (prev) prev.fadeOut(0.3);
-          action.reset().setEffectiveWeight(1).fadeIn(0.3).play();
-        }
-      },
-      undefined,
-      (err) => console.error(`[Receptionist] ${url} failed:`, err),
-    );
+  private _updateFlamePosition(pos: THREE.Vector3) {
+    if (this.flameSprite) this.flameSprite.position.set(pos.x, Receptionist.FLAME_Y + 0.375, pos.z);
+    if (this.flameLight)  this.flameLight.position.set(pos.x, Receptionist.FLAME_Y + 0.5,   pos.z);
+  }
+
+  // Apply blended procedural animation to modelGroup
+  private _applyProcAnim(t: number) {
+    const mg = this.modelGroup;
+    if (!mg) return;
+
+    const cur = ANIM_PARAMS[this.currentState];
+    const prev = this.prevParams;
+    const blend = Math.min(this.blendT, 1);
+
+    const lerp = (a: number, b: number) => a + (b - a) * blend;
+
+    // Use local phase within current state for smooth cross-fade
+    const tCur  = t - this.stateStart;
+    // For prev params, use t directly (it was already running at that offset)
+    const tPrev = t;
+
+    const curBob   = Math.sin(tCur  * cur.bobFreq   * Math.PI * 2 + cur.bobPhase)   * cur.bobAmp;
+    const prevBob  = Math.sin(tPrev * prev.bobFreq   * Math.PI * 2 + prev.bobPhase)  * prev.bobAmp;
+    const curSway  = Math.sin(tCur  * cur.swayFreq   * Math.PI * 2 + cur.swayPhase)  * cur.swayAmp;
+    const prevSway = Math.sin(tPrev * prev.swayFreq   * Math.PI * 2 + prev.swayPhase) * prev.swayAmp;
+    const curPitch = Math.sin(tCur  * cur.pitchFreq  * Math.PI * 2 + cur.pitchPhase) * cur.pitchAmp;
+    const prevPitch= Math.sin(tPrev * prev.pitchFreq  * Math.PI * 2 + prev.pitchPhase)* prev.pitchAmp;
+    const curScale = 1 + Math.sin(tCur  * cur.scaleFreq  * Math.PI * 2) * cur.scaleAmp;
+    const prevScale= 1 + Math.sin(tPrev * prev.scaleFreq  * Math.PI * 2) * prev.scaleAmp;
+
+    mg.position.y    = lerp(prevBob,   curBob);
+    mg.rotation.z    = lerp(prevSway,  curSway);
+    mg.rotation.x    = lerp(prevPitch, curPitch);
+    const s          = lerp(prevScale, curScale);
+    mg.scale.setScalar(s);
   }
 
   // ── Frame update ────────────────────────────────────────────────
 
   update(delta: number, playerPos: THREE.Vector3): { nearbyPrompt: boolean; state: string } {
     this.elapsed += delta;
-    if (this.mixer) this.mixer.update(delta);
 
-    // Flame flicker (position updated below after nav)
+    // Advance blend
+    if (this.blendT < 1) this.blendT = Math.min(1, this.blendT + delta / this.BLEND_DUR);
+
+    // Flame flicker
     if (this.flameSprite) {
       const f = 1 + 0.12 * Math.sin(this.elapsed * 7.3) + 0.06 * Math.sin(this.elapsed * 13.1);
       this.flameSprite.scale.set(f, 0.9 + 0.15 * Math.sin(this.elapsed * 5.7), 1);
@@ -323,6 +363,9 @@ export class Receptionist {
     if (this.flameLight) {
       this.flameLight.intensity = 1.5 + 0.5 * Math.sin(this.elapsed * 9.1);
     }
+
+    // ── Procedural animation ─────────────────────────────────────
+    this._applyProcAnim(this.elapsed);
 
     // ── Waypoint navigation ──────────────────────────────────────
     if (this.isNavigating && this.root && this.navPath.length > 0) {
@@ -339,7 +382,6 @@ export class Receptionist {
           this.isNavigating = false;
 
           if (!this.isReturning) {
-            // Arrived at destination — greet, then walk home after delay
             this.setState("greet");
             this.greetCooldown = 99;
             this.greetTimer    = 2.5;
@@ -351,10 +393,9 @@ export class Receptionist {
               this.navPath      = buildReturnPath(returnKey);
               this.isNavigating = true;
               this.isReturning  = true;
-              this._startWalkAnim();
+              this.setState("walk");
             }, 3500);
           } else {
-            // Back home — snap to exact position and idle
             this.root.position.copy(Receptionist.HOME_POS);
             this.root.rotation.y = Math.PI;
             this.walkDir.set(0, 0, -1);
@@ -365,8 +406,8 @@ export class Receptionist {
           }
         }
       } else {
-        const nx = dx / dist;
-        const nz = dz / dist;
+        const nx   = dx / dist;
+        const nz   = dz / dist;
         const step = Math.min(dist, WALK_SPEED * delta);
         curr.x += nx * step;
         curr.z += nz * step;
@@ -378,10 +419,10 @@ export class Receptionist {
     // Sync flame crown with current position
     if (this.root) this._updateFlamePosition(this.root.position);
 
-    // ── Proximity checks (use live position) ──────────────────────
-    const refPos  = this.root ? this.root.position : Receptionist.HOME_POS;
-    const distSq  = playerPos.distanceToSquared(refPos);
-    const nearby  = distSq < Receptionist.NEARBY_SQ && !this.isNavigating;
+    // ── Proximity checks ─────────────────────────────────────────
+    const refPos = this.root ? this.root.position : Receptionist.HOME_POS;
+    const distSq = playerPos.distanceToSquared(refPos);
+    const nearby = distSq < Receptionist.NEARBY_SQ && !this.isNavigating;
 
     if (this.greetCooldown > 0) this.greetCooldown -= delta;
     if (this.greetTimer    > 0) {
@@ -399,7 +440,6 @@ export class Receptionist {
   }
 
   dispose() {
-    this.mixer?.stopAllAction();
     if (this.root) {
       this.scene.remove(this.root);
       this.root.traverse((c) => {
