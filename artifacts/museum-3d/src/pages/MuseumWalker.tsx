@@ -22,8 +22,8 @@ import { buildLegendaryPedestals, LEGENDARY_PEDESTAL_META, LEGENDARY_PEDESTAL_PO
 const LEGENDARY_PEDESTAL_MODELS: readonly string[] = [
   "/models/artifact1.glb", // pedestal 1 — west row, north  (x≈83, z≈9)
   "/models/artifact2.glb", // pedestal 2 — west row, south  (x≈83, z≈17)
-  "", // pedestal 3 — east row, north  (x≈94, z≈9)
-  "", // pedestal 4 — east row, south  (x≈94, z≈17)
+  "/models/artifact3.glb", // pedestal 3 — east row, north  (x≈94, z≈9)
+  "/models/artifact4.glb", // pedestal 4 — east row, south  (x≈94, z≈17)
 ];
 
 const OPENSEA_CONTRACT = "0x818030837e8350ba63e64d7dc01a547fa73c8279";
