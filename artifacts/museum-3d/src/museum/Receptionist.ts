@@ -145,7 +145,7 @@ export class Receptionist {
   private isReturning   = false;
 
   // Current walk direction (unit XZ vector), updated every frame
-  private walkDir = new THREE.Vector3(0, 0, -1);
+  private walkDir = new THREE.Vector3(0, 0, 1);
 
   private static readonly HOME_POS  = HOME;
   private static readonly FLAME_Y   = 1.80;
