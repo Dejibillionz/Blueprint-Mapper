@@ -30,6 +30,8 @@ const LEGENDARY_PEDESTAL_MODELS: readonly string[] = [
 const OPENSEA_CONTRACT = "0x818030837e8350ba63e64d7dc01a547fa73c8279";
 const IS_TOUCH = typeof window !== "undefined" && "ontouchstart" in window;
 
+const SHOWCASE_TOKEN_IDS = [0, 333, 777, 1500, 2666] as const;
+
 interface ZoomedFrame {
   title: string;
   artist: string;
@@ -160,6 +162,8 @@ export default function MuseumWalker() {
   const [loadingVisible, setLoadingVisible] = useState(true);
   const [loadingFading, setLoadingFading] = useState(false);
   const [enterClicked, setEnterClicked] = useState(false);
+  const [slideshowIdx, setSlideshowIdx] = useState(0);
+  const [slideshowCdnUrls, setSlideshowCdnUrls] = useState<Record<number, string>>({});
   const [zoomedPartner, setZoomedPartner] = useState<ZoomedPartner | null>(null);
   const [zoomedPedestal, setZoomedPedestal] = useState<ZoomedPedestal | null>(null);
   const [detailPage, setDetailPage] = useState(0);   // 0 = artwork, 1 = details
@@ -230,6 +234,33 @@ export default function MuseumWalker() {
     const t = setTimeout(() => setLoadingVisible(false), 700);
     return () => clearTimeout(t);
   }, [enterClicked]);
+
+  useEffect(() => {
+    if (loadProgress >= 1) return;
+    const t = setInterval(() => {
+      setSlideshowIdx(i => (i + 1) % SHOWCASE_TOKEN_IDS.length);
+    }, 2500);
+    return () => clearInterval(t);
+  }, [loadProgress]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/metadata.json")
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then((meta: Array<{ token_id: string | number; image: string }>) => {
+        if (cancelled) return;
+        const cdnMap: Record<number, string> = {};
+        for (const entry of meta) {
+          const id = Number(entry.token_id);
+          if ((SHOWCASE_TOKEN_IDS as readonly number[]).includes(id) && entry.image) {
+            cdnMap[id] = entry.image;
+          }
+        }
+        setSlideshowCdnUrls(cdnMap);
+      })
+      .catch(() => { /* keep local-only fallback */ });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     audioRef.current.setMuted(muted);
@@ -1283,9 +1314,81 @@ export default function MuseumWalker() {
           >
             10KSQUAD MUSEUM
           </p>
-          <p className="text-gray-500 text-xs tracking-[0.22em] uppercase mb-8">
+          <p className="text-gray-500 text-xs tracking-[0.22em] uppercase mb-6">
             3333 NFT Collection — 3D Experience
           </p>
+
+          {/* NFT preview slideshow — visible while loading */}
+          {loadProgress < 1 && (
+            <div
+              className="relative mb-6 rounded-xl overflow-hidden"
+              style={{
+                width: "clamp(160px, 36vw, 260px)",
+                aspectRatio: "1 / 1",
+                boxShadow: "0 0 40px rgba(79,70,229,0.35), 0 0 80px rgba(201,168,76,0.12)",
+                border: "1px solid rgba(129,140,248,0.25)",
+              }}
+            >
+              {SHOWCASE_TOKEN_IDS.map((tokenId, idx) => (
+                <img
+                  key={tokenId}
+                  src={`/nft-images/${tokenId}.avif`}
+                  alt={`NFT #${tokenId}`}
+                  draggable={false}
+                  onError={e => {
+                    const cdnUrl = slideshowCdnUrls[tokenId];
+                    if (!cdnUrl) return;
+                    const img = e.currentTarget as HTMLImageElement;
+                    if (img.src === cdnUrl) return;
+                    try {
+                      const dpr = Math.min(window.devicePixelRatio ?? 1, 2);
+                      const u = new URL(cdnUrl);
+                      const w = u.searchParams.get("w");
+                      if (dpr > 1) {
+                        u.searchParams.set("w", String(Math.round((w ? parseInt(w, 10) : 500) * dpr)));
+                      }
+                      img.src = u.toString();
+                    } catch {
+                      img.src = cdnUrl;
+                    }
+                  }}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    opacity: idx === slideshowIdx ? 1 : 0,
+                    transition: "opacity 0.8s ease-in-out",
+                  }}
+                />
+              ))}
+              <div
+                className="absolute bottom-0 left-0 right-0 px-3 py-1.5"
+                style={{
+                  background: "linear-gradient(to top, rgba(8,8,14,0.85) 0%, transparent 100%)",
+                }}
+              >
+                <p className="text-gray-400 text-[10px] font-mono tracking-widest text-center">
+                  #{SHOWCASE_TOKEN_IDS[slideshowIdx]}
+                </p>
+              </div>
+              <div className="absolute bottom-2 right-2 flex gap-1">
+                {SHOWCASE_TOKEN_IDS.map((_, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      width: 5,
+                      height: 5,
+                      borderRadius: "50%",
+                      background: idx === slideshowIdx ? "#818cf8" : "rgba(255,255,255,0.2)",
+                      transition: "background 0.4s ease",
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Progress bar + status */}
           <div className="w-72 flex flex-col items-center gap-2 mb-8">
