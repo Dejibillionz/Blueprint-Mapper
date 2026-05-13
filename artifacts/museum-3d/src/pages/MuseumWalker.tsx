@@ -20,7 +20,7 @@ import { buildLegendaryPedestals, LEGENDARY_PEDESTAL_META, LEGENDARY_PEDESTAL_PO
 // Drop your GLB/GLTF paths here (one per pedestal, index 0-3).
 // Leave a slot as "" to keep that pedestal bare.
 const LEGENDARY_PEDESTAL_MODELS: readonly string[] = [
-  "", // pedestal 1 — west row, north  (x≈83, z≈9)
+  "/models/base_basic_shaded.glb", // pedestal 1 — west row, north  (x≈83, z≈9)
   "", // pedestal 2 — west row, south  (x≈83, z≈17)
   "", // pedestal 3 — east row, north  (x≈94, z≈9)
   "", // pedestal 4 — east row, south  (x≈94, z≈17)
