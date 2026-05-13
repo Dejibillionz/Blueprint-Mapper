@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 
 export type ReceptionistAnimState = "idle" | "greet" | "talk" | "walk";
 
@@ -242,23 +243,25 @@ export class Receptionist {
   }
 
   private _load(base: string) {
-    const loader    = new FBXLoader();
+    const loader    = new GLTFLoader();
+    loader.setMeshoptDecoder(MeshoptDecoder);
     const texLoader = new THREE.TextureLoader();
     const pbrMat    = loadPBRMaterial(texLoader);
 
     loader.load(
-      `${base}standing_idle.fbx`,
-      (fbx) => {
-        fbx.scale.setScalar(0.01);
-        fbx.position.copy(Receptionist.HOME_POS);
-        fbx.rotation.y = 0;
-        applyPBRMaterial(fbx, pbrMat);
-        this.scene.add(fbx);
-        this.root  = fbx;
-        this.mixer = new THREE.AnimationMixer(fbx);
+      `${base}standing_idle.glb`,
+      (gltf) => {
+        // Blender's GLB already carries the cm→m unit scale from the FBX import,
+        // so no additional scale.setScalar(0.01) is needed here.
+        gltf.scene.position.copy(Receptionist.HOME_POS);
+        gltf.scene.rotation.y = 0;
+        applyPBRMaterial(gltf.scene, pbrMat);
+        this.scene.add(gltf.scene);
+        this.root  = gltf.scene;
+        this.mixer = new THREE.AnimationMixer(gltf.scene);
 
-        if (fbx.animations.length > 0) {
-          const action = this.mixer.clipAction(fbx.animations[0]);
+        if (gltf.animations.length > 0) {
+          const action = this.mixer.clipAction(gltf.animations[0]);
           action.setLoop(THREE.LoopRepeat, Infinity);
           this.actions.set("idle", action);
           action.play();
@@ -266,16 +269,16 @@ export class Receptionist {
 
         this.onLoadProgress?.(++this.fbxLoaded, this.fbxTotal);
 
-        this._loadClip(loader, pbrMat, `${base}standing_greeting.fbx`, "greet", THREE.LoopOnce);
-        this._loadClip(loader, pbrMat, `${base}talking.fbx`,           "talk",  THREE.LoopRepeat);
-        this._loadClip(loader, pbrMat, `${base}walking.fbx`,           "walk",  THREE.LoopRepeat);
+        this._loadClip(loader, `${base}standing_greeting.glb`, "greet", THREE.LoopOnce);
+        this._loadClip(loader, `${base}talking.glb`,           "talk",  THREE.LoopRepeat);
+        this._loadClip(loader, `${base}walking.glb`,           "walk",  THREE.LoopRepeat);
 
         this._addFlameCrown();
-        this._addBadge(fbx);
+        this._addBadge(gltf.scene);
       },
       undefined,
       (err) => {
-        console.error("[Receptionist] standing_idle.fbx failed:", err);
+        console.error("[Receptionist] standing_idle.glb failed:", err);
         this.onLoadProgress?.(++this.fbxLoaded, this.fbxTotal);
       },
     );
@@ -298,30 +301,32 @@ export class Receptionist {
     this.scene.add(light);
   }
 
-  private _addBadge(fbx: THREE.Group): void {
+  private _addBadge(root: THREE.Group): void {
     const tex  = makeBadgeTexture();
-    const geo  = new THREE.PlaneGeometry(8, 8);
+    // Scale is now baked into the GLB — all units are metres.
+    // Old cm-space values: position(-12, 128, 10), size 8×8 cm.
+    // Converted: -0.12, 1.28, 0.10 m; 0.08×0.08 m.
+    const geo  = new THREE.PlaneGeometry(0.08, 0.08);
     const mat  = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
     const badge = new THREE.Mesh(geo, mat);
-    badge.position.set(-12, 128, 10);
-    fbx.add(badge);
+    badge.position.set(-0.12, 1.28, 0.10);
+    root.add(badge);
   }
 
   private _loadClip(
-    loader: FBXLoader,
-    pbrMat: THREE.MeshStandardMaterial,
+    loader: GLTFLoader,
     url: string,
     name: ReceptionistAnimState,
     loopMode: THREE.AnimationActionLoopStyles,
   ) {
     loader.load(
       url,
-      (fbx) => {
-        applyPBRMaterial(fbx, pbrMat);
-        if (this.mixer && this.root && fbx.animations.length > 0) {
-          // Pass this.root explicitly so Three.js binds the animation tracks
-          // against the standing_idle skeleton, not the clip's own FBX hierarchy.
-          const action = this.mixer.clipAction(fbx.animations[0], this.root);
+      (gltf) => {
+        // We only need the animation from secondary GLBs — their meshes are
+        // discarded. Pass this.root explicitly so Three.js re-targets the
+        // tracks against the standing_idle skeleton (same bone names).
+        if (this.mixer && this.root && gltf.animations.length > 0) {
+          const action = this.mixer.clipAction(gltf.animations[0], this.root);
           action.setLoop(loopMode, Infinity);
           action.clampWhenFinished = loopMode === THREE.LoopOnce;
           action.setEffectiveWeight(0);
@@ -331,8 +336,8 @@ export class Receptionist {
             if (prev) prev.fadeOut(0.3);
             action.reset().setEffectiveWeight(1).fadeIn(0.3).play();
           }
-        } else if (fbx.animations.length === 0) {
-          console.warn(`[Receptionist] ${name} FBX has no animations`);
+        } else if (gltf.animations.length === 0) {
+          console.warn(`[Receptionist] ${name} GLB has no animations`);
         }
         this.onLoadProgress?.(++this.fbxLoaded, this.fbxTotal);
       },
