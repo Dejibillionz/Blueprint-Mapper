@@ -17,20 +17,20 @@ export const LEGENDARY_PEDESTAL_POSITIONS: readonly { x: number; z: number }[] =
 // Metadata displayed in the inspect panel when a visitor clicks a pedestal
 export const LEGENDARY_PEDESTAL_META: readonly { name: string; description: string }[] = [
   {
-    name: "Genesis Crown",
-    description: "The rarest artifact of the 10K Squad collection — a symbol of legendary status forged in the genesis block. Only holders of the highest rank may gaze upon it.",
+    name: "The Golden Parrot",
+    description: "The golden parrot made for those who holds the 10k squad nfts.",
   },
   {
-    name: "Vault Key",
-    description: "An ancient key that grants access to the inner sanctum of the Legendary Vault. One of a kind, it has never left these hallowed halls.",
+    name: "Super Parrot",
+    description: "The super parrot that keeps the community going.",
   },
   {
-    name: "Squad Emblem",
-    description: "The original emblem of the 10K Squad, minted at the dawn of the collection. Its glow intensifies in the presence of true believers.",
+    name: "The Eggcellent Nest",
+    description: "The eggcellent nft for early testnet supporter.",
   },
   {
-    name: "Origin Stone",
-    description: "A crystallised fragment of the first block, preserved as a testament to the collection's origins. Rumoured to pulse faintly in the hands of a genesis holder.",
+    name: "The King Parrot",
+    description: "He is puresoul the leader of the 10k squad.",
   },
 ] as const;
 
