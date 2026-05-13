@@ -256,7 +256,7 @@ export class Receptionist {
 
         this._loadClip(loader, pbrMat, `${base}standing_greeting.fbx`, "greet", THREE.LoopOnce);
         this._loadClip(loader, pbrMat, `${base}talking.fbx`,           "talk",  THREE.LoopRepeat);
-        this._loadClip(loader, pbrMat, `${base}start_walking.fbx`,     "walk",  THREE.LoopRepeat);
+        this._loadClip(loader, pbrMat, `${base}walking.fbx`,           "walk",  THREE.LoopRepeat);
 
         this._addFlameCrown();
         this._addBadge(fbx);
