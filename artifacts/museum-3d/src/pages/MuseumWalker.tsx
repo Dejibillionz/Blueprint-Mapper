@@ -1099,7 +1099,7 @@ export default function MuseumWalker() {
             const headPos = rec.getPosition();
             headPos.y += 2.3;
             const ndc = headPos.clone().project(camera);
-            if (ndc.z < 1) {
+            if (ndc.z > -1 && ndc.z < 1) {
               const screenX = (ndc.x * 0.5 + 0.5) * 100;
               const screenY = (-ndc.y * 0.5 + 0.5) * 100;
               chatFactTimerRef.current += delta;
