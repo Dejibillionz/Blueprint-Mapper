@@ -785,15 +785,12 @@ export default function MuseumWalker() {
     const receptionist = new Receptionist(
       scene,
       `${import.meta.env.BASE_URL}models/receptionist/`,
-      (loaded, total) => {
-        // Receptionist FBX files advance progress from 0.70 to 0.85 (4 files).
-        // Use Math.max so a late callback never reduces progress if metadata
-        // already advanced it beyond 0.85.
-        setLoadProgress(p => Math.max(p, 0.70 + 0.15 * (loaded / total)));
-        if (loaded === total) {
-          receptionistLoaded = true;
-          tryMarkReady();
-        }
+      (_loaded, _total) => {
+        // Only standing_idle.fbx gates entry (signals 1/1).
+        // The other clips (greeting, talking, walking) load in the background.
+        setLoadProgress(p => Math.max(p, 0.85));
+        receptionistLoaded = true;
+        tryMarkReady();
       },
     );
     receptionistRef.current = receptionist;

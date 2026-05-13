@@ -153,8 +153,9 @@ export class Receptionist {
   private static readonly GREET_SQ  = 16;  // 4 m radius — auto-greeting wave
 
   // ── Preload tracking ────────────────────────────────────────────
-  private fbxLoaded = 0;
-  private readonly fbxTotal = 4;
+  // Only standing_idle.fbx (the base mesh + idle animation) must finish
+  // before the user is allowed to enter. The other three clips
+  // (greeting, talking, walking) load in the background after entry.
   private readonly onLoadProgress?: (loaded: number, total: number) => void;
 
   constructor(scene: THREE.Scene, modelBasePath: string, onLoadProgress?: (loaded: number, total: number) => void) {
@@ -261,8 +262,11 @@ export class Receptionist {
           action.play();
         }
 
-        this.onLoadProgress?.(++this.fbxLoaded, this.fbxTotal);
+        // Idle is the only required file for entry — signal ready immediately.
+        // Greeting, talking and walking clips load in the background below.
+        this.onLoadProgress?.(1, 1);
 
+        // Background-load the secondary animation clips after the user can enter.
         this._loadClip(loader, pbrMat, `${base}standing_greeting.fbx`, "greet", THREE.LoopOnce);
         this._loadClip(loader, pbrMat, `${base}talking.fbx`,           "talk",  THREE.LoopRepeat);
         this._loadClip(loader, pbrMat, `${base}walking.fbx`,           "walk",  THREE.LoopRepeat);
@@ -273,7 +277,7 @@ export class Receptionist {
       undefined,
       (err) => {
         console.error("[Receptionist] standing_idle.fbx failed:", err);
-        this.onLoadProgress?.(++this.fbxLoaded, this.fbxTotal);
+        this.onLoadProgress?.(1, 1); // signal done even on error so entry isn't blocked
       },
     );
   }
@@ -331,12 +335,10 @@ export class Receptionist {
         } else if (fbx.animations.length === 0) {
           console.warn(`[Receptionist] ${name} FBX has no animations`);
         }
-        this.onLoadProgress?.(++this.fbxLoaded, this.fbxTotal);
       },
       undefined,
       (err) => {
         console.error(`[Receptionist] ${url} failed:`, err);
-        this.onLoadProgress?.(++this.fbxLoaded, this.fbxTotal);
       },
     );
   }
