@@ -15,6 +15,7 @@ import { AmbientAudio } from "../museum/AmbientAudio";
 import { ProximityTextureManager } from "../museum/ProximityTextureManager";
 import { Receptionist } from "../museum/Receptionist";
 import { buildLegendaryPedestals, LEGENDARY_PEDESTAL_META, LEGENDARY_PEDESTAL_POSITIONS } from "../museum/LegendaryPedestals";
+import ArtifactInspectViewer from "../components/ArtifactInspectViewer";
 
 // ── Legendary Vault pedestal model slots ─────────────────────────────────────
 // Drop your GLB/GLTF paths here (one per pedestal, index 0-3).
@@ -1691,45 +1692,13 @@ export default function MuseumWalker() {
                 <span className="text-[11px] font-bold uppercase tracking-widest text-amber-400">◆ Legendary Vault Artifact</span>
               </div>
 
-              {/* Artifact viewer — stylised 3-D pedestal preview */}
-              <div className="w-full flex items-center justify-center border-b border-amber-500/10 relative overflow-hidden"
-                   style={{ height: 160, background: "linear-gradient(160deg, #0d0a00 0%, #1a0e00 50%, #0d0800 100%)" }}>
-                {/* Ambient glow rings */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div style={{
-                    width: 200, height: 200, borderRadius: "50%",
-                    background: "radial-gradient(ellipse, rgba(247,127,0,0.12) 0%, transparent 70%)",
-                  }} />
-                </div>
-                {/* Pedestal + artifact icon */}
-                <div className="flex flex-col items-center gap-0 relative z-10">
-                  {/* Artifact itself */}
-                  <div className="rounded-full flex items-center justify-center mb-2"
-                       style={{
-                         width: 72, height: 72,
-                         background: "linear-gradient(135deg, rgba(247,127,0,0.35) 0%, rgba(201,168,76,0.20) 100%)",
-                         border: "1.5px solid rgba(247,127,0,0.55)",
-                         boxShadow: "0 0 32px rgba(247,127,0,0.30), 0 0 8px rgba(201,168,76,0.20)",
-                       }}>
-                    <span style={{ fontSize: 34, lineHeight: 1 }}>
-                      {["👑","🗝️","🛡️","💎"][zoomedPedestal.index] ?? "🏺"}
-                    </span>
-                  </div>
-                  {/* Pedestal column */}
-                  <div style={{
-                    width: 32, height: 20,
-                    background: "linear-gradient(to bottom, #2a2a3e, #1a1a2e)",
-                    border: "1px solid rgba(212,212,212,0.20)",
-                    borderRadius: "2px 2px 0 0",
-                  }} />
-                  <div style={{
-                    width: 40, height: 6,
-                    background: "linear-gradient(to right, #9ca3af, #d1d5db, #9ca3af)",
-                    borderRadius: 1,
-                  }} />
-                </div>
-                {/* Artifact number label */}
-                <p className="absolute bottom-2 right-3 text-amber-400/50 text-[10px] font-mono uppercase tracking-widest">
+              {/* Artifact viewer — live 3-D model preview */}
+              <div className="w-full border-b border-amber-500/10 relative">
+                <ArtifactInspectViewer
+                  modelUrl={LEGENDARY_PEDESTAL_MODELS[zoomedPedestal.index] ?? ""}
+                  height={220}
+                />
+                <p className="absolute bottom-2 right-3 text-amber-400/50 text-[10px] font-mono uppercase tracking-widest pointer-events-none">
                   Artifact {zoomedPedestal.index + 1} / {LEGENDARY_PEDESTAL_META.length}
                 </p>
               </div>
