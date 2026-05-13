@@ -97,6 +97,17 @@ const PROFILES: RoomProfile[] = [
     filterType: "lowpass", filterFreq: 1100, filterQ: 1.0,
     masterGain: 0.14, lfoFreq: 0.19, lfoDepth: 3,
   },
+  {
+    roomId: "arcade",
+    notes: [
+      { freq: 261.6, type: "square",   gain: 0.50 },  // C4 — classic 8-bit game tone
+      { freq: 329.6, type: "square",   gain: 0.35 },  // E4
+      { freq: 392.0, type: "square",   gain: 0.22 },  // G4 (major chord, bright & upbeat)
+      { freq: 130.8, type: "sawtooth", gain: 0.20 },  // C3 bass sub
+    ],
+    filterType: "bandpass", filterFreq: 650, filterQ: 1.3,
+    masterGain: 0.09, lfoFreq: 0.30, lfoDepth: 20,
+  },
 ];
 
 interface Voice {
