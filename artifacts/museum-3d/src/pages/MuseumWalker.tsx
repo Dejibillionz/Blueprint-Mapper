@@ -150,6 +150,7 @@ export default function MuseumWalker() {
   const [hoverFrame, setHoverFrame] = useState<HoverFrame | null>(null);
   const [webglSupported] = useState(isWebGLAvailable);
   const [muted, setMuted] = useState(false);
+  const [arcadeMuted, setArcadeMuted] = useState(() => localStorage.getItem("museum_arcade_muted") === "1");
   const [dbg, setDbg] = useState<{meta:boolean;loaded:number;loading:number;error:number;total:number;room:string|null} | null>(null);
   const [nftDetail, setNftDetail] = useState<NftDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -272,6 +273,11 @@ export default function MuseumWalker() {
   useEffect(() => {
     audioRef.current.setMuted(muted);
   }, [muted]);
+
+  useEffect(() => {
+    localStorage.setItem("museum_arcade_muted", arcadeMuted ? "1" : "0");
+    audioRef.current.setRoomMuted("arcade", arcadeMuted);
+  }, [arcadeMuted]);
 
   useEffect(() => {
     setDetailPage(0);   // always start on the artwork page when a new frame opens
@@ -1557,6 +1563,15 @@ export default function MuseumWalker() {
           >
             {muted ? "🔇 Muted" : "🔊 Sound On"}
           </button>
+          {roomName === "Arcade" && (
+            <button
+              onClick={() => setArcadeMuted(m => !m)}
+              className="bg-black/60 border border-yellow-500/30 hover:border-yellow-400/70 rounded-lg px-3 min-h-[44px] text-xs font-mono text-yellow-300/80 hover:text-yellow-200 transition-all flex items-center gap-1.5 select-none"
+              title={arcadeMuted ? "Unmute arcade sounds" : "Mute arcade sounds"}
+            >
+              {arcadeMuted ? "🎮🔇 Arcade Off" : "🎮🔊 Arcade On"}
+            </button>
+          )}
         </div>
       )}
 

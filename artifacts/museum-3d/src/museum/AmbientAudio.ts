@@ -120,6 +120,7 @@ export class AmbientAudio {
   private masterGain: GainNode | null = null;
   private voices = new Map<string, Voice>();
   private currentRoomId: string | null = null;
+  private mutedRooms = new Set<string>();
 
   /** Call once on first user gesture (pointer lock). */
   start(): void {
@@ -195,10 +196,28 @@ export class AmbientAudio {
 
     this.currentRoomId = roomId;
 
-    // Fade in new voice
-    if (roomId !== null) {
+    // Fade in new voice — skip if this room is individually muted
+    if (roomId !== null && !this.mutedRooms.has(roomId)) {
       const next = this.voices.get(roomId);
       if (next) next.gainNode.gain.setTargetAtTime(next.maxGain, now, FADE_TAU);
+    }
+  }
+
+  /** Mute or unmute a specific room's audio independently of the global mute. */
+  setRoomMuted(roomId: string, muted: boolean): void {
+    // Always update the set so the preference is remembered even before audio starts
+    if (muted) {
+      this.mutedRooms.add(roomId);
+    } else {
+      this.mutedRooms.delete(roomId);
+    }
+    // If audio context is running and this room is currently active, apply immediately
+    if (this.ctx && roomId === this.currentRoomId) {
+      const voice = this.voices.get(roomId);
+      if (voice) {
+        const target = muted ? 0 : voice.maxGain;
+        voice.gainNode.gain.setTargetAtTime(target, this.ctx.currentTime, FADE_TAU);
+      }
     }
   }
 
