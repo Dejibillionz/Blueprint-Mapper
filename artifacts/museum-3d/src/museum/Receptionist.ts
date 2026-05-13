@@ -152,8 +152,14 @@ export class Receptionist {
   private static readonly NEARBY_SQ = 9;
   private static readonly GREET_SQ  = 4;
 
-  constructor(scene: THREE.Scene, modelBasePath: string) {
+  // ── Preload tracking ────────────────────────────────────────────
+  private fbxLoaded = 0;
+  private readonly fbxTotal = 4;
+  private readonly onLoadProgress?: (loaded: number, total: number) => void;
+
+  constructor(scene: THREE.Scene, modelBasePath: string, onLoadProgress?: (loaded: number, total: number) => void) {
     this.scene = scene;
+    this.onLoadProgress = onLoadProgress;
     this._load(modelBasePath);
   }
 
@@ -254,6 +260,8 @@ export class Receptionist {
           action.play();
         }
 
+        this.onLoadProgress?.(++this.fbxLoaded, this.fbxTotal);
+
         this._loadClip(loader, pbrMat, `${base}standing_greeting.fbx`, "greet", THREE.LoopOnce);
         this._loadClip(loader, pbrMat, `${base}talking.fbx`,           "talk",  THREE.LoopRepeat);
         this._loadClip(loader, pbrMat, `${base}walking.fbx`,           "walk",  THREE.LoopRepeat);
@@ -262,7 +270,10 @@ export class Receptionist {
         this._addBadge(fbx);
       },
       undefined,
-      (err) => console.error("[Receptionist] standing_idle.fbx failed:", err),
+      (err) => {
+        console.error("[Receptionist] standing_idle.fbx failed:", err);
+        this.onLoadProgress?.(++this.fbxLoaded, this.fbxTotal);
+      },
     );
   }
 
@@ -303,20 +314,25 @@ export class Receptionist {
       url,
       (fbx) => {
         applyPBRMaterial(fbx, pbrMat);
-        if (!this.mixer || fbx.animations.length === 0) return;
-        const action = this.mixer.clipAction(fbx.animations[0]);
-        action.setLoop(loopMode, Infinity);
-        action.clampWhenFinished = loopMode === THREE.LoopOnce;
-        action.weight = 0;
-        this.actions.set(name, action);
-        if (this.currentState === name) {
-          const prev = this.actions.get("idle");
-          if (prev) prev.fadeOut(0.3);
-          action.reset().setEffectiveWeight(1).fadeIn(0.3).play();
+        if (this.mixer && fbx.animations.length > 0) {
+          const action = this.mixer.clipAction(fbx.animations[0]);
+          action.setLoop(loopMode, Infinity);
+          action.clampWhenFinished = loopMode === THREE.LoopOnce;
+          action.weight = 0;
+          this.actions.set(name, action);
+          if (this.currentState === name) {
+            const prev = this.actions.get("idle");
+            if (prev) prev.fadeOut(0.3);
+            action.reset().setEffectiveWeight(1).fadeIn(0.3).play();
+          }
         }
+        this.onLoadProgress?.(++this.fbxLoaded, this.fbxTotal);
       },
       undefined,
-      (err) => console.error(`[Receptionist] ${url} failed:`, err),
+      (err) => {
+        console.error(`[Receptionist] ${url} failed:`, err);
+        this.onLoadProgress?.(++this.fbxLoaded, this.fbxTotal);
+      },
     );
   }
 

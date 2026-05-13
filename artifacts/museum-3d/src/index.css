@@ -292,6 +292,38 @@
   100% { opacity: 0; transform: translateX(-50%) translateY(-4px); }
 }
 
+@keyframes museumRingPulse {
+  0%, 100% { opacity: 0.12; transform: scale(1); }
+  50%       { opacity: 0.45; transform: scale(1.07); }
+}
+.museum-ring-pulse {
+  animation: museumRingPulse 2.6s ease-in-out infinite;
+}
+
+@keyframes museumFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.museum-fade-in {
+  animation: museumFadeIn 0.55s ease-out forwards;
+}
+
+@keyframes museumScanline {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 40px; }
+}
+.museum-scanlines {
+  animation: museumScanline 1.2s linear infinite;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(79,70,229,0.025) 3px,
+    rgba(79,70,229,0.025) 4px
+  );
+  background-size: 100% 4px;
+}
+
 /**
  * Using the elevate system.
  * Automatic contrast adjustment.

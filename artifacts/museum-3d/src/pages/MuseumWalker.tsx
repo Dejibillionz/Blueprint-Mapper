@@ -159,6 +159,7 @@ export default function MuseumWalker() {
   const [sceneReady, setSceneReady] = useState(false);
   const [loadingVisible, setLoadingVisible] = useState(true);
   const [loadingFading, setLoadingFading] = useState(false);
+  const [enterClicked, setEnterClicked] = useState(false);
   const [zoomedPartner, setZoomedPartner] = useState<ZoomedPartner | null>(null);
   const [zoomedPedestal, setZoomedPedestal] = useState<ZoomedPedestal | null>(null);
   const [detailPage, setDetailPage] = useState(0);   // 0 = artwork, 1 = details
@@ -224,11 +225,11 @@ export default function MuseumWalker() {
   }, []);
 
   useEffect(() => {
-    if (!sceneReady) return;
+    if (!enterClicked) return;
     setLoadingFading(true);
     const t = setTimeout(() => setLoadingVisible(false), 700);
     return () => clearTimeout(t);
-  }, [sceneReady]);
+  }, [enterClicked]);
 
   useEffect(() => {
     audioRef.current.setMuted(muted);
@@ -364,6 +365,18 @@ export default function MuseumWalker() {
     touchStartedRef.current = true;
     setLocked(true);
     audioRef.current.start();
+  }, []);
+
+  const handleEnterMuseum = useCallback(() => {
+    if (IS_TOUCH) {
+      touchStartedRef.current = true;
+      setLocked(true);
+      audioRef.current.start();
+    } else {
+      controlsRef.current?.requestLock();
+      audioRef.current.start();
+    }
+    setEnterClicked(true);
   }, []);
 
   const handleJoystickMove = useCallback((dx: number, dz: number) => {
@@ -646,12 +659,13 @@ export default function MuseumWalker() {
     partnerFrameMeshesRef.current   = partnerFrameMeshes;
     setLoadProgress(0.50);
 
-    // ── Readiness gate: scene is "ready" only when BOTH the first render
-    //    frame has fired AND metadata.json has finished loading.
+    // ── Readiness gate: scene is "ready" only when ALL THREE gates have
+    //    fired: first render frame, metadata, and receptionist FBX files.
     let sceneFirstFrameFired = false;
     let metaDataLoaded = false;
+    let receptionistLoaded = false;
     const tryMarkReady = () => {
-      if (sceneFirstFrameFired && metaDataLoaded) {
+      if (sceneFirstFrameFired && metaDataLoaded && receptionistLoaded) {
         setLoadProgress(1);
         setSceneReady(true);
       }
@@ -719,9 +733,16 @@ export default function MuseumWalker() {
     const receptionist = new Receptionist(
       scene,
       `${import.meta.env.BASE_URL}models/receptionist/`,
+      (loaded, total) => {
+        setLoadProgress(0.70 + 0.20 * (loaded / total));
+        if (loaded === total) {
+          receptionistLoaded = true;
+          tryMarkReady();
+        }
+      },
     );
     receptionistRef.current = receptionist;
-    setLoadProgress(0.80);
+    setLoadProgress(0.70);
 
     const onLockChange = () => {
       const isLocked = document.pointerLockElement === renderer.domElement;
@@ -914,14 +935,14 @@ export default function MuseumWalker() {
         firstFrame = false;
         sceneFirstFrameFired = true;
         tryMarkReady();
-        // Safety net: if metadata.json fails to load, dismiss the loader after 8 s
-        // so the user is never stuck on the loading screen.
+        // Safety net: if any gate fails to fire (metadata or receptionist),
+        // dismiss the loader after 12 s so the user is never stuck.
         setTimeout(() => {
-          if (!metaDataLoaded) {
+          if (!metaDataLoaded || !receptionistLoaded) {
             setLoadProgress(1);
             setSceneReady(true);
           }
-        }, 8000);
+        }, 12000);
       }
 
       const delta = Math.min(clock.getDelta(), 0.05);
@@ -1184,100 +1205,138 @@ export default function MuseumWalker() {
         onTouchEnd={handleCanvasTouchEnd}
       />
 
-      {/* ── Loading progress bar ── */}
+      {/* ── Premium loading & entry screen ── */}
       {loadingVisible && (
         <div
-          className="absolute inset-0 z-50 flex flex-col items-center justify-center select-none"
+          className="absolute inset-0 z-50 flex flex-col items-center justify-center select-none overflow-hidden"
           style={{
-            background: "radial-gradient(ellipse at 50% 60%, #0d1535 0%, #08080e 70%)",
+            background: "radial-gradient(ellipse at 50% 55%, #0d1535 0%, #08080e 75%)",
             opacity: loadingFading ? 0 : 1,
-            transition: "opacity 0.65s ease-out",
+            transition: "opacity 0.7s ease-out",
             pointerEvents: loadingFading ? "none" : "all",
           }}
         >
-          <div className="flex flex-col items-center gap-0 mb-10">
+          {/* Animated scanlines */}
+          <div className="absolute inset-0 pointer-events-none museum-scanlines" />
+
+          {/* Pulsing ring halo + logo orb */}
+          <div className="relative flex items-center justify-center mb-6">
+            {[0, 1, 2].map(i => (
+              <div
+                key={i}
+                className="absolute rounded-full border border-indigo-500/25 museum-ring-pulse"
+                style={{
+                  width:  120 + i * 64,
+                  height: 120 + i * 64,
+                  animationDelay: `${i * 0.45}s`,
+                }}
+              />
+            ))}
             <div
-              className="mb-4 rounded-full flex items-center justify-center"
+              className="relative z-10 rounded-full flex items-center justify-center"
               style={{
-                width: 72,
-                height: 72,
+                width: 84,
+                height: 84,
                 background: "linear-gradient(135deg, #4f46e5 0%, #c9a84c 100%)",
-                boxShadow: "0 0 40px rgba(79,70,229,0.5), 0 0 80px rgba(201,168,76,0.2)",
+                boxShadow: "0 0 55px rgba(79,70,229,0.55), 0 0 110px rgba(201,168,76,0.2)",
               }}
             >
-              <span style={{ fontSize: 36, lineHeight: 1 }}>🏛️</span>
+              <span style={{ fontSize: 42, lineHeight: 1 }}>🏛️</span>
             </div>
-            <p
-              className="font-bold tracking-widest uppercase"
-              style={{
-                fontSize: "clamp(1.25rem, 4vw, 2rem)",
-                background: "linear-gradient(90deg, #818cf8, #c9a84c)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-                letterSpacing: "0.25em",
-              }}
-            >
-              10KSQUAD MUSEUM
-            </p>
-            <p className="text-gray-500 text-xs tracking-[0.2em] uppercase mt-1">
-              3333 NFT Collection — 3D Experience
-            </p>
           </div>
 
-          <div className="w-72 flex flex-col items-center gap-2">
-            <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+          {/* Title */}
+          <p
+            className="font-bold tracking-widest uppercase mb-1"
+            style={{
+              fontSize: "clamp(1.4rem, 5vw, 2.4rem)",
+              background: "linear-gradient(90deg, #818cf8 0%, #c9a84c 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              letterSpacing: "0.3em",
+            }}
+          >
+            10KSQUAD MUSEUM
+          </p>
+          <p className="text-gray-500 text-xs tracking-[0.22em] uppercase mb-8">
+            3333 NFT Collection — 3D Experience
+          </p>
+
+          {/* Progress bar + status */}
+          <div className="w-72 flex flex-col items-center gap-2 mb-8">
+            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full"
                 style={{
                   width: `${Math.round(loadProgress * 100)}%`,
                   background: "linear-gradient(90deg, #4f46e5, #818cf8 50%, #c9a84c)",
-                  transition: "width 0.35s ease-out",
-                  boxShadow: "0 0 8px rgba(129,140,248,0.7)",
+                  transition: "width 0.5s ease-out",
+                  boxShadow: "0 0 12px rgba(129,140,248,0.85)",
                 }}
               />
             </div>
-            <p className="text-gray-600 text-[11px] font-mono tabular-nums">
-              {loadProgress >= 1 ? "Entering museum…" : `Loading artwork data… ${Math.round(loadProgress * 100)}%`}
+            <p className="text-gray-500 text-[11px] font-mono tabular-nums">
+              {loadProgress >= 1
+                ? "Ready to explore!"
+                : loadProgress >= 0.90
+                  ? `Finalizing collection… ${Math.round(loadProgress * 100)}%`
+                  : loadProgress >= 0.75
+                    ? `Loading your guide… ${Math.round(loadProgress * 100)}%`
+                    : loadProgress >= 0.65
+                      ? `Setting up galleries… ${Math.round(loadProgress * 100)}%`
+                      : loadProgress >= 0.50
+                        ? `Placing artwork… ${Math.round(loadProgress * 100)}%`
+                        : loadProgress >= 0.15
+                          ? `Building museum halls… ${Math.round(loadProgress * 100)}%`
+                          : `Initializing… ${Math.round(loadProgress * 100)}%`}
             </p>
           </div>
+
+          {/* Enter button — only shown when fully loaded */}
+          {sceneReady && !enterClicked && (
+            <div className="museum-fade-in flex flex-col items-center gap-4">
+              <button
+                onClick={handleEnterMuseum}
+                className="px-10 py-4 rounded-xl font-bold tracking-widest uppercase text-white transition-all hover:scale-105 active:scale-95 focus:outline-none"
+                style={{
+                  fontSize: "clamp(0.95rem, 2.5vw, 1.1rem)",
+                  background: "linear-gradient(135deg, #4f46e5 0%, #c9a84c 100%)",
+                  boxShadow: "0 0 35px rgba(79,70,229,0.5), 0 0 70px rgba(201,168,76,0.18)",
+                  letterSpacing: "0.2em",
+                }}
+              >
+                {IS_TOUCH ? "Tap to Enter" : "Enter Museum"}
+              </button>
+
+              {IS_TOUCH ? (
+                <div className="border border-indigo-500/20 rounded-xl px-7 py-4 text-center bg-black/30 space-y-1 max-w-[300px]">
+                  <p className="text-indigo-400 text-xs uppercase tracking-widest mb-2 font-semibold">Controls</p>
+                  <p className="text-gray-300 text-sm">Left thumb — Walk (joystick)</p>
+                  <p className="text-gray-300 text-sm">Right thumb drag — Look around</p>
+                  <p className="text-gray-300 text-sm">Tap a painting — Zoom in</p>
+                  <p className="text-gray-300 text-sm">Tap Receptionist — Get a guide</p>
+                </div>
+              ) : (
+                <div className="border border-indigo-500/20 rounded-xl px-8 py-4 text-center bg-black/30 space-y-1">
+                  <p className="text-indigo-400 text-xs uppercase tracking-widest mb-2 font-semibold">Controls</p>
+                  <p className="text-gray-300 font-mono text-xs">W A S D — Walk &nbsp;·&nbsp; Mouse — Look</p>
+                  <p className="text-gray-300 font-mono text-xs">Click painting — Zoom &nbsp;·&nbsp; E — Talk to Receptionist</p>
+                  <p className="text-gray-300 font-mono text-xs">/ — Search NFT &nbsp;·&nbsp; ESC — Release cursor</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── Splash (pointer not locked / mobile not started) ── */}
-      {!locked && !zoomedFrame && (
-        IS_TOUCH ? (
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white select-none cursor-pointer"
-            onClick={handleMobileStart}
-          >
-            <p className="text-4xl font-bold mb-1 tracking-widest text-indigo-300 drop-shadow-lg">10KSQUAD MUSEUM</p>
-            <p className="text-gray-400 mb-8 tracking-wider text-sm">3333 NFT Collection — 3D Experience</p>
-            <div className="border border-indigo-500/30 rounded-xl px-8 py-6 text-center bg-black/50 space-y-2 max-w-[320px]">
-              <p className="text-sm text-indigo-300 uppercase tracking-widest mb-3 font-semibold">Controls</p>
-              <p className="text-white font-bold text-lg mb-2">Tap anywhere to explore</p>
-              <p className="text-gray-300 text-sm">Left thumb — Walk (joystick)</p>
-              <p className="text-gray-300 text-sm">Right thumb drag — Look around</p>
-              <p className="text-gray-300 text-sm">Tap a painting — Zoom in</p>
-              <p className="text-gray-300 text-sm">Tap Receptionist — Get a guide</p>
-            </div>
-            <p className="mt-6 text-indigo-400 text-sm animate-pulse">Tap to begin →</p>
+      {/* ── Re-enter prompt (desktop only, after first entry, when cursor is released) ── */}
+      {enterClicked && !locked && !zoomedFrame && !IS_TOUCH && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-white pointer-events-none select-none">
+          <div className="border border-indigo-500/30 rounded-xl px-8 py-5 text-center bg-black/50">
+            <p className="text-indigo-300 font-mono text-base">Click anywhere to re-enter</p>
           </div>
-        ) : (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 text-white pointer-events-none select-none">
-            <p className="text-5xl font-bold mb-1 tracking-widest text-indigo-300 drop-shadow-lg">10KSQUAD MUSEUM</p>
-            <p className="text-gray-400 mb-8 tracking-wider">3333 NFT Collection — 3D Experience</p>
-            <div className="border border-indigo-500/30 rounded-xl px-10 py-6 text-center bg-black/50 space-y-2">
-              <p className="text-sm text-indigo-300 uppercase tracking-widest mb-3 font-semibold">Controls</p>
-              <p className="text-white font-mono text-lg">Click to enter &amp; lock cursor</p>
-              <p className="text-gray-300 font-mono text-sm">W A S D — Walk</p>
-              <p className="text-gray-300 font-mono text-sm">Mouse — Look</p>
-              <p className="text-gray-300 font-mono text-sm">Click a painting — Zoom in</p>
-              <p className="text-gray-300 font-mono text-sm">E — Talk to Receptionist</p>
-              <p className="text-gray-300 font-mono text-sm">ESC — Exit / release cursor</p>
-            </div>
-          </div>
-        )
+        </div>
       )}
 
       {/* ── Crosshair ── */}
