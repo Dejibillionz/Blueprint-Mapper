@@ -88,16 +88,11 @@ export function buildTeamBoard(scene: THREE.Scene): void {
   frameBorder.castShadow = true;
   scene.add(frameBorder);
 
-  // ── Image plane with U-flipped UV ────────────────────────────────────────
-  // West wall art planes use the same ROT_Y as the east wall PartnerBoard,
-  // which means the texture's U axis runs right-to-left from the player's view.
-  // We correct this by flipping U: u_new = 1 − u, making it read left-to-right.
+  // ── Image plane ───────────────────────────────────────────────────────────
+  // The player is east (+X) of this plane. rotation.y = Math.PI/2 makes the
+  // plane normal face +X (toward the player), so they see the front face with
+  // standard UV orientation — no flipping needed.
   const imgGeo = new THREE.PlaneGeometry(DISP_W, DISP_H);
-  const uvAttr = imgGeo.attributes.uv as THREE.BufferAttribute;
-  for (let i = 0; i < uvAttr.count; i++) {
-    uvAttr.setX(i, 1 - uvAttr.getX(i));   // flip U only
-  }
-  uvAttr.needsUpdate = true;
 
   const imgMat = new THREE.MeshStandardMaterial({
     color: 0x888888,          // placeholder tint until texture loads
