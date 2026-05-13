@@ -211,23 +211,24 @@ export class Receptionist {
   // ── Private helpers ─────────────────────────────────────────────
 
   private _startWalkAnim() {
-    const action = this.actions.get("walk");
-    if (action) {
-      action.setLoop(THREE.LoopRepeat, Infinity);
-      action.clampWhenFinished  = false;
-      action.setEffectiveTimeScale(1);
-      action.setEffectiveWeight(1);
-      // Only reset+play if not already running — avoids a pose-pop mid-stride
-      if (!action.isRunning()) {
-        action.reset().play();
-      }
+    const next = this.actions.get("walk");
+    if (!next) {
+      // Walk clip not yet loaded — stay in current animation
+      console.warn("[Receptionist] walk action not ready yet");
+      return;
     }
-    // Bypass setState's early-return guard so weight/fade are always applied
-    const prev = this.actions.get(this.currentState);
+
     if (this.currentState !== "walk") {
+      const prev = this.actions.get(this.currentState);
       if (prev) prev.fadeOut(0.3);
       this.currentState = "walk";
     }
+
+    next.setLoop(THREE.LoopRepeat, Infinity);
+    next.clampWhenFinished = false;
+    // Always reset so the walk cycle restarts cleanly from frame 0,
+    // then fade in to blend smoothly with whatever was playing before.
+    next.reset().setEffectiveWeight(1).fadeIn(0.3).play();
   }
 
   private _updateFlamePosition(pos: THREE.Vector3) {
@@ -314,17 +315,21 @@ export class Receptionist {
       url,
       (fbx) => {
         applyPBRMaterial(fbx, pbrMat);
-        if (this.mixer && fbx.animations.length > 0) {
-          const action = this.mixer.clipAction(fbx.animations[0]);
+        if (this.mixer && this.root && fbx.animations.length > 0) {
+          // Pass this.root explicitly so Three.js binds the animation tracks
+          // against the standing_idle skeleton, not the clip's own FBX hierarchy.
+          const action = this.mixer.clipAction(fbx.animations[0], this.root);
           action.setLoop(loopMode, Infinity);
           action.clampWhenFinished = loopMode === THREE.LoopOnce;
-          action.weight = 0;
+          action.setEffectiveWeight(0);
           this.actions.set(name, action);
           if (this.currentState === name) {
             const prev = this.actions.get("idle");
             if (prev) prev.fadeOut(0.3);
             action.reset().setEffectiveWeight(1).fadeIn(0.3).play();
           }
+        } else if (fbx.animations.length === 0) {
+          console.warn(`[Receptionist] ${name} FBX has no animations`);
         }
         this.onLoadProgress?.(++this.fbxLoaded, this.fbxTotal);
       },
