@@ -33,6 +33,16 @@ const IS_TOUCH = typeof window !== "undefined" && "ontouchstart" in window;
 
 const SHOWCASE_TOKEN_IDS = [0, 333, 777, 1500, 2666] as const;
 
+const RECEPTIONIST_FACTS = [
+  "Did you know the 10K Squad NFTs are all hand-drawn on live sessions by 3 main artists and 10 guest artists?",
+  "There are 3,333 unique 10K Squad NFTs — each one completely one of a kind, minted on the Monad blockchain.",
+  "The collection has four rarity tiers: Common, Uncommon, Rare, and Legendary. Rarer pieces live deeper in the museum!",
+  "10K Squad holders earn DeFi boosts across 10+ partner protocols — including Kintsu, Magma Staking, and Neverland.",
+  "Monad is an EVM-compatible Layer 1 blockchain with 10,000 TPS, making it ultra-fast for NFT transactions.",
+  "Holding a Rare 10K Squad NFT granted access to exclusive token presales — like the BOB Token launch.",
+  "10K Squad NFTs unlock in-game skins, bonus multipliers, and partner perks across the entire Monad ecosystem.",
+] as const;
+
 interface ZoomedFrame {
   title: string;
   artist: string;
@@ -211,6 +221,13 @@ export default function MuseumWalker() {
   const arcadeNearRef         = useRef<ArcadeInteractable | null>(null);
   const arcadeGameOpenRef     = useRef(false);
   const lastArcadeHintRef     = useRef<number | null>(null);
+
+  // ── Receptionist walking chat bubble ───────────────────────────
+  const chatBubbleRef         = useRef<HTMLDivElement | null>(null);
+  const chatBubbleVisibleRef  = useRef(false);
+  const chatFactIndexRef      = useRef(0);
+  const chatFactTimerRef      = useRef(0);
+  const [chatFact, setChatFact] = useState<string | null>(null);
 
   // ── Touch controls ─────────────────────────────────────────────
   const touchStartedRef   = useRef(false);
@@ -1072,6 +1089,47 @@ export default function MuseumWalker() {
         if (isNearby !== lastRecHintRef.current) {
           lastRecHintRef.current = isNearby;
           setReceptionistHint(isNearby);
+        }
+
+        // ── Receptionist walking chat bubble ─────────────────
+        {
+          const bubbleEl = chatBubbleRef.current;
+          const isWalking = recResult?.state === "walk" && rec;
+          if (isWalking && rec) {
+            const headPos = rec.getPosition();
+            headPos.y += 2.3;
+            const ndc = headPos.clone().project(camera);
+            if (ndc.z < 1) {
+              const screenX = (ndc.x * 0.5 + 0.5) * 100;
+              const screenY = (-ndc.y * 0.5 + 0.5) * 100;
+              chatFactTimerRef.current += delta;
+              if (!chatBubbleVisibleRef.current) {
+                chatBubbleVisibleRef.current = true;
+                chatFactIndexRef.current = 0;
+                chatFactTimerRef.current = 0;
+                setChatFact(RECEPTIONIST_FACTS[0]);
+              } else if (chatFactTimerRef.current >= 4) {
+                chatFactTimerRef.current = 0;
+                const next = (chatFactIndexRef.current + 1) % RECEPTIONIST_FACTS.length;
+                chatFactIndexRef.current = next;
+                setChatFact(RECEPTIONIST_FACTS[next]);
+              }
+              if (bubbleEl) {
+                bubbleEl.style.display = "block";
+                bubbleEl.style.left = `${screenX}%`;
+                bubbleEl.style.top  = `${screenY}%`;
+              }
+            } else if (bubbleEl) {
+              bubbleEl.style.display = "none";
+            }
+          } else {
+            if (chatBubbleVisibleRef.current) {
+              chatBubbleVisibleRef.current = false;
+              chatFactTimerRef.current = 0;
+              setChatFact(null);
+            }
+            if (bubbleEl) bubbleEl.style.display = "none";
+          }
         }
 
         // ── Arcade machine screen animations ──────────────────
@@ -2063,6 +2121,41 @@ export default function MuseumWalker() {
           </div>
         </div>
       )}
+
+      {/* ── Receptionist walking chat bubble ── */}
+      <div
+        ref={chatBubbleRef}
+        className="absolute pointer-events-none select-none z-40"
+        style={{ display: "none", transform: "translate(-50%, calc(-100% - 12px))" }}
+      >
+        {chatFact && (
+          <div
+            key={chatFact}
+            className="relative max-w-[220px] rounded-2xl px-4 py-3 text-xs font-medium leading-snug shadow-xl"
+            style={{
+              background: "rgba(255,255,255,0.97)",
+              color: "#1a1a2e",
+              border: "1.5px solid rgba(251,191,36,0.5)",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+              animation: "fadeSlideIn 0.35s ease-out",
+            }}
+          >
+            {chatFact}
+            {/* tail arrow pointing down */}
+            <div
+              className="absolute left-1/2 -translate-x-1/2"
+              style={{
+                bottom: -10,
+                width: 0,
+                height: 0,
+                borderLeft: "9px solid transparent",
+                borderRight: "9px solid transparent",
+                borderTop: "10px solid rgba(255,255,255,0.97)",
+              }}
+            />
+          </div>
+        )}
+      </div>
 
       {/* ── Arcade machine proximity hint ── */}
       {!zoomedFrame && !receptionistOpen && !arcadeGameUrl && arcadeHint && (
