@@ -60,6 +60,13 @@ function loadPBRMaterial(texLoader: THREE.TextureLoader): THREE.MeshStandardMate
   const normal    = texLoader.load(`${TEX_BASE}texture_normal.png`);
   const metallic  = texLoader.load(`${TEX_BASE}texture_metallic.png`);
   const roughness = texLoader.load(`${TEX_BASE}texture_roughness.png`);
+  // GLB/glTF UV origin is top-left; Three.js TextureLoader defaults to
+  // flipY=true (bottom-left). Setting flipY=false matches the glTF spec so
+  // each texture patch lands on the correct body part.
+  diffuse.flipY = false;
+  normal.flipY  = false;
+  metallic.flipY  = false;
+  roughness.flipY = false;
   diffuse.colorSpace = THREE.SRGBColorSpace;
   return new THREE.MeshStandardMaterial({
     map: diffuse, normalMap: normal,
