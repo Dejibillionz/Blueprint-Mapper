@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PEDESTAL POSITIONS — two rows of two, centred in the open floor of the
@@ -48,7 +49,7 @@ const CAP_D    = 0.40;
 const TOP_SURFACE_Y = BASE_H + CAP_H;  // 1.20 m
 
 // Maximum bounding-box size for auto-scaled GLTF models sitting on top
-const MODEL_BOX = 0.40;
+const MODEL_BOX = 0.80;
 
 const stoneMat = new THREE.MeshStandardMaterial({
   color:     0x1a1a2e,
@@ -106,39 +107,54 @@ function buildPedestalGroup(pedestalIndex: number): THREE.Group {
   return group;
 }
 
+// Shared loader with Draco support (handles both compressed and uncompressed GLBs)
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/");
+
+const gltfLoader = new GLTFLoader();
+gltfLoader.setDRACOLoader(dracoLoader);
+
 function loadModelOnPedestal(
   url: string,
   pedestalGroup: THREE.Group,
   pedestalIndex: number,
 ): void {
-  const loader = new GLTFLoader();
-  loader.load(
-    url,
+  // Resolve relative to Vite's base path so proxied deployments work
+  const base = (import.meta.env.BASE_URL as string ?? "/").replace(/\/$/, "");
+  const resolved = url.startsWith("/") ? `${base}${url}` : url;
+
+  gltfLoader.load(
+    resolved,
     (gltf) => {
       const model = gltf.scene;
 
-      // Auto-center and scale so the model fits inside MODEL_BOX × MODEL_BOX × MODEL_BOX
+      // Force world-matrix update before measuring so scale is accounted for
+      model.updateMatrixWorld(true);
+
+      // Compute bounding box in model-local space (model not yet scaled)
       const box    = new THREE.Box3().setFromObject(model);
       const size   = new THREE.Vector3();
       const center = new THREE.Vector3();
       box.getSize(size);
       box.getCenter(center);
 
+      // Scale so the longest axis fits MODEL_BOX metres
       const maxDim = Math.max(size.x, size.y, size.z);
       const scale  = maxDim > 0 ? MODEL_BOX / maxDim : 1;
       model.scale.setScalar(scale);
+      model.updateMatrixWorld(true);
 
-      // After scaling, re-compute the bounding box to find the bottom
+      // Re-measure after scaling to find the new bottom Y
       const scaledBox = new THREE.Box3().setFromObject(model);
-      const scaledMin = scaledBox.min.clone();
 
-      // Translate so the model bottom sits flush on the pedestal top surface
-      // pedestalGroup origin is at floor (y=0), top surface is at TOP_SURFACE_Y
-      model.position.x -= center.x * scale;
-      model.position.y  = TOP_SURFACE_Y - scaledMin.y;
-      model.position.z -= center.z * scale;
+      // Centre on X/Z, sit flush on pedestal top surface
+      model.position.set(
+        -center.x * scale,
+        TOP_SURFACE_Y - scaledBox.min.y,
+        -center.z * scale,
+      );
 
-      // Tag every mesh in the model so raycasting can identify which pedestal was hit
+      // Tag every mesh so raycasting can identify which pedestal was hit
       model.traverse((child) => {
         if ((child as THREE.Mesh).isMesh) {
           child.castShadow    = true;
@@ -149,10 +165,11 @@ function loadModelOnPedestal(
       });
 
       pedestalGroup.add(model);
+      console.info(`[LegendaryPedestals] Loaded pedestal ${pedestalIndex} model: ${resolved}`);
     },
     undefined,
     (err) => {
-      console.warn(`[LegendaryPedestals] Failed to load model "${url}":`, err);
+      console.warn(`[LegendaryPedestals] Failed to load model "${resolved}":`, err);
     },
   );
 }
