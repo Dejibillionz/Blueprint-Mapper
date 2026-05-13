@@ -1068,6 +1068,9 @@ export default function MuseumWalker() {
           setReceptionistHint(isNearby);
         }
 
+        // ── Arcade machine screen animations ──────────────────
+        arcadeRoomRef.current?.update(elapsed);
+
         // ── Arcade machine proximity ───────────────────────────
         if (!arcadeGameOpenRef.current) {
           const arcadeResult = arcadeRoomRef.current?.getInteractable(camera.position) ?? null;
