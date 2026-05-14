@@ -17,7 +17,7 @@ import { Receptionist } from "../museum/Receptionist";
 import { buildLegendaryPedestals, LEGENDARY_PEDESTAL_META, LEGENDARY_PEDESTAL_POSITIONS } from "../museum/LegendaryPedestals";
 import ArtifactInspectViewer from "../components/ArtifactInspectViewer";
 import { ArcadeRoom, ArcadeInteractable } from "../museum/ArcadeRoom";
-import { DiscordPortal, PORTAL_X, PORTAL_Z, PORTAL_HINT_RADIUS } from "../museum/DiscordPortal";
+import { DiscordPortal, PORTAL_X, PORTAL_Z, PORTAL_GAP_X1, PORTAL_GAP_X2, PORTAL_HINT_RADIUS } from "../museum/DiscordPortal";
 import { DERIVED_FACTS } from "../data/generatedFacts";
 
 // ── Legendary Vault pedestal model slots ─────────────────────────────────────
@@ -227,6 +227,8 @@ export default function MuseumWalker() {
   const lastArcadeHintRef     = useRef<number | null>(null);
   const discordPortalRef      = useRef<DiscordPortal | null>(null);
   const lastPortalHintRef     = useRef(false);
+  const prevCamZRef           = useRef<number | null>(null);
+  const portalCooldownRef     = useRef(false);
 
   // ── Receptionist walking chat bubble ───────────────────────────
   const chatBubbleRef         = useRef<HTMLDivElement | null>(null);
@@ -609,8 +611,6 @@ export default function MuseumWalker() {
           arcadeGameOpenRef.current = true;
           if (controlsRef.current) controlsRef.current.suspended = true;
           document.exitPointerLock();
-        } else if (lastPortalHintRef.current) {
-          DiscordPortal.open();
         }
       }
       if (e.code === "Escape" && arcadeGameOpenRef.current) closeArcadeGame();
@@ -1159,14 +1159,36 @@ export default function MuseumWalker() {
         // ── Discord portal ─────────────────────────────────────
         discordPortalRef.current?.update(elapsed);
         {
-          const dx = camera.position.x - PORTAL_X;
-          const dz = camera.position.z - PORTAL_Z;
+          const cx = camera.position.x;
+          const cz = camera.position.z;
+
+          // Proximity hint
+          const dx = cx - PORTAL_X;
+          const dz = cz - PORTAL_Z;
           const dist = Math.sqrt(dx * dx + dz * dz);
           const near = dist < PORTAL_HINT_RADIUS;
           if (near !== lastPortalHintRef.current) {
             lastPortalHintRef.current = near;
             setPortalHint(near);
           }
+
+          // Auto-trigger: detect crossing the portal threshold (z goes below PORTAL_Z
+          // while the player is inside the doorway gap x range)
+          const prevZ = prevCamZRef.current;
+          if (
+            prevZ !== null &&
+            prevZ >= PORTAL_Z &&
+            cz < PORTAL_Z &&
+            cx >= PORTAL_GAP_X1 &&
+            cx <= PORTAL_GAP_X2 &&
+            !portalCooldownRef.current
+          ) {
+            portalCooldownRef.current = true;
+            DiscordPortal.open();
+            // Reset cooldown after 3 s so repeated passes don't spam popups
+            setTimeout(() => { portalCooldownRef.current = false; }, 3000);
+          }
+          prevCamZRef.current = cz;
         }
 
         // ── Animated doors ────────────────────────────────────
@@ -2183,9 +2205,8 @@ export default function MuseumWalker() {
       {/* ── Discord portal proximity hint ── */}
       {!zoomedFrame && !receptionistOpen && !arcadeGameUrl && portalHint && (
         <div
-          className="absolute bottom-28 left-1/2 -translate-x-1/2 select-none z-30 cursor-pointer min-h-[44px]"
+          className="absolute bottom-28 left-1/2 -translate-x-1/2 select-none z-30 min-h-[44px]"
           style={{ animation: "fadeSlideIn 0.3s ease-out" }}
-          onClick={() => DiscordPortal.open()}
         >
           <div
             className="flex items-center gap-2 bg-black/80 border border-indigo-400/70 rounded-xl px-5 py-2.5 backdrop-blur-sm min-h-[44px]"
@@ -2193,8 +2214,7 @@ export default function MuseumWalker() {
           >
             <span className="text-2xl">🔗</span>
             <span className="text-white text-sm font-semibold">Discord Portal</span>
-            <kbd className="ml-1 bg-indigo-500/25 border border-indigo-400/50 text-indigo-300 text-xs font-mono rounded px-2 py-0.5">E</kbd>
-            <span className="text-gray-300 text-xs">to enter</span>
+            <span className="text-indigo-300 text-xs">— walk through to join</span>
           </div>
         </div>
       )}

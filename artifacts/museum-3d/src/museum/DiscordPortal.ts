@@ -3,9 +3,11 @@ import * as THREE from "three";
 const DISCORD_URL   = "https://discord.com/invite/the10ksquad";
 const DISCORD_COLOR = 0x5865f2;
 
-export const PORTAL_X = 57;
-export const PORTAL_Z = 46;
-export const PORTAL_HINT_RADIUS     = 4.5;
+export const PORTAL_X            = 57;
+export const PORTAL_Z            = 46;
+export const PORTAL_GAP_X1       = 55.8;   // west edge of doorway gap
+export const PORTAL_GAP_X2       = 58.2;   // east edge of doorway gap
+export const PORTAL_HINT_RADIUS  = 4.5;
 export const PORTAL_ACTIVATE_RADIUS = 1.4;
 
 export class DiscordPortal {
