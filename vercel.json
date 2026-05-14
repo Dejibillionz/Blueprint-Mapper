@@ -1,6 +1,12 @@
 {
   "installCommand": "pnpm install",
   "buildCommand": "pnpm --filter @workspace/museum-3d run build",
-  "outputDirectory": "artifacts/museum-3d/dist",
-  "framework": null
+  "outputDirectory": "artifacts/museum-3d/dist/public",
+  "framework": null,
+  "build": {
+    "env": {
+      "PORT": "3000",
+      "BASE_PATH": "/"
+    }
+  }
 }
