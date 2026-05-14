@@ -10,6 +10,7 @@ import { buildRareGallery, RareNFT } from "./RareGallery";
 import { buildPlatinumVault, PlatinumNFT } from "./PlatinumVault";
 import { buildPartnerBoard } from "./PartnerBoard";
 import { buildTeamBoard } from "./TeamBoard";
+import { buildGiftShopSign } from "./GiftShopSign";
 export type { CommonNFT, UncommonNFT, RareNFT, PlatinumNFT };
 
 function buildWallMesh(
@@ -331,6 +332,7 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   for (const l of partnerLights) scene.add(l);
 
   buildTeamBoard(scene);
+  buildGiftShopSign(scene);
 
   const discordPortal = new DiscordPortal(scene);
 
