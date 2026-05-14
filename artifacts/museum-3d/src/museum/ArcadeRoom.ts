@@ -168,7 +168,7 @@ export class ArcadeRoom {
     // Wall edge is at x≈61.875 (center 62, thickness 0.25).
     // rotation.y = π/2 → plane faces east (+x) → visible from the corridor (west).
     mesh.position.set(61.6, 3.1, 42);
-    mesh.rotation.y = Math.PI / 2;
+    mesh.rotation.y = -Math.PI / 2;
     this.scene.add(mesh);
 
     // Light on the corridor side, slightly west, angled toward the sign face
