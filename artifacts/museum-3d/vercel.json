@@ -1,12 +1,6 @@
 {
   "installCommand": "cd ../.. && pnpm install",
-  "buildCommand": "pnpm run build",
+  "buildCommand": "PORT=3000 BASE_PATH=/ pnpm run build",
   "outputDirectory": "dist",
-  "framework": null,
-  "build": {
-    "env": {
-      "PORT": "3000",
-      "BASE_PATH": "/"
-    }
-  }
+  "framework": null
 }
