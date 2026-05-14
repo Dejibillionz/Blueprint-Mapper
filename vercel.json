@@ -1,7 +1,7 @@
 {
   "installCommand": "pnpm install",
   "buildCommand": "pnpm --filter @workspace/museum-3d run build",
-  "outputDirectory": "artifacts/museum-3d/dist/public",
+  "outputDirectory": "artifacts/museum-3d/dist",
   "framework": null,
   "build": {
     "env": {

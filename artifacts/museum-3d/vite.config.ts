@@ -56,7 +56,7 @@ export default defineConfig({
       name: "inject-sw-shell-assets",
       apply: "build",
       async writeBundle() {
-        const outDir = path.resolve(import.meta.dirname, "dist/public");
+        const outDir = path.resolve(import.meta.dirname, "dist");
         const manifestPath = path.join(outDir, ".vite", "manifest.json");
         const swPath = path.join(outDir, "sw.js");
 
@@ -121,7 +121,7 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
     manifest: true,
   },
