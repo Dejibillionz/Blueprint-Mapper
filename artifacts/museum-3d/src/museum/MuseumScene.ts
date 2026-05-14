@@ -3,6 +3,7 @@ import {
   outerWalls, innerWalls, rooms, frames,
   WALL_HEIGHT, OUTER_THICKNESS, INNER_THICKNESS, DOOR_HEIGHT,
 } from "../data/floorplan";
+import { DiscordPortal } from "./DiscordPortal";
 import { buildCommonGallery, CommonNFT } from "./CommonGallery";
 import { buildUncommonGallery, UncommonNFT } from "./UncommonGallery";
 import { buildRareGallery, RareNFT } from "./RareGallery";
@@ -211,6 +212,8 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   scene.add(buildWallMesh(77, 24, 77, 26, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
   // Arcade door lintel — west wall x=62, z=41-43 (2 m opening into arcade)
   scene.add(buildWallMesh(62, 41, 62, 43, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
+  // Discord portal lintel — gift shop south wall z=46, x=56-58 (2 m portal gap)
+  scene.add(buildWallMesh(56, 46, 58, 46, WALL_HEIGHT - DOOR_HEIGHT, INNER_THICKNESS, DOOR_HEIGHT, lintelMat));
 
   const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x8b7355, metalness: 0.2, roughness: 0.6 });
   const doorFrames: Array<[number, number, number, number]> = [
@@ -219,6 +222,7 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     [37, 30, 45, 30], [39, 52, 43, 52],
     [77, 24, 77, 26],
     [62, 41, 62, 43], // arcade door (west wall, z=41-43)
+    [56, 46, 58, 46], // discord portal (gift shop south wall, z=46)
   ];
   for (const [x1, z1, x2, z2] of doorFrames) {
     scene.add(buildWallMesh(x1, z1, x2, z2, 0.1, INNER_THICKNESS + 0.05, DOOR_HEIGHT - 0.05, doorFrameMat));
@@ -284,6 +288,8 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
   addDoorPanel(43, 52, 2,  Math.PI,     -OPEN_ANG, 41, 52, 5.0);
   // Arcade entrance — west wall x=62, z=41-43 — single door swings east into arcade
   addDoorPanel(62, 41, 2, -Math.PI / 2, OPEN_ANG, 62, 42, 3.0);
+  // Discord portal — gift shop south wall z=46, x=56-58 — swings north into gift shop
+  addDoorPanel(56, 46, 2, 0, -OPEN_ANG, 57, 46, 3.5);
 
   const ambient = new THREE.AmbientLight(0xfff5e8, 1.8);
   scene.add(ambient);
@@ -326,6 +332,8 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
 
   buildTeamBoard(scene);
 
+  const discordPortal = new DiscordPortal(scene);
+
   return {
     frameMeshes,
     commonGalleryMesh:    cgMesh,
@@ -342,6 +350,7 @@ export function buildScene(scene: THREE.Scene): BuildSceneResult {
     platinumNFTs,
     partnerFrameMeshes,
     animatedDoors,
+    discordPortal,
   };
 }
 
@@ -361,4 +370,5 @@ export interface BuildSceneResult {
   platinumNFTs:         PlatinumNFT[];
   partnerFrameMeshes:   THREE.Mesh[];
   animatedDoors:        AnimatedDoor[];
+  discordPortal:        DiscordPortal;
 }
