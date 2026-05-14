@@ -160,17 +160,20 @@ export class ArcadeRoom {
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
 
-    const geo = new THREE.PlaneGeometry(4, 1.2);
+    // Sign is 2 m wide × 0.7 m tall — fits neatly in the 1.6 m lintel above the door
+    const geo = new THREE.PlaneGeometry(2, 0.7);
     const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
     const mesh = new THREE.Mesh(geo, mat);
-    // Place sign just inside the arcade (x=63.5), facing west so it greets
-    // visitors the moment they step through the door
-    mesh.position.set(63.5, WALL_HEIGHT - 0.7, 42);
-    mesh.rotation.y = -Math.PI / 2;
+    // Outside the arcade, above the door opening (door z=41-43, x=62 wall).
+    // Wall edge is at x≈61.875 (center 62, thickness 0.25).
+    // rotation.y = π/2 → plane faces east (+x) → visible from the corridor (west).
+    mesh.position.set(61.6, 3.1, 42);
+    mesh.rotation.y = Math.PI / 2;
     this.scene.add(mesh);
 
-    const signLight = new THREE.PointLight(0xcc00ff, 1.4, 8);
-    signLight.position.set(64.5, WALL_HEIGHT - 0.7, 42);
+    // Light on the corridor side, slightly west, angled toward the sign face
+    const signLight = new THREE.PointLight(0xcc00ff, 1.8, 6);
+    signLight.position.set(60.5, 3.1, 42);
     this.scene.add(signLight);
   }
 
