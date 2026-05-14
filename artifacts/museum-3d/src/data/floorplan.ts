@@ -90,9 +90,7 @@ export const innerWalls: Wall[] = [
   // -- Gift shop
   { from: [52, 35], to: [52, 46] },
   { from: [52, 40], to: [62, 40] },
-  // -- Gift shop south wall — split for Discord portal door at x=56–58 (2 m gap)
-  { from: [52, 46], to: [56, 46] },
-  { from: [58, 46], to: [62, 46] },
+  { from: [52, 46], to: [62, 46] },
 
   // -- Corridor south wall east section (seals arcade north side — solid, no gap)
   { from: [62, 30], to: [100, 30] },
