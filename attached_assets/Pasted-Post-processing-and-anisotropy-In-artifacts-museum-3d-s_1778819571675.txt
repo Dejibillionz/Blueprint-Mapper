@@ -1,0 +1,58 @@
+Post-processing and anisotropy
+In artifacts/museum-3d/src/pages/MuseumWalker.tsx, inside the useEffect:
+
+1. Find the post-processing block that starts with:
+const isLowEnd = IS_TOUCH || renderer.capabilities.maxTextureSize < 4096;
+Change it to:
+const isLowEnd = IS_MOBILE || renderer.capabilities.maxTextureSize < 4096;
+if (PERF.postProcessing && !isLowEnd) {
+  // keep the existing ssaoPass and bloomPass code inside here unchanged
+}
+
+2. Find where anisotropy is set for the ProximityTextureManager:
+const anisotropy = IS_TOUCH ? Math.min(maxAniso, 4) : Math.min(maxAniso, 8);
+const dpr = Math.min(window.devicePixelRatio, 2);
+Change to:
+const anisotropy = Math.min(maxAniso, PERF.anisotropy);
+const dpr = Math.min(window.devicePixelRatio, PERF.maxDPR);
+Prompt 4 — Frame counter refs
+In artifacts/museum-3d/src/pages/MuseumWalker.tsx, in the component body where all the useRef declarations are (near the top of the MuseumWalker function), add these three new refs after the existing ref declarations:
+
+const frameCountRef = useRef(0);
+const lastRoomRef = useRef<string | null>(null);
+const lastRoomIdRef = useRef<string | null>(null);
+Prompt 5 — Optimised animate loop
+In artifacts/museum-3d/src/pages/MuseumWalker.tsx, inside the animate() function, make these changes:
+
+1. At the very top of animate(), right after the animId = requestAnimationFrame(animate); line, add:
+frameCountRef.current++;
+const fc = frameCountRef.current;
+
+2. Find these two lines that run every frame:
+setRoomName(getNearbyRoom(camera.position));
+audioRef.current.setRoom(currentRoomId);
+
+Replace them with:
+const currentRoomName = getNearbyRoom(camera.position);
+if (currentRoomName !== lastRoomRef.current) {
+  lastRoomRef.current = currentRoomName;
+  setRoomName(currentRoomName);
+}
+if (currentRoomId !== lastRoomIdRef.current) {
+  lastRoomIdRef.current = currentRoomId;
+  audioRef.current.setRoom(currentRoomId);
+}
+
+3. Find the raycaster block that starts with:
+raycasterRef.current.setFromCamera(new THREE.Vector2(0, 0), camera);
+
+Wrap the entire raycasting section (everything from that line down to and including the setHoverFrame call) inside:
+if (fc % PERF.raycastInterval === 0) {
+  // existing raycast code here unchanged
+}
+
+4. Find the minimap block that starts with:
+if (minimapRef.current) {
+
+Change it to:
+if (minimapRef.current && fc % PERF.minimapInterval === 0) {
