@@ -47,6 +47,3 @@ Thumbs.db
 # Replit
 .cache/
 .local/
-
-# Generated files — always rebuilt from source before dev/build
-artifacts/museum-3d/src/data/generatedFacts.ts
