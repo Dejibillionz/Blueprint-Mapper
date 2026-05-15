@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "10K Squad Museum — 3D Walker"
+version = "1.0.0"
+id = "artifacts/museum-3d"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25977
+
+[services.development]
+run = "pnpm --filter @workspace/museum-3d run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/museum-3d", "run", "build" ]
+publicDir = "artifacts/museum-3d/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25977"
+BASE_PATH = "/"
