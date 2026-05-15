@@ -87,11 +87,6 @@ export const innerWalls: Wall[] = [
   { from: [14, 40], to: [22, 40] },
   { from: [22, 35], to: [22, 46] },
 
-  // -- Gift shop
-  { from: [52, 35], to: [52, 46] },
-  { from: [52, 40], to: [62, 40] },
-  { from: [52, 46], to: [62, 46] },
-
   // -- Corridor south wall east section (seals arcade north side — solid, no gap)
   { from: [62, 30], to: [100, 30] },
 
